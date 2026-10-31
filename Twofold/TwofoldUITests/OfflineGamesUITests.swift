@@ -18,36 +18,36 @@
 //  on the machine along with it, which is why this behaviour went untested long enough to ship a
 //  minute of timeouts.
 //
-//  Requires a simulator already signed in — see `SignInUITests`.
+//  Two launches of a freshly paired Plus couple on the local stack: one online, which leaves the
+//  session and its caches on the device the way any earlier use of the app would, then one with
+//  `TWOFOLD_E2E_KEEP_DEVICE` and no credentials, forced offline — a returning couple opening the
+//  app on a plane.
 //
 
 import XCTest
 
-final class OfflineGamesUITests: XCTestCase {
+final class OfflineGamesUITests: E2ETestCase {
 
     /// Generous next to a 60-second URLSession timeout, and tight enough that hitting even one
     /// would fail this. The point isn't the exact number, it's that nothing is waiting on a
     /// network call that cannot succeed.
     private let budget: TimeInterval = 12
 
-    override func setUpWithError() throws {
-        continueAfterFailure = true
-    }
-
     @MainActor
-    func testGamesHubAndADeckOpenPromptlyWithNoNetwork() throws {
-        let app = XCUIApplication()
-        // Set `TWOFOLD_TEST_ONLINE=1` to run the same measurements against a live backend — the
+    func testGamesHubAndADeckOpenPromptlyWithNoNetwork() async throws {
+        let scenario = try await Scenario.pairedPlus()
+        let online = launch(scenario)
+        waitForSignedInApp(online)
+        online.terminate()
+
+        // Set `TWOFOLD_TEST_ONLINE=1` to run the same measurements with the network left on — the
         // budget applies either way, since "slow" was reported without saying which.
-        if ProcessInfo.processInfo.environment["TWOFOLD_TEST_ONLINE"] != "1" {
-            app.launchEnvironment["TWOFOLD_FORCE_OFFLINE"] = "1"
-        }
-        app.launch()
+        let offline = ProcessInfo.processInfo.environment["TWOFOLD_TEST_ONLINE"] != "1"
+        let app = launch(scenario, keepDevice: true, signIn: false, environment: offline ? ["TWOFOLD_FORCE_OFFLINE": "1"] : [:])
+        waitForSignedInApp(app)
+        continueAfterFailure = true
 
         let gamesTab = app.buttons["Games"]
-        guard gamesTab.waitForExistence(timeout: 30) else {
-            throw XCTSkip("Not signed in — run SignInUITests first.")
-        }
 
         let openedHub = Date()
         gamesTab.tap()

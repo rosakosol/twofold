@@ -7,31 +7,21 @@
 //  to be told to go and look again.
 //
 //  Asserts on the refresh control itself rather than on any data changing: what's being tested is
-//  that the gesture is wired up on each screen, and a refresh against production may legitimately
-//  return exactly what's already displayed. The control only exists while a refresh is running, so
-//  finding it *is* the assertion that the pull started one.
-//
-//  Read-only against production — pulling to refresh writes nothing.
+//  that the gesture is wired up on each screen, and a refresh may legitimately return exactly what's
+//  already displayed. Runs as a paired Plus couple seeded on the local stack, with a memory so the
+//  Memories list has a row to pull on.
 //
 
 import XCTest
 
-final class PullToRefreshUITests: XCTestCase {
-
-    override func setUpWithError() throws {
-        continueAfterFailure = false
-    }
+final class PullToRefreshUITests: E2ETestCase {
 
     @MainActor
-    private func launch() throws -> XCUIApplication {
-        let app = XCUIApplication()
-        app.launch()
-        // Orientation has bitten measurements in this suite before — a simulator left in landscape
-        // by an earlier run carries over into the next one.
-        XCUIDevice.shared.orientation = .portrait
-        guard app.buttons["Home"].waitForExistence(timeout: 30) else {
-            throw XCTSkip("Not signed in on this simulator.")
-        }
+    private func launchCouple() async throws -> XCUIApplication {
+        let scenario = try await Scenario.pairedPlus()
+        try await scenario.addMemory(title: "Where we met")
+        let app = launch(scenario)
+        waitForSignedInApp(app)
         return app
     }
 
@@ -68,7 +58,7 @@ final class PullToRefreshUITests: XCTestCase {
             let bottom = surface.coordinate(withNormalizedOffset: CGVector(dx: startX, dy: 0.95))
             top.press(forDuration: 0.2, thenDragTo: bottom, withVelocity: .slow, thenHoldForDuration: 0.5)
 
-            // The refresh runs against production, so give the count a moment to move rather than
+            // The refresh is a real round trip, so give the count a moment to move rather than
             // reading it the instant the finger lifts.
             let moved = XCTNSPredicateExpectation(
                 predicate: NSPredicate { _, _ in
@@ -82,8 +72,8 @@ final class PullToRefreshUITests: XCTestCase {
     }
 
     @MainActor
-    private func assertPullToRefresh(onTab tab: String, file: StaticString = #filePath, line: UInt = #line) throws {
-        let app = try launch()
+    private func assertPullToRefresh(onTab tab: String, file: StaticString = #filePath, line: UInt = #line) async throws {
+        let app = try await launchCouple()
         if tab != "Home" {
             let button = app.buttons[tab]
             guard button.waitForExistence(timeout: 10) else {
@@ -104,11 +94,11 @@ final class PullToRefreshUITests: XCTestCase {
         }
     }
 
-    @MainActor func testHomePullsToRefresh() throws { try assertPullToRefresh(onTab: "Home") }
+    @MainActor func testHomePullsToRefresh() async throws { try await assertPullToRefresh(onTab: "Home") }
 
-    @MainActor func testGamesPullsToRefresh() throws { try assertPullToRefresh(onTab: "Games") }
-    @MainActor func testStatsPullsToRefresh() throws { try assertPullToRefresh(onTab: "Stats") }
-    @MainActor func testMemoriesPullsToRefresh() throws { try assertPullToRefresh(onTab: "Memories") }
+    @MainActor func testGamesPullsToRefresh() async throws { try await assertPullToRefresh(onTab: "Games") }
+    @MainActor func testStatsPullsToRefresh() async throws { try await assertPullToRefresh(onTab: "Stats") }
+    @MainActor func testMemoriesPullsToRefresh() async throws { try await assertPullToRefresh(onTab: "Memories") }
 
     // Memories is tested in list mode only — see `assertPullToRefresh`. Travel is deliberately
     // absent altogether. Its list lives inside a drag-to-expand panel

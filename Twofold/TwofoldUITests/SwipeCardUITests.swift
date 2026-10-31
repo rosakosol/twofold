@@ -4,56 +4,35 @@
 //
 //  Drives the real swipe card in This or That / Who's More Likely.
 //
-//  Deliberately only drags *below* the commit threshold. This simulator talks to production, and a
-//  committed swipe submits a real answer into the couple's live session — a below-threshold drag
-//  exercises the same gesture path and writes nothing. It's also the path the stuck-card fix is
-//  about: whether the card comes back when a drag doesn't commit.
+//  Only drags *below* the commit threshold, because that is the path the stuck-card fix is about:
+//  whether the card comes back when a drag doesn't commit. These used to be opt-in because they
+//  opened a session in a real couple's account on production; they now run as a freshly paired
+//  Plus couple on the local stack, so opening a deck costs nobody anything.
 //
 
 import XCTest
 
-final class SwipeCardUITests: XCTestCase {
-
-    override func setUpWithError() throws {
-        continueAfterFailure = false
-    }
+final class SwipeCardUITests: E2ETestCase {
 
     /// Opens a swipe-based deck and returns the card element.
     ///
-    /// Only sub-threshold drags are ever performed on it, so no answer is submitted — but opening
-    /// the deck does start a session, which is why this test is opt-in rather than part of the
-    /// default suite.
+    /// A fresh Plus couple with a This or That session already started on a deck that has prompts
+    /// here, opened the way tapping that game's push opens it (`-notificationRoute game:…`).
+    ///
+    /// It used to tap whichever deck the Games hub listed first. Against the local stack that is
+    /// often a deck with no prompts — the deck rows come from migrations, some of their content
+    /// does not — and the start is refused, so which deck is played is now the scenario's choice.
     @MainActor
-    private func openSwipeGame(_ app: XCUIApplication) throws -> XCUIElement {
-        let games = app.buttons["Games"]
-        guard games.waitForExistence(timeout: 30) else {
-            throw XCTSkip("Not signed in on this simulator.")
-        }
-        games.tap()
-        _ = app.staticTexts.firstMatch.waitForExistence(timeout: 10)
-
-        // A deck card, not the game-type tile above it — both mention the game's name, but only a
-        // deck's label carries its question count (see DeckCardRow's combined label).
-        let deck = app.buttons.matching(
-            NSPredicate(format: "label CONTAINS[c] 'questions' AND (label CONTAINS[c] 'THIS OR THAT' OR label CONTAINS[c] 'MORE LIKELY')")
-        ).firstMatch
-        guard deck.waitForExistence(timeout: 10) else {
-            throw XCTSkip("No swipe-based deck on the Games hub to open.")
-        }
-        deck.tap()
-
-        // The deck entry screen sits between the list and the first card.
-        let startButton = app.buttons.matching(
-            NSPredicate(format: "label MATCHES[c] '.*(start|play|resume|continue).*'")
-        ).firstMatch
-        if startButton.waitForExistence(timeout: 5) {
-            startButton.tap()
-        }
+    private func openSwipeGame() async throws -> (XCUIApplication, XCUIElement) {
+        let scenario = try await Scenario.pairedPlus()
+        let session = try await scenario.startDeck(gameType: "this_or_that")
+        let app = launch(scenario, arguments: ["-notificationRoute", "game:this_or_that:\(session)"])
+        waitForSignedInApp(app)
 
         // The card combines its content into one element, which always includes the round counter
-        // ("1 / 8"), so that's the stable thing to match on.
+        // ("1 of 8" now, "1 / 8" before), so that's the stable thing to match on.
         let card = app.descendants(matching: .any).matching(
-            NSPredicate(format: "label MATCHES[c] '.*[0-9]+ / [0-9]+.*'")
+            NSPredicate(format: "label MATCHES[c] '.*[0-9]+ (/|of) [0-9]+.*'")
         ).firstMatch
         if !card.waitForExistence(timeout: 12) {
             print("=== NO CARD FOUND; TREE ===")
@@ -61,17 +40,15 @@ final class SwipeCardUITests: XCTestCase {
             print("=== END TREE ===")
             XCTFail("Could not reach a swipe card")
         }
-        return card
+        return (app, card)
     }
 
     /// A drag that stops short of the threshold must leave the card back at rest. Before the fix
     /// the card was only ever returned by `onEnded`, so anything that ended the drag another way
     /// left it parked mid-screen.
     @MainActor
-    func testShortDragLeavesTheCardBackAtRest() throws {
-        let app = XCUIApplication()
-        app.launch()
-        let card = try openSwipeGame(app)
+    func testShortDragLeavesTheCardBackAtRest() async throws {
+        let (app, card) = try await openSwipeGame()
 
         let before = card.frame
         XCTAssertGreaterThan(before.width, 0, "card has no frame to drag")
@@ -101,10 +78,8 @@ final class SwipeCardUITests: XCTestCase {
     /// Several short drags in a row must each return the card. A card that latched after the first
     /// one would show up here as the second drag moving nothing.
     @MainActor
-    func testRepeatedShortDragsKeepWorking() throws {
-        let app = XCUIApplication()
-        app.launch()
-        let card = try openSwipeGame(app)
+    func testRepeatedShortDragsKeepWorking() async throws {
+        let (app, card) = try await openSwipeGame()
 
         let origin = card.frame.midX
 
@@ -129,10 +104,8 @@ final class SwipeCardUITests: XCTestCase {
     /// the card would still be caught here, but the cancellation path itself remains unverified by
     /// automation — see the note in SwipeChoiceCard.
     @MainActor
-    func testDragStartingAtTheScreenEdgeDoesNotStrandTheCard() throws {
-        let app = XCUIApplication()
-        app.launch()
-        let card = try openSwipeGame(app)
+    func testDragStartingAtTheScreenEdgeDoesNotStrandTheCard() async throws {
+        let (app, card) = try await openSwipeGame()
 
         let resting = card.frame.midX
 

@@ -124,7 +124,9 @@ class E2ETestCase: XCTestCase {
     func dismissFirstLaunchSheets(_ app: XCUIApplication) {
         for label in ["Let's go", "Not right now"] {
             let button = app.buttons[label]
-            if button.waitForExistence(timeout: 4) {
+            // Hittability checked right before the tap: a deep link can present over one of these
+            // while it is being looked at, and a tap on an element that has gone fails the test.
+            if button.waitForExistence(timeout: 4), button.isHittable {
                 button.tap()
                 _ = button.waitForNonExistence(timeout: 5)
             }

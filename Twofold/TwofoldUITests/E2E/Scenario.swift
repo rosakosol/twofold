@@ -159,6 +159,41 @@ struct Scenario {
         return id
     }
 
+    /// A deck game started through `start_deck_session`, the RPC the deck screen calls, on a deck
+    /// the couple's tier can open and that has prompts on this stack.
+    ///
+    /// Chosen here rather than by tapping whatever the Games hub lists first: the local database
+    /// carries every deck row but not every deck's prompts (production has content that was added
+    /// outside the migrations), so the hub's first deck may be one the RPC refuses as empty.
+    func startDeck(gameType: String) async throws -> UUID {
+        let table = [
+            "trivia_battle": "trivia_questions",
+            "more_likely": "more_likely_prompts",
+            "this_or_that": "this_or_that_prompts",
+            "deep_conversations": "deep_conversation_topics",
+        ][gameType]
+        guard let table else { throw LocalStack.Failure(description: "\(gameType) has no decks") }
+        let prompts = try await LocalStack.send(
+            "GET", "rest/v1/\(table)",
+            query: [
+                URLQueryItem(name: "select", value: "deck_id,game_decks!inner(tier,game_type)"),
+                URLQueryItem(name: "active", value: "is.true"),
+                URLQueryItem(name: "game_decks.tier", value: tier == .premium ? "in.(plus,premium)" : "eq.plus"),
+                URLQueryItem(name: "limit", value: "1"),
+            ],
+            as: .service
+        ) as? [[String: Any]]
+        guard let deckID = prompts?.first?["deck_id"] as? String else {
+            throw LocalStack.Failure(description: "no \(gameType) deck with content on this stack")
+        }
+        let session = try await LocalStack.rpc("start_deck_session", ["p_deck_id": deckID], as: me.caller)
+        guard let raw = session as? String ?? (session as? [String: Any])?["id"] as? String,
+              let id = UUID(uuidString: raw) else {
+            throw LocalStack.Failure(description: "start_deck_session returned \(String(describing: session))")
+        }
+        return id
+    }
+
     /// A game session's status as the server has it — for asserting on what the UI did.
     func gameSessionStatus(_ id: UUID) async throws -> String? {
         let rows = try await LocalStack.send(

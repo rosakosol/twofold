@@ -8,24 +8,14 @@
 //  `addMemory` and `PendingMemoryStore` — is already pinned by `OnboardingMemoryPhotoTests` and
 //  sound. What is left is the picker, the photos sheet and the form, as onboarding presents them.
 //
-//  Reached with `-onboardingStep firstMemory` (DEBUG only, see `OnboardingModel.init`). The first
-//  wait is long for the reason `LegalConsentUITests` gives.
+//  Reached with `-onboardingStep firstMemory` (DEBUG only, see `OnboardingModel.init`), signed out
+//  on the local stack through the end-to-end harness — see `LegalConsentUITests` for why the first
+//  wait is what it is.
 //
 
 import XCTest
 
-final class OnboardingFirstMemoryUITests: XCTestCase {
-
-    override func setUpWithError() throws {
-        continueAfterFailure = false
-    }
-
-    private func capture(_ app: XCUIApplication, _ name: String) {
-        let shot = XCTAttachment(screenshot: app.screenshot())
-        shot.name = name
-        shot.lifetime = .keepAlways
-        add(shot)
-    }
+final class OnboardingFirstMemoryUITests: E2ETestCase {
 
     /// Both fields arrive in a sheet, and a tap during its slide-in doesn't take focus.
     private func type(_ text: String, into field: XCUIElement, in app: XCUIApplication) {
@@ -37,12 +27,12 @@ final class OnboardingFirstMemoryUITests: XCTestCase {
     }
 
     /// Opens onboarding at the first memory and fills in a title and place — everything Save needs.
-    private func fillInMemory(_ app: XCUIApplication) {
-        app.launchArguments += ["-onboardingStep", "firstMemory"]
-        app.launch()
+    @MainActor
+    private func fillInMemory() -> XCUIApplication {
+        let app = launchSignedOut(arguments: ["-onboardingStep", "firstMemory"])
 
         let title = app.textFields["Memory title"]
-        XCTAssertTrue(title.waitForExistence(timeout: 300), "Never reached the first-memory form")
+        XCTAssertTrue(title.waitForExistence(timeout: 60), "Never reached the first-memory form")
         type("Where we met", into: title, in: app)
 
         // A place first: the Photos button asks for one otherwise.
@@ -55,14 +45,16 @@ final class OnboardingFirstMemoryUITests: XCTestCase {
         rome.tap()
         // Wait for the location sheet to finish closing: a sheet asked for mid-dismissal is dropped.
         let gone = expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: search)
-        wait(for: [gone], timeout: 10)
+        wait(for: [gone], timeout: 20)
         sleep(1)
+        return app
     }
 
     /// Fills in the memory, then opens the Photos sheet with the library ready to tap. Returns the
     /// library's photo cells.
-    private func openPhotosSheet(_ app: XCUIApplication) -> XCUIElementQuery {
-        fillInMemory(app)
+    @MainActor
+    private func openPhotosSheet() -> (XCUIApplication, XCUIElementQuery) {
+        let app = fillInMemory()
 
         for _ in 0..<3 where !app.navigationBars["Photos"].exists {
             app.buttons["Photos"].tap()
@@ -73,7 +65,9 @@ final class OnboardingFirstMemoryUITests: XCTestCase {
         // The library's photos carry this identifier; a bare `images.firstMatch` finds the
         // privacy header's icon above them instead.
         let photos = app.images.matching(identifier: "PXGGridLayout-Info")
-        XCTAssertTrue(photos.firstMatch.waitForExistence(timeout: 15), "No photos in the inline picker")
+        // Long: the picker runs out of process and can sit on "Loading…" for a while on a busy
+        // machine before its grid reports a single cell.
+        XCTAssertTrue(photos.firstMatch.waitForExistence(timeout: 45), "No photos in the inline picker")
         // Let the grid finish laying out: it reports cells while still showing "Loading…".
         sleep(2)
         // The picker's first-run "Private Access to Photos" card covers the grid and eats a tap.
@@ -83,7 +77,7 @@ final class OnboardingFirstMemoryUITests: XCTestCase {
             sleep(1)
         }
         capture(app, "Photos sheet")
-        return photos
+        return (app, photos)
     }
 
     /// The picker runs out of process, so its cells report as not hittable; tap the spot instead.
@@ -93,8 +87,7 @@ final class OnboardingFirstMemoryUITests: XCTestCase {
 
     @MainActor
     func testPickedPhotoReachesTheForm() throws {
-        let app = XCUIApplication()
-        let photos = openPhotosSheet(app)
+        let (app, photos) = openPhotosSheet()
 
         tapPhoto(photos.element(boundBy: 0))
         XCTAssertTrue(app.staticTexts["On this memory"].waitForExistence(timeout: 15), "Picked photo never reached the sheet's strip")
@@ -110,8 +103,7 @@ final class OnboardingFirstMemoryUITests: XCTestCase {
     /// photo twice.
     @MainActor
     func testTwoQuickPicksAddTwoPhotos() throws {
-        let app = XCUIApplication()
-        let photos = openPhotosSheet(app)
+        let (app, photos) = openPhotosSheet()
 
         tapPhoto(photos.element(boundBy: 0))
         tapPhoto(photos.element(boundBy: 1))
@@ -130,8 +122,7 @@ final class OnboardingFirstMemoryUITests: XCTestCase {
     /// A tick means "added on this visit", so unticking takes the photo back off.
     @MainActor
     func testUntickingRemovesThePhoto() throws {
-        let app = XCUIApplication()
-        let photos = openPhotosSheet(app)
+        let (app, photos) = openPhotosSheet()
 
         tapPhoto(photos.element(boundBy: 0))
         XCTAssertTrue(app.staticTexts["On this memory"].waitForExistence(timeout: 15), "Picked photo never reached the sheet's strip")
@@ -145,8 +136,7 @@ final class OnboardingFirstMemoryUITests: XCTestCase {
     /// that never dismisses leaves somebody on a form with no way forward but Skip.
     @MainActor
     func testSavingMovesOnboardingOn() throws {
-        let app = XCUIApplication()
-        fillInMemory(app)
+        let app = fillInMemory()
 
         let save = app.buttons["Save"]
         XCTAssertTrue(save.isEnabled, "Save is disabled with a title and a place filled in")
@@ -160,11 +150,9 @@ final class OnboardingFirstMemoryUITests: XCTestCase {
     /// Skip is the only other way off this step (no Cancel, no swipe), so it has to work too.
     @MainActor
     func testSkippingMovesOnboardingOn() throws {
-        let app = XCUIApplication()
-        app.launchArguments += ["-onboardingStep", "firstMemory"]
-        app.launch()
+        let app = launchSignedOut(arguments: ["-onboardingStep", "firstMemory"])
 
-        XCTAssertTrue(app.textFields["Memory title"].waitForExistence(timeout: 300), "Never reached the first-memory form")
+        XCTAssertTrue(app.textFields["Memory title"].waitForExistence(timeout: 60), "Never reached the first-memory form")
         app.buttons["Skip"].tap()
 
         XCTAssertTrue(app.buttons["Keep me updated"].waitForExistence(timeout: 15), "Skipping did not move onboarding on to the next screen")

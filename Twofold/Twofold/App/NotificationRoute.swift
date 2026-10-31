@@ -90,13 +90,19 @@ final class NotificationRouter {
         // Seeds a route at launch from `-notificationRoute <value>`, so the cold-launch path — a
         // tap arriving before any UI exists, which is the case that was broken — can be exercised
         // without a backend or a real APNs delivery. Values match the wire format:
-        // `daily_question`, `drawing_pad`, `invite_partner`, or `flight:<uuid>`.
-        // Used by AppWalkthroughUITests; DEBUG-only, so it cannot exist in a shipped build.
+        // `daily_question`, `drawing_pad`, `invite_partner`, `flight:<uuid>`, or
+        // `game:<game_type>:<session uuid>` for a game push's `sessionId`/`gameType` pair.
+        // Used by the UI tests; DEBUG-only, so it cannot exist in a shipped build.
         let arguments = ProcessInfo.processInfo.arguments
         if let flag = arguments.firstIndex(of: "-notificationRoute"), flag + 1 < arguments.count {
             let value = arguments[flag + 1]
             if value.hasPrefix("flight:"), let id = UUID(uuidString: String(value.dropFirst("flight:".count))) {
                 pending = .flight(id)
+            } else if value.hasPrefix("game:") {
+                let parts = value.split(separator: ":").map(String.init)
+                pending = parts.count == 3
+                    ? NotificationRoute(userInfo: ["gameType": parts[1], "sessionId": parts[2]])
+                    : nil
             } else {
                 pending = NotificationRoute(userInfo: ["route": value])
             }

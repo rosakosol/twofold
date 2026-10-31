@@ -18,38 +18,20 @@
 //  `OnboardingModel.init`). Without it `saveAccount` is nineteen screens and a dozen text fields
 //  deep, and `createAccount` sits behind a live invite code.
 //
-//  The first wait in each test is very generous. A signed-out cold launch sat on the splash for
-//  one to two minutes on the simulator these were written against, and the 30s the rest of the
-//  suite uses timed out repeatedly against screens that were on their way — twice, misleadingly,
-//  reading as "the consent box isn't there" when a screenshot showed it plainly was. The later
-//  waits stay short: by then the app is up, and a long timeout there would only slow a real
-//  failure down.
-//
-//  That launch time is worth treating as a bug in its own right rather than a fact of life. These
-//  tests will be slow until it is.
+//  Launched through the end-to-end harness, signed out, against the local stack. These used to
+//  launch whatever the simulator held, against production, and a signed-out cold launch there sat
+//  on the splash for one to two minutes — the first waits were 300s to survive it. Signed out on a
+//  clean device and a local backend, the first screen is up in seconds, so the first wait is 60s:
+//  still generous for a cold launch, no longer long enough to hide one that has hung.
 //
 
 import XCTest
 
-final class LegalConsentUITests: XCTestCase {
+final class LegalConsentUITests: E2ETestCase {
 
-    override func setUpWithError() throws {
-        continueAfterFailure = false
-    }
-
+    @MainActor
     private func launch(at step: String) -> XCUIApplication {
-        let app = XCUIApplication()
-        app.launchArguments += ["-onboardingStep", step]
-        app.launch()
-        return app
-    }
-
-    /// Attaches a screenshot so a failure is diagnosable and a pass is reviewable by eye.
-    private func capture(_ app: XCUIApplication, _ name: String) {
-        let shot = XCTAttachment(screenshot: app.screenshot())
-        shot.name = name
-        shot.lifetime = .keepAlways
-        add(shot)
+        launchSignedOut(arguments: ["-onboardingStep", step])
     }
 
     // MARK: - The checkbox gates everything on the screen
@@ -58,11 +40,12 @@ final class LegalConsentUITests: XCTestCase {
     func testProviderButtonsAreDisabledUntilTheBoxIsTicked() throws {
         let app = launch(at: "saveAccount")
 
-        let consent = app.buttons["I'm 16 or over, and I agree to the Terms of Use and Privacy Policy"]
-        XCTAssertTrue(consent.waitForExistence(timeout: 300), "Never reached Save Account, or the consent box isn't there")
+        // A switch, not a button: `LegalConsentCheckbox` carries the toggle trait.
+        let consent = app.switches["I'm 16 or over, and I agree to the Terms of Use and Privacy Policy"]
+        XCTAssertTrue(consent.waitForExistence(timeout: 60), "Never reached Save Account, or the consent box isn't there")
         capture(app, "SaveAccount - consent not yet given")
 
-        let apple = app.buttons["Sign in with Apple"]
+        let apple = app.buttons["Continue with Apple"]
         XCTAssertTrue(apple.waitForExistence(timeout: 5), "No Apple button to check")
         XCTAssertFalse(apple.isEnabled, "Sign in with Apple is tappable before the box is ticked — it creates an account, so it must not be")
 
@@ -81,7 +64,7 @@ final class LegalConsentUITests: XCTestCase {
         let app = launch(at: "saveAccount")
 
         let link = app.links["Terms of Use"]
-        XCTAssertTrue(link.waitForExistence(timeout: 300), "No tappable Terms of Use link in the consent sentence")
+        XCTAssertTrue(link.waitForExistence(timeout: 60), "No tappable Terms of Use link in the consent sentence")
         link.tap()
 
         // SFSafariViewController presents with a Done button; a link that escaped to Safari would
@@ -98,7 +81,7 @@ final class LegalConsentUITests: XCTestCase {
         let app = launch(at: "saveAccount")
 
         let link = app.links["Privacy Policy"]
-        XCTAssertTrue(link.waitForExistence(timeout: 300), "No tappable Privacy Policy link in the consent sentence")
+        XCTAssertTrue(link.waitForExistence(timeout: 60), "No tappable Privacy Policy link in the consent sentence")
         link.tap()
 
         let done = app.buttons["Done"]
@@ -114,11 +97,12 @@ final class LegalConsentUITests: XCTestCase {
     func testCreateAccountCarriesTheSameGate() throws {
         let app = launch(at: "createAccount")
 
-        let consent = app.buttons["I'm 16 or over, and I agree to the Terms of Use and Privacy Policy"]
-        XCTAssertTrue(consent.waitForExistence(timeout: 300), "Create Account has no consent box")
+        // A switch, not a button: `LegalConsentCheckbox` carries the toggle trait.
+        let consent = app.switches["I'm 16 or over, and I agree to the Terms of Use and Privacy Policy"]
+        XCTAssertTrue(consent.waitForExistence(timeout: 60), "Create Account has no consent box")
         capture(app, "CreateAccount - consent not yet given")
 
-        let apple = app.buttons["Sign in with Apple"]
+        let apple = app.buttons["Continue with Apple"]
         XCTAssertTrue(apple.waitForExistence(timeout: 5))
         XCTAssertFalse(apple.isEnabled, "Sign in with Apple is tappable before the box is ticked")
 
@@ -131,11 +115,10 @@ final class LegalConsentUITests: XCTestCase {
 
     @MainActor
     func testSignInShowsTheNoticeWithoutGatingAnything() throws {
-        let app = XCUIApplication()
-        app.launch()
+        let app = launchSignedOut()
 
         let entry = app.buttons["I have an account or invite"]
-        XCTAssertTrue(entry.waitForExistence(timeout: 300), "Never reached the welcome screen — is this simulator signed in?")
+        XCTAssertTrue(entry.waitForExistence(timeout: 60), "Never reached the welcome screen")
         entry.tap()
 
         let notice = app.staticTexts.containing(NSPredicate(format: "label CONTAINS[c] '16 or over'")).firstMatch

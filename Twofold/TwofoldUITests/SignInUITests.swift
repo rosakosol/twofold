@@ -2,66 +2,38 @@
 //  SignInUITests.swift
 //  TwofoldUITests
 //
-//  Gets a simulator into the signed-in state the rest of this suite requires.
+//  The email sign-in form, driven: a real account, its real password, typed into the sheet.
 //
-//  Every other UI test here starts with "requires a simulator that is already signed in" and skips
-//  when it isn't — but nothing could put it in that state, so restoring it meant driving ~25
-//  onboarding screens by hand. This does it in one step, and doubles as the only automated check
-//  that email sign-in still works at all.
-//
-//  Credentials come from the environment, never from this file — the same rule
-//  `scripts/seed-test-couple.py` follows, and for the same reason. They need the `TEST_RUNNER_`
-//  prefix: a UI test's code runs in a runner app on the simulator, not on the Mac, so it inherits
-//  nothing from the shell except what xcodebuild forwards under that prefix. Without it this skips,
-//  which looks exactly like not having set them at all:
-//
-//      TEST_RUNNER_TWOFOLD_A_EMAIL=... TEST_RUNNER_TWOFOLD_A_PASSWORD=... \
-//        xcodebuild test -only-testing:TwofoldUITests/SignInUITests ...
-//
-//  Skips rather than fails when they aren't set, so a plain full-suite run doesn't go red on a
-//  machine that has no test account configured.
+//  Every other end-to-end test signs in underneath the UI (`TWOFOLD_E2E_EMAIL`), because Apple and
+//  Google's sheets cannot be driven and the form is not what those tests are about. This is the
+//  one that is about the form, so it launches signed out and goes through it. It used to sign in
+//  to production with credentials from the environment, and existed mostly to put a simulator into
+//  the signed-in state the rest of the suite needed; the harness does that per test now.
 //
 
 import XCTest
 
-final class SignInUITests: XCTestCase {
+final class SignInUITests: E2ETestCase {
 
     @MainActor
-    func testSigningInWithEmailReachesTheSignedInApp() throws {
-        let email = ProcessInfo.processInfo.environment["TWOFOLD_A_EMAIL"] ?? ""
-        let password = ProcessInfo.processInfo.environment["TWOFOLD_A_PASSWORD"] ?? ""
-        try XCTSkipIf(
-            email.isEmpty || password.isEmpty,
-            "Set TWOFOLD_A_EMAIL and TWOFOLD_A_PASSWORD to run this."
-        )
+    func testSigningInWithEmailReachesTheSignedInApp() async throws {
+        let scenario = try await Scenario.solo()
+        let app = launchSignedOut()
 
-        let app = XCUIApplication()
-        app.launch()
+        waitForWelcome(app)
+        app.buttons["I have an account or invite"].tap()
 
-        if app.buttons["Home"].waitForExistence(timeout: 10) {
-            return // Already signed in — nothing to do.
-        }
-
-        let signInEntry = app.buttons["I have an account or invite"]
-        XCTAssertTrue(signInEntry.waitForExistence(timeout: 30), "Never reached the welcome screen")
-        signInEntry.tap()
-
-        let emailField = app.textFields["Email"]
-        XCTAssertTrue(emailField.waitForExistence(timeout: 10), "No email field on the sign-in sheet")
+        let emailField = require(app.textFields["Email"], timeout: 10, "No email field on the sign-in sheet")
         emailField.tap()
-        emailField.typeText(email)
+        emailField.typeText(scenario.me.email)
 
-        let passwordField = app.secureTextFields["Password"]
-        XCTAssertTrue(passwordField.waitForExistence(timeout: 5))
+        let passwordField = require(app.secureTextFields["Password"], timeout: 5, "No password field")
         passwordField.tap()
-        passwordField.typeText(password)
+        passwordField.typeText(scenario.me.password)
 
         app.buttons["Sign in"].tap()
 
-        // Generous: this is a real backend round trip followed by the full couple-state fetch.
-        XCTAssertTrue(
-            app.buttons["Home"].waitForExistence(timeout: 60),
-            "Signed in but never reached the tab bar"
-        )
+        // A backend round trip followed by the full couple-state fetch.
+        waitForSignedInApp(app)
     }
 }

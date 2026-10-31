@@ -7,31 +7,27 @@
 //  (grep the test log for `A11Y`) so a pre-release review can triage them, rather than blocking
 //  the suite on, say, a decorative glyph's contrast ratio.
 //
-//  Requires a simulator that is already signed in — these drive the real backend, so they assert
-//  on chrome that only exists post-onboarding (the tab bar) and bail out with a clear message
-//  rather than a confusing failure if the app happens to launch into onboarding instead.
+//  Runs as a paired Premium couple seeded on the local stack, with a trip and a memory, so every
+//  tab has something on it and nothing is behind a lock. It used to walk whatever account the
+//  simulator was signed into, against production, and skip when there was none.
 //
 
 import XCTest
 
-final class AppWalkthroughUITests: XCTestCase {
+final class AppWalkthroughUITests: E2ETestCase {
 
     /// Every tab in `MainTabView`, by the label its button carries.
     private static let tabs = ["Home", "Travel", "Memories", "Games", "Stats"]
 
-    override func setUpWithError() throws {
-        continueAfterFailure = true
-    }
-
     @MainActor
-    func testEveryTabOpensAndPassesAnAccessibilityAudit() throws {
-        let app = XCUIApplication()
-        app.launch()
-
-        let homeTab = app.buttons["Home"]
-        guard homeTab.waitForExistence(timeout: 30) else {
-            throw XCTSkip("No tab bar after 30s — this simulator isn't signed in, so there's no signed-in app to walk. Sign in once in the simulator and re-run.")
-        }
+    func testEveryTabOpensAndPassesAnAccessibilityAudit() async throws {
+        let scenario = try await Scenario.pairedPremium()
+        try await scenario.addTrip()
+        try await scenario.addMemory(title: "Where we met")
+        let app = launch(scenario)
+        waitForSignedInApp(app)
+        // One tab's findings must not hide the next one's.
+        continueAfterFailure = true
 
         for tab in Self.tabs {
             let button = app.buttons[tab]

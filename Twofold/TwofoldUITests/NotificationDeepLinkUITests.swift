@@ -9,24 +9,17 @@
 //
 //  These launch cold with a route already waiting (see `NotificationRouter`'s DEBUG seed, which
 //  stands in for the tap) and assert the app ends up somewhere specific rather than on its default
-//  screen. Requires a simulator that's already signed in, same as `AppWalkthroughUITests`.
+//  screen. Each runs as a freshly paired Plus couple on the local stack.
 //
 
 import XCTest
 
-final class NotificationDeepLinkUITests: XCTestCase {
+final class NotificationDeepLinkUITests: E2ETestCase {
 
-    override func setUpWithError() throws {
-        continueAfterFailure = false
-    }
-
-    private func launch(route: String) throws -> XCUIApplication {
-        let app = XCUIApplication()
-        app.launchArguments += ["-notificationRoute", route]
-        app.launch()
-        guard app.buttons["Home"].waitForExistence(timeout: 30) else {
-            throw XCTSkip("No tab bar after 30s — this simulator isn't signed in.")
-        }
+    @MainActor
+    private func launch(route: String) async throws -> XCUIApplication {
+        let app = launch(try await Scenario.pairedPlus(), arguments: ["-notificationRoute", route])
+        waitForSignedInApp(app)
         return app
     }
 
@@ -34,8 +27,8 @@ final class NotificationDeepLinkUITests: XCTestCase {
     /// The Games tab hosts it at the very top; before this fix the route was dropped during launch
     /// and the app opened on Home.
     @MainActor
-    func testStreakReminderLandsOnTheDailyQuestion() throws {
-        let app = try launch(route: "daily_question")
+    func testStreakReminderLandsOnTheDailyQuestion() async throws {
+        let app = try await launch(route: "daily_question")
 
         let games = app.buttons["Games"]
         XCTAssertTrue(games.waitForExistence(timeout: 10))
@@ -54,8 +47,8 @@ final class NotificationDeepLinkUITests: XCTestCase {
     /// The drawing pad is a full-screen destination rather than a tab, so success looks different:
     /// the tab bar is covered rather than re-selected.
     @MainActor
-    func testDrawingNotificationOpensTheDrawingPad() throws {
-        let app = try launch(route: "drawing_pad")
+    func testDrawingNotificationOpensTheDrawingPad() async throws {
+        let app = try await launch(route: "drawing_pad")
 
         let shot = XCTAttachment(screenshot: app.screenshot())
         shot.name = "deeplink-drawing-pad"
@@ -75,8 +68,8 @@ final class NotificationDeepLinkUITests: XCTestCase {
     /// something else. Distinguished by the title, which is the only thing separating the two
     /// screens once either is up.
     @MainActor
-    func testPartnerDrawingNotificationOpensTheirPadNotYours() throws {
-        let app = try launch(route: "partner_drawing_pad")
+    func testPartnerDrawingNotificationOpensTheirPadNotYours() async throws {
+        let app = try await launch(route: "partner_drawing_pad")
 
         let shot = XCTAttachment(screenshot: app.screenshot())
         shot.name = "deeplink-partner-drawing-pad"
@@ -103,8 +96,8 @@ final class NotificationDeepLinkUITests: XCTestCase {
     /// Nothing to route on must leave the app exactly where it would otherwise have opened — a
     /// plain notification shouldn't yank anyone anywhere.
     @MainActor
-    func testAnUnroutableNotificationChangesNothing() throws {
-        let app = try launch(route: "something_we_dont_ship_yet")
+    func testAnUnroutableNotificationChangesNothing() async throws {
+        let app = try await launch(route: "something_we_dont_ship_yet")
 
         let home = app.buttons["Home"]
         XCTAssertTrue(home.waitForExistence(timeout: 10))
