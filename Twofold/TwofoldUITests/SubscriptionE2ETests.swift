@@ -50,6 +50,11 @@ final class SubscriptionE2ETests: E2ETestCase {
 }
 
 /// ONB-14: trial wording only for an account that would actually get the trial. Purchases plan only.
+///
+/// Not yet trustworthy. The never-subscribed case fails: the paywall's products load, but with no
+/// introductory offer and after a sixteen-second product request, which looks like the App Store
+/// sandbox answering rather than Twofold.storekit. Until the plan's StoreKit attachment is shown to
+/// reach the app, the lapsed case passing proves nothing — it would pass with no trial anywhere.
 final class PaywallTrialCopyE2ETests: E2ETestCase {
 
     @MainActor

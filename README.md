@@ -971,6 +971,10 @@ simulator was last signed in as.
    `Twofold.storekit` (add `-testPlan Twofold-Purchases`). That plan has the app configure
    RevenueCat anonymously, so it does reach RevenueCat's API for the offering; the default plan
    leaves RevenueCat and PostHog unconfigured and reaches nothing but `127.0.0.1`.
+   **Not yet proven:** that the plan's StoreKit attachment reaches the UI-tested app. Products load,
+   but slowly and without Plus's free-trial offer, which looks like the App Store sandbox rather
+   than the local file, so `testNeverSubscribedCoupleIsOfferedThePlusTrial` fails. Fixing that is
+   the first job for whoever writes the purchase tests.
 
 **How it works.** A test subclasses `E2ETestCase`, builds a `Scenario`, and launches:
 
