@@ -257,11 +257,22 @@ struct FlightTrackingWidgetView: View {
 
     /// Your own flight on the day: where to go and when (section 7). There is no boarding time in
     /// the flight data, so the terminal stands in its place rather than an invented one.
+    ///
+    /// Three columns fit a medium widget but not a small one, where a third of the width wrapped
+    /// "Terminal" and "Departs" mid-word and cut the time to "11:1…". Small puts the departure
+    /// time on a line of its own under the other two.
+    @ViewBuilder
     private var travelDayDetails: some View {
-        HStack(alignment: .top, spacing: 12) {
-            detail("Gate", entry.originGate ?? "—")
-            detail("Terminal", entry.originTerminal ?? "—")
-            detail("Departs", entry.bestDeparture.map { $0.formatted(date: .omitted, time: .shortened) } ?? "—")
+        let gate = detail("Gate", entry.originGate ?? "—")
+        let terminal = detail("Terminal", entry.originTerminal ?? "—")
+        let departs = detail("Departs", entry.bestDeparture.map { $0.formatted(date: .omitted, time: .shortened) } ?? "—")
+        if family == .systemSmall {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(alignment: .top, spacing: 16) { gate; terminal }
+                departs
+            }
+        } else {
+            HStack(alignment: .top, spacing: 12) { gate; terminal; departs }
         }
     }
 
@@ -269,6 +280,7 @@ struct FlightTrackingWidgetView: View {
         VStack(alignment: .leading, spacing: 0) {
             Text(label)
                 .font(.system(size: 11, weight: .semibold))
+                .lineLimit(1)
                 .opacity(0.92)
             Text(value)
                 .font(.system(size: 20, weight: .bold))
