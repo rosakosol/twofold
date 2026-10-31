@@ -20,7 +20,13 @@
 //    TWOFOLD_E2E_TIER                none | plus | premium | lapsed — what the device's store
 //                                    reports for this account. The server side is seeded to match.
 //    TWOFOLD_E2E_STOREKIT=1          configure RevenueCat (anonymously) so the paywall can load
-//                                    products from the scheme's StoreKit configuration file.
+//                                    real products. They come from the App Store sandbox: a
+//                                    StoreKit configuration file does not reach an app that a UI
+//                                    test launches from `xcodebuild` (see the README).
+//    TWOFOLD_E2E_INTRO_OFFERS        the introductory offers to describe each product with, in
+//                                    place of the ones StoreKit returned — the test copies them
+//                                    out of Twofold.storekit. `id=free:P2W:1`, comma-separated;
+//                                    empty means no product has one. See `introductoryOffers`.
 //    TWOFOLD_E2E_KEEP_DEVICE=1       skip the clean-device reset, for a second launch that must see
 //                                    what the first one left behind (the offline tests).
 //
@@ -95,6 +101,58 @@ enum E2ELaunch {
         !isOn || environment["TWOFOLD_E2E_STOREKIT"] == "1"
     }
 
+    /// The introductory offers a test run says the products carry, standing in for StoreKit's the
+    /// way `tier` stands in for RevenueCat's entitlement and eligibility answers. Nil unless the
+    /// test sets `TWOFOLD_E2E_INTRO_OFFERS`, which leaves StoreKit's own answer in place.
+    ///
+    /// Needed because the products a UI-tested app loads come from the App Store sandbox, whose
+    /// Plus products carry no free trial, rather than from Twofold.storekit, whose do. With this
+    /// set, a paywall test is testing the trial copy and its eligibility gate on the terms the
+    /// file describes, not StoreKit's delivery of them. A malformed value traps rather than being
+    /// read as "no offers", which would make every no-trial assertion pass for the wrong reason.
+    static var introductoryOffers: [String: IntroductoryOfferTerms]? {
+        guard isOn, let spec = environment["TWOFOLD_E2E_INTRO_OFFERS"] else { return nil }
+        guard let offers = parseIntroductoryOffers(spec) else {
+            fatalError("TWOFOLD_E2E_INTRO_OFFERS is malformed: \(spec)")
+        }
+        return offers
+    }
+
+    /// `productID=mode:period:count` entries joined by commas, with the mode and the ISO 8601
+    /// period spelled as Twofold.storekit spells them (`free`, `payAsYouGo`, `payUpFront`; `P2W`).
+    /// Nil if any entry is malformed.
+    static func parseIntroductoryOffers(_ spec: String) -> [String: IntroductoryOfferTerms]? {
+        var offers: [String: IntroductoryOfferTerms] = [:]
+        for entry in spec.split(separator: ",") {
+            let pair = entry.split(separator: "=", maxSplits: 1).map(String.init)
+            guard pair.count == 2, !pair[0].isEmpty else { return nil }
+            let fields = pair[1].split(separator: ":").map(String.init)
+            guard fields.count == 3,
+                  ["free", "payAsYouGo", "payUpFront"].contains(fields[0]),
+                  let count = Int(fields[2]), count > 0
+            else { return nil }
+            let period = fields[1]
+            guard period.count >= 3, period.hasPrefix("P"),
+                  let value = Int(period.dropFirst().dropLast()), value > 0
+            else { return nil }
+            let unit: IntroductoryOfferTerms.Unit
+            switch period.last {
+            case "D": unit = .day
+            case "W": unit = .week
+            case "M": unit = .month
+            case "Y": unit = .year
+            default: return nil
+            }
+            offers[pair[0]] = IntroductoryOfferTerms(
+                isFreeTrial: fields[0] == "free",
+                periodValue: value,
+                periodUnit: unit,
+                numberOfPeriods: count
+            )
+        }
+        return offers
+    }
+
     /// Erases what a previous run, or a person using this simulator by hand, left on the device.
     ///
     /// Called first thing in `TwofoldApp.init()`, before anything reads the session or the
@@ -118,6 +176,7 @@ enum E2ELaunch {
     static var credentials: (email: String, password: String)? { nil }
     static var tier: Tier? { nil }
     static var configuresRevenueCat: Bool { true }
+    static var introductoryOffers: [String: IntroductoryOfferTerms]? { nil }
     static func prepareCleanDeviceIfRequested() {}
     #endif
 }

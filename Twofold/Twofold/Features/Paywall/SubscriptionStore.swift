@@ -234,13 +234,18 @@ final class SubscriptionStore {
             pricedPackages = packages
             // Before `.loaded`, not after, so the button never reads "Subscribe" and then rewrites
             // itself into a trial offer a beat later (or the other way round).
-            await resolveFreeTrials(Dictionary(
+            let storeTerms = Dictionary(
                 packages.compactMap { priced in
                     IntroductoryOfferTerms(priced.package.storeProduct.introductoryDiscount)
                         .map { (priced.package.storeProduct.productIdentifier, $0) }
                 },
                 uniquingKeysWith: { first, _ in first }
-            ))
+            )
+            // A test run's offers, standing in for StoreKit's — see E2ELaunch.swift. Only for
+            // products the offering actually holds, as StoreKit's own answer would be.
+            let offeredIDs = Set(packages.map { $0.package.storeProduct.productIdentifier })
+            let terms = E2ELaunch.introductoryOffers?.filter { offeredIDs.contains($0.key) } ?? storeTerms
+            await resolveFreeTrials(terms)
             loadState = .loaded
         } catch {
             loadState = .failed(error.localizedDescription)

@@ -967,14 +967,21 @@ simulator was last signed in as.
      -only-testing:TwofoldUITests -parallel-testing-enabled NO
    ```
 
-   Paywall tests that need real products are in `Twofold-Purchases.xctestplan`, which attaches
-   `Twofold.storekit` (add `-testPlan Twofold-Purchases`). That plan has the app configure
-   RevenueCat anonymously, so it does reach RevenueCat's API for the offering; the default plan
-   leaves RevenueCat and PostHog unconfigured and reaches nothing but `127.0.0.1`.
-   **Not yet proven:** that the plan's StoreKit attachment reaches the UI-tested app. Products load,
-   but slowly and without Plus's free-trial offer, which looks like the App Store sandbox rather
-   than the local file, so `testNeverSubscribedCoupleIsOfferedThePlusTrial` fails. Fixing that is
-   the first job for whoever writes the purchase tests.
+   Paywall tests that need real products are in `Twofold-Purchases.xctestplan` (add
+   `-testPlan Twofold-Purchases`). That plan has the app configure RevenueCat anonymously, so it
+   reaches RevenueCat's API for the offering and the **App Store sandbox** for the products; the
+   default plan leaves RevenueCat and PostHog unconfigured and reaches nothing but `127.0.0.1`.
+
+   **`Twofold.storekit` does not reach these tests.** A StoreKit configuration file, whether
+   attached by the test plan or by the scheme's Run action, has no effect on an app that a UI test
+   launches from `xcodebuild`. storekitd on the simulator logs each request as
+   `([Client] com.orangefinch.Twofold (Twofold) Sandbox)` and fetches from
+   `amp-api.sandbox.apple.com`, and the generated `.xctestrun` has no StoreKit setting at all. The
+   sandbox's Plus products have no introductory offer. So the trial-copy tests read Plus's offer
+   out of `Twofold.storekit` and pass it in as `TWOFOLD_E2E_INTRO_OFFERS`, the way
+   `TWOFOLD_E2E_TIER` stands in for eligibility. They test the paywall's trial copy and its
+   eligibility gate on real offering and price data. They do not test StoreKit delivering the
+   offer.
 
 **How it works.** A test subclasses `E2ETestCase`, builds a `Scenario`, and launches:
 

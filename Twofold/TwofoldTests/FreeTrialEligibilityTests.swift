@@ -144,4 +144,27 @@ struct FreeTrialEligibilityTests {
 
         #expect(!SubscriptionOutcome.restored.successSubtitle.localizedCaseInsensitiveContains("trial"))
     }
+
+    // MARK: - The end-to-end tests' stand-in for StoreKit's offers
+
+    #if DEBUG
+    @Test("the E2E offer override reads Twofold.storekit's terms")
+    func e2eOfferSpec() {
+        let offers = E2ELaunch.parseIntroductoryOffers(
+            "com.orangefinch.Twofold.plus.yearly=free:P2W:1,com.orangefinch.Twofold.premium.yearly=payUpFront:P1M:2"
+        )
+        #expect(offers?["com.orangefinch.Twofold.plus.yearly"] == twoWeekTrial)
+        #expect(offers?["com.orangefinch.Twofold.premium.yearly"]
+            == IntroductoryOfferTerms(isFreeTrial: false, periodValue: 1, periodUnit: .month, numberOfPeriods: 2))
+        #expect(E2ELaunch.parseIntroductoryOffers("") == [:])
+    }
+
+    @Test("a malformed E2E offer is refused, not read as no offer", arguments: [
+        "plus.yearly", "plus.yearly=free:P2W", "plus.yearly=gratis:P2W:1", "plus.yearly=free:2W:1",
+        "plus.yearly=free:P2X:1", "plus.yearly=free:P0W:1", "plus.yearly=free:P2W:0", "=free:P2W:1",
+    ])
+    func e2eOfferSpecMalformed(spec: String) {
+        #expect(E2ELaunch.parseIntroductoryOffers(spec) == nil)
+    }
+    #endif
 }

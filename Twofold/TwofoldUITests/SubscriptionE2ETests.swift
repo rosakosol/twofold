@@ -7,9 +7,10 @@
 //  Two groups. `SubscriptionE2ETests` runs in the default test plan and needs nothing beyond the
 //  local stack: RevenueCat is left unconfigured and the device's store answer comes from
 //  `TWOFOLD_E2E_TIER`. `PaywallTrialCopyE2ETests` needs real products to put a price and a trial
-//  on, so it runs only under the Purchases plan (Twofold-Purchases.xctestplan), which attaches
-//  Twofold.storekit and has the app configure RevenueCat anonymously. That plan does reach
-//  RevenueCat's API for the offering — there is no local RevenueCat — but never as a test account.
+//  on, so it runs only under the Purchases plan (Twofold-Purchases.xctestplan), which has the app
+//  configure RevenueCat anonymously. That plan does reach RevenueCat's API for the offering, and
+//  the App Store sandbox for the products — there is no local RevenueCat — but never as a test
+//  account.
 //
 
 import XCTest
@@ -51,21 +52,55 @@ final class SubscriptionE2ETests: E2ETestCase {
 
 /// ONB-14: trial wording only for an account that would actually get the trial. Purchases plan only.
 ///
-/// Not yet trustworthy. The never-subscribed case fails: the paywall's products load, but with no
-/// introductory offer and after a sixteen-second product request, which looks like the App Store
-/// sandbox answering rather than Twofold.storekit. Until the plan's StoreKit attachment is shown to
-/// reach the app, the lapsed case passing proves nothing — it would pass with no trial anywhere.
+/// What this proves, and what it does not. The products come from the App Store sandbox, not from
+/// Twofold.storekit: a StoreKit configuration file, whether attached by the test plan or the
+/// scheme, does not reach an app a UI test launches from `xcodebuild` (storekitd logs the requests
+/// as "Sandbox" and sends them to amp-api.sandbox.apple.com), and the sandbox's Plus products carry
+/// no introductory offer. So the test reads Plus's offer out of Twofold.storekit itself and hands
+/// it to the app through `TWOFOLD_E2E_INTRO_OFFERS`, the way `TWOFOLD_E2E_TIER` already stands in
+/// for Apple's eligibility answer. Both tests therefore get the same trial terms and differ only in
+/// eligibility, which is the rule under test: the paywall's copy and its gate, on real offering
+/// and price data. StoreKit's delivery of the offer is not tested here.
 final class PaywallTrialCopyE2ETests: E2ETestCase {
 
+    /// The introductory offer Twofold.storekit gives each subscription that has one, in the form
+    /// `TWOFOLD_E2E_INTRO_OFFERS` takes. Read from the source tree, which the simulator can see, so
+    /// the test follows the file rather than a copy of it.
+    private func storeKitIntroOffers() throws -> (spec: String, periods: [String: String]) {
+        let file = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("Twofold/Twofold.storekit")
+        let json = try JSONSerialization.jsonObject(with: Data(contentsOf: file)) as? [String: Any]
+        let groups = json?["subscriptionGroups"] as? [[String: Any]] ?? []
+        var entries: [String] = []
+        var periods: [String: String] = [:]
+        for subscription in groups.flatMap({ $0["subscriptions"] as? [[String: Any]] ?? [] }) {
+            guard let id = subscription["productID"] as? String,
+                  let offer = subscription["introductoryOffer"] as? [String: Any],
+                  let mode = offer["paymentMode"] as? String,
+                  let period = offer["subscriptionPeriod"] as? String
+            else { continue }
+            let count = offer["numberOfPeriods"] as? Int ?? 1
+            entries.append("\(id)=\(mode):\(period):\(count)")
+            if mode == "free" { periods[id] = period }
+        }
+        return (entries.joined(separator: ","), periods)
+    }
+
     @MainActor
-    private func openPaywallFromHome(_ scenario: Scenario) -> XCUIApplication {
-        let app = launch(scenario, storeKit: true)
+    private func openPaywallFromHome(_ scenario: Scenario) throws -> XCUIApplication {
+        let offers = try storeKitIntroOffers()
+        // The premise of both tests: Plus yearly, the plan the paywall opens on, has a two-week
+        // free trial. If Twofold.storekit changes that, the expected copy below has to change too.
+        XCTAssertEqual(offers.periods["com.orangefinch.Twofold.plus.yearly"], "P2W",
+                       "Twofold.storekit no longer gives Plus yearly a two-week free trial")
+        let app = launch(scenario, storeKit: true, environment: ["TWOFOLD_E2E_INTRO_OFFERS": offers.spec])
         waitForSignedInApp(app)
         require(app.buttons["See plans"], timeout: 20, "No 'See plans' on an unsubscribed couple's Home").tap()
         let failed = app.staticTexts["No subscription plans are available right now."]
         let subscribe = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@ OR label BEGINSWITH %@", "Subscribe", "Start my")).firstMatch
         require(subscribe, timeout: 30, failed.exists
-            ? "The paywall loaded no plans — is Twofold.storekit attached (run the Purchases test plan) and RevenueCat reachable?"
+            ? "The paywall loaded no plans — run the Purchases test plan, and check RevenueCat and the App Store sandbox are reachable"
             : "The paywall never showed its purchase button")
         return app
     }
@@ -74,21 +109,28 @@ final class PaywallTrialCopyE2ETests: E2ETestCase {
     @MainActor
     func testLapsedCoupleIsNotOfferedATrial() async throws {
         let scenario = try await Scenario.lapsed()
-        let app = openPaywallFromHome(scenario)
+        let app = try openPaywallFromHome(scenario)
         capture(app, "Paywall - lapsed")
+        // Either caption, trial or plain, so the paywall is known to have resolved its plans and
+        // trials before the absence of trial copy is read as meaning anything.
+        require(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@ OR label CONTAINS[c] %@",
+                                                     "Renews automatically", "days free")).firstMatch,
+                timeout: 10, "The lapsed couple's paywall never showed its price caption")
         XCTAssertFalse(app.buttons.matching(NSPredicate(format: "label CONTAINS[c] %@", "free trial")).firstMatch.exists,
                        "A lapsed subscriber was offered a free trial they cannot get")
         XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@", "days free")).firstMatch.exists,
                        "The caption promises free days to a lapsed subscriber")
+        XCTAssertTrue(app.buttons["Subscribe"].exists, "A lapsed subscriber's button should read plain 'Subscribe'")
     }
 
-    /// Never subscribed: Plus's trial, at the length Twofold.storekit gives it.
+    /// Never subscribed: Plus's trial, at the length Twofold.storekit gives it, then the real price.
     @MainActor
     func testNeverSubscribedCoupleIsOfferedThePlusTrial() async throws {
         let scenario = try await Scenario.paired(tier: .none)
-        let app = openPaywallFromHome(scenario)
+        let app = try openPaywallFromHome(scenario)
         capture(app, "Paywall - never subscribed")
-        require(app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@ AND label CONTAINS[c] %@", "Start my", "free trial")).firstMatch,
-                timeout: 10, "A never-subscribed couple wasn't offered the Plus trial")
+        require(app.buttons["Start my 14-day free trial"], timeout: 10, "A never-subscribed couple wasn't offered the Plus trial")
+        require(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "14 days free, then ")).firstMatch,
+                timeout: 5, "The caption doesn't state the trial's length and the price after it")
     }
 }

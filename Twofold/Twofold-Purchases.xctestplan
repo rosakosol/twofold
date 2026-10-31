@@ -2,16 +2,13 @@
   "configurations" : [
     {
       "id" : "9B3F6A21-7C44-4D8E-A1F2-6E0C5B9D3A02",
-      "name" : "StoreKit",
+      "name" : "Purchases",
       "options" : {
 
       }
     }
   ],
   "defaultOptions" : {
-    "storeKitConfigurationFileReference" : {
-      "identifier" : "Twofold\/Twofold.storekit"
-    },
     "targetForVariableExpansion" : {
       "containerPath" : "container:Twofold.xcodeproj",
       "identifier" : "DB8C95002FFC501C00E0E71E",
