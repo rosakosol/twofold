@@ -2,8 +2,8 @@
 //  FlightTrackingWidget.swift
 //  LiveActivities
 //
-//  Plus tier — replaces FlightStatusWidget. Whose flight it is in the corner (the partner's photo,
-//  or the airline's logo for your own or one with no passenger set), "Lands in 55m" large, and the
+//  Plus tier — replaces FlightStatusWidget. Whose flight it is in the corner (the traveller's photo,
+//  yours or the partner's, or the airline's logo when no passenger is set), "Lands in 55m" large, and the
 //  plane riding a progress rail. The photo used to ride the rail instead of the plane; it moved up
 //  beside the flight number so the rail reads as the journey at a glance, the same as the Lock
 //  Screen Live Activity.
@@ -126,8 +126,8 @@ struct FlightTrackingWidgetView: View {
 
     private var isLocked: Bool { WidgetTier.isLocked(required: WidgetTier.plus, current: entry.subscriptionTier) }
 
-    /// Whose flight it is decides the layout (section 7): the partner's leads with their photo, your
-    /// own with the airline's logo.
+    /// Whose flight it is decides the header (section 7): the traveller's own photo, yours or the
+    /// partner's, and the airline's logo only when nobody is set.
     private var isMine: Bool { entry.travelerIsMe == true }
 
     /// Only a flight with the partner actually on it shows their photo. One with no passenger set
@@ -203,6 +203,8 @@ struct FlightTrackingWidgetView: View {
         HStack(spacing: 8) {
             if isPartners {
                 WidgetAvatarView(person: .partner, name: entry.partnerName, size: 34)
+            } else if isMine {
+                WidgetAvatarView(person: .me, name: entry.myName, size: 34)
             } else {
                 airlineLogo(size: 28)
             }
