@@ -33,6 +33,9 @@ struct JourneyExpandedProgressView: View {
                 .font(.subheadline.weight(.bold))
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
+                // Held to the progress bar's width. Left to size itself, the countdown claimed the
+                // whole island and squeezed the leading and trailing regions out of it.
+                .frame(maxWidth: 140)
 
             if let timerInterval {
                 ProgressView(timerInterval: timerInterval, countsDown: false)

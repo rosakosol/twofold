@@ -51,19 +51,30 @@ struct JourneyLockScreenView: View {
                 )
 
                 VStack(alignment: .leading, spacing: 2) {
+                    // Two lines if it needs them, rather than cutting off "Alex is on the way to
+                    // you" beside a long countdown.
                     Text(headline)
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundStyle(.white)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                     Text(subtitle)
                         .font(.system(size: 15))
                         .foregroundStyle(.white.opacity(0.7))
+                        .lineLimit(1)
                 }
-                .lineLimit(1)
                 .minimumScaleFactor(0.8)
 
                 Spacer(minLength: 8)
 
+                // First claim on a capped share of the row. A live countdown does not take
+                // `minimumScaleFactor`, so squeezed it truncated to "54 minut…"; given priority
+                // uncapped it claimed the whole row and pushed the headline out; `.fixedSize()` on
+                // it crashes the extension (a NaN origin). Capped, "52 minutes" stays on one line
+                // and "2 hours, 29 minutes" wraps onto two.
                 countdown
+                    .frame(maxWidth: 130, alignment: .trailing)
+                    .layoutPriority(1)
             }
 
             progressBar
@@ -122,14 +133,14 @@ struct JourneyLockScreenView: View {
                 if let arrival { caption(Text(arrival, style: .time)) }
             case .inAir:
                 if let arrival, arrival > .now {
-                    bigValue(Text(arrival, style: .relative))
+                    bigValue(journeyCountdownText(to: arrival))
                     caption(Text("to landing"))
                 } else {
                     bigValue(Text("Landing"))
                 }
             case .beforeTakeOff:
                 if let departure, departure > .now {
-                    bigValue(Text(departure, style: .relative))
+                    bigValue(journeyCountdownText(to: departure))
                     caption(Text("to take-off"))
                 } else {
                     bigValue(Text(status == .boarding ? "Boarding" : "Soon"))
@@ -141,11 +152,11 @@ struct JourneyLockScreenView: View {
 
     private func bigValue(_ text: Text) -> some View {
         text
-            .font(.system(size: 28, weight: .bold))
+            .font(.system(size: 24, weight: .bold))
             .foregroundStyle(tint)
             .multilineTextAlignment(.trailing)
-            .lineLimit(1)
-            .minimumScaleFactor(0.6)
+            .lineLimit(2)
+            .fixedSize(horizontal: false, vertical: true)
     }
 
     private func caption(_ text: Text) -> some View {

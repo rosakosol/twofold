@@ -22,11 +22,15 @@ struct JourneyLiveActivityWidget: Widget {
             let status = FlightStatus(rawValue: context.state.status)
 
             return DynamicIsland {
+                // Below the camera when the centre leaves them too little room beside it, rather
+                // than not drawn: with a wide centre the airports, times and gate never appeared.
                 DynamicIslandExpandedRegion(.leading) {
                     JourneyExpandedOriginView(context: context)
+                        .dynamicIsland(verticalPlacement: .belowIfTooWide)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
                     JourneyExpandedDestinationView(context: context)
+                        .dynamicIsland(verticalPlacement: .belowIfTooWide)
                 }
                 DynamicIslandExpandedRegion(.center) {
                     JourneyExpandedProgressView(context: context)
@@ -39,7 +43,7 @@ struct JourneyLiveActivityWidget: Widget {
                 // you is in the air.
                 WidgetAvatarView(person: .partner, name: context.attributes.viewerIsTraveler ? context.attributes.partnerName : context.attributes.travelerName, size: 22, showsRing: false)
             } compactTrailing: {
-                journeyTimeRemainingText(context.state)
+                journeyTimeRemainingText(context.state, compact: true)
                     .font(.caption2.monospacedDigit())
                     .minimumScaleFactor(0.8)
                     .lineLimit(1)
