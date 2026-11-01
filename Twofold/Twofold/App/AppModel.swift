@@ -343,6 +343,9 @@ final class AppModel {
     /// The local half of a write: what the screen should show once it has landed.
     private func apply(_ write: PendingWrite) {
         switch write {
+        case .tripEdit(let edit):
+            guard let index = trips.firstIndex(where: { $0.id == edit.tripID }) else { return }
+            edit.apply(to: &trips[index])
         case .trip(let trip):
             guard let index = trips.firstIndex(where: { $0.id == trip.id }) else { return }
             var applied = trip
@@ -361,6 +364,9 @@ final class AppModel {
             guard let index = flights.firstIndex(where: { $0.id == flightID }) else { return }
             flights[index].travelerIDs = travelerIDs
             if let tripID = flights[index].tripID { syncTripFlights(tripID: tripID) }
+        case .memoryEdit(let edit):
+            guard let index = memories.firstIndex(where: { $0.id == edit.memoryID }) else { return }
+            edit.apply(to: &memories[index])
         case .memory(let memory):
             // The fields `updateMemory` writes, and only those: photos are added and removed by
             // writes of their own, and a copy's photo list may be older than the one on screen.
@@ -428,9 +434,11 @@ final class AppModel {
     /// It waits in the queue until `performAdopt` has created what it refers to.
     private func isReadyToSend(_ write: PendingWrite) -> Bool {
         switch write {
+        case .tripEdit(let edit): !pendingTripIDs.contains(edit.tripID)
         case .trip(let trip): !pendingTripIDs.contains(trip.id)
         case .tripNotes(let tripID, _): !pendingTripIDs.contains(tripID)
         case .flightTrip(_, let tripID): tripID.map { !pendingTripIDs.contains($0) } ?? true
+        case .memoryEdit(let edit): !pendingMemoryIDs.contains(edit.memoryID)
         case .memory(let memory): !pendingMemoryIDs.contains(memory.id)
         case let .memoryTrip(memoryID, tripID):
             !pendingMemoryIDs.contains(memoryID) && (tripID.map { !pendingTripIDs.contains($0) } ?? true)
@@ -443,16 +451,20 @@ final class AppModel {
     /// The network half of a write.
     private func deliver(_ write: PendingWrite) async throws {
         switch write {
+        case .tripEdit(let edit):
+            try await backend.updateTrip(edit)
         case .trip(let trip):
-            try await backend.updateTrip(trip)
+            try await backend.updateTrip(TripEdit(allFieldsOf: trip))
         case let .tripNotes(tripID, notes):
             try await backend.updateTripNotes(tripID: tripID, notes: notes)
         case let .flightTrip(flightID, tripID):
             try await backend.setFlightTrip(flightID: flightID, tripID: tripID)
         case let .flightTravelers(flightID, travelerIDs):
             try await backend.setFlightTravelers(flightID: flightID, travelerIDs: travelerIDs)
+        case .memoryEdit(let edit):
+            try await backend.updateMemory(edit)
         case .memory(let memory):
-            try await backend.updateMemory(memory)
+            try await backend.updateMemory(MemoryEdit(allFieldsOf: memory))
         case let .memoryTrip(memoryID, tripID):
             try await backend.setMemoryTrip(memoryID: memoryID, tripID: tripID)
         case let .memoryPhotos(memoryID, photos):
@@ -3005,30 +3017,41 @@ final class AppModel {
     private static let tripsRefusedMessage = "Changes to your trips need an active subscription. Nothing was saved."
 
     /// Full edit of a trip's own fields (origin/destination/dates/category/notes) — as opposed
-    /// to `updateTripNotes`, which only ever touched notes. Recomputes `distanceKm` since
-    /// either city could have changed, and preserves the trip's linked flights (not part of what
-    /// this edits).
-    func updateTrip(_ trip: Trip) async {
+    /// to `updateTripNotes`, which only ever touched notes. Preserves the trip's linked flights
+    /// (not part of what this edits).
+    ///
+    /// Sends only the fields that differ between `trip` and `base` — the copy the editor started
+    /// from, or what is on screen now if there was none (`TripEdit`). The whole row used to go,
+    /// so a partner's change to a field this edit never touched was undone by it (HOME-7).
+    func updateTrip(_ trip: Trip, from base: Trip? = nil) async {
         guard let index = trips.firstIndex(where: { $0.id == trip.id }) else { return }
         let original = trips[index]
-        var updated = trip
-        updated.distanceKm = Geo.distanceKm(trip.origin.coordinate, trip.destination.coordinate)
-        updated.flights = []
+        var edit = TripEdit(from: base ?? original, to: trip)
+        // Recomputed from the trip as it will be, since either city could have changed — and the
+        // other one may be a partner's newer choice than the editor's copy knew.
+        edit.distanceKm = nil
+        var result = original
+        edit.apply(to: &result)
+        if edit.origin != nil || edit.destination != nil {
+            edit.distanceKm = Geo.distanceKm(result.origin.coordinate, result.destination.coordinate)
+        }
+        guard !edit.isEmpty else { return }
         if pendingTripIDs.contains(trip.id) {
             // Not created yet, so there is no row to update — the edit used to be sent anyway, came
             // back as "no rows", and was rolled back as if refused. It goes into the copy that will
             // be created instead.
-            apply(.trip(updated))
+            apply(.tripEdit(edit))
             PendingTripStore.save(trips[index])
             return
         }
-        await commit(.trip(updated)) {
-            // The copy taken before the edit, not a refetch: this has to work with no network (a
-            // refusal can arrive while the connection is fine and the subscription is not), and a
-            // refetch would be a second thing to fail while undoing the first.
-            if let index = trips.firstIndex(where: { $0.id == trip.id }) {
-                trips[index] = original
-            }
+        // The same fields, back as they were before the edit — not the whole copy, which would
+        // also undo anything a refresh brought in meanwhile. Taken before the edit rather than
+        // refetched: this has to work with no network (a refusal can arrive while the connection
+        // is fine and the subscription is not), and a refetch would be a second thing to fail
+        // while undoing the first.
+        let undo = TripEdit(from: result, to: original)
+        await commit(.tripEdit(edit)) {
+            apply(.tripEdit(undo))
             writeRefusedMessage = Self.tripsRefusedMessage
         }
     }
@@ -3235,8 +3258,15 @@ final class AppModel {
     /// Edits an existing memory's fields in place, optionally appending new photos in the
     /// same call. Both go through the outbox, so made offline they show at once and are sent
     /// when the connection comes back.
-    func updateMemory(_ memory: Memory, newImagesData: [Data] = []) async {
+    ///
+    /// Only the fields that differ between `memory` and `base` are applied and sent — `base` being
+    /// the copy the editor started from, or what is on screen now if there was none. The editor
+    /// used to hand back its starting copy with the fields set, and all of it was written: its
+    /// photo list over the one on screen (HOME-5), and every field to the server, over a partner's
+    /// change to one this edit never touched (HOME-7).
+    func updateMemory(_ memory: Memory, from base: Memory? = nil, newImagesData: [Data] = []) async {
         guard let index = memories.firstIndex(where: { $0.id == memory.id }) else { return }
+        let edit = MemoryEdit(from: base ?? memories[index], to: memory)
 
         guard backendCoupleID != nil, !pendingMemoryIDs.contains(memory.id) else {
             // Still pending (never synced) — everything happens locally, same as the initial
@@ -3247,7 +3277,11 @@ final class AppModel {
             // updated the on-disk copy, so the *previous* version would come back after a kill.
             var accumulatedPhotoData = pendingMemoryPhotoData[memory.id] ?? []
             accumulatedPhotoData.append(contentsOf: newImagesData)
-            let persisted = PendingMemoryStore.save(memory: memory, photosData: accumulatedPhotoData)
+            // Onto the copy on screen, whose photos are current: a photo removed while the editor
+            // was open is already gone from it.
+            var updated = memories[index]
+            edit.apply(to: &updated)
+            let persisted = PendingMemoryStore.save(memory: updated, photosData: accumulatedPhotoData)
             memories[index] = persisted
             pendingMemoryPhotoData[memory.id] = accumulatedPhotoData.isEmpty ? nil : accumulatedPhotoData
             return
@@ -3256,16 +3290,14 @@ final class AppModel {
         // Everything below finds the memory again by id rather than holding on to `index`: each
         // `commit` awaits the network, and a refresh landing meanwhile can replace or reorder the
         // array — writing through the old index put photos on, or rolled back, a different memory.
-        let original = memories[index]
-        let fieldsChanged = memory.title != original.title || memory.place != original.place
-            || memory.date != original.date || memory.note != original.note
-        // Adding photos passes the memory back unchanged. Queuing a copy of its fields anyway
-        // would pin them over a partner's edit until it was sent.
-        if fieldsChanged {
-            var fields = memory
-            fields.photos = []
-            await commit(.memory(fields)) {
-                apply(.memory(original))
+        // Adding photos passes the memory back unchanged, so the edit is empty and nothing but
+        // the photos is sent.
+        if !edit.isEmpty {
+            var result = memories[index]
+            edit.apply(to: &result)
+            let undo = MemoryEdit(from: result, to: memories[index])
+            await commit(.memoryEdit(edit)) {
+                apply(.memoryEdit(undo))
                 writeRefusedMessage = Self.memoriesRefusedMessage
             }
         }

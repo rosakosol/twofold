@@ -20,12 +20,18 @@
 import Foundation
 
 enum PendingWrite: Codable, Hashable {
-    /// `BackendService.updateTrip`: every field of the trip except its flights.
+    /// The fields of a trip somebody changed (`TripEdit`), and only those.
+    case tripEdit(TripEdit)
+    /// Every field of a trip except its flights. Only ever read back from a queue an older build
+    /// wrote, before edits carried just the changed fields; nothing queues one now.
     case trip(Trip)
     case tripNotes(tripID: UUID, notes: String?)
     case flightTrip(flightID: UUID, tripID: UUID?)
     case flightTravelers(flightID: UUID, travelerIDs: [UUID])
-    /// `BackendService.updateMemory`: title, place, date and note. Photos travel separately.
+    /// The fields of a memory somebody changed (`MemoryEdit`), and only those. Photos travel
+    /// separately.
+    case memoryEdit(MemoryEdit)
+    /// Title, place, date and note in full. Like `trip`, only read back from an older build's queue.
     case memory(Memory)
     case memoryTrip(memoryID: UUID, tripID: UUID?)
     /// Photos added to a memory that already exists on the server. The bytes are files beside
@@ -41,23 +47,28 @@ enum PendingWrite: Codable, Hashable {
     /// Whether this writes to the trip, memory or flight with this id.
     func targets(_ id: UUID) -> Bool {
         switch self {
+        case .tripEdit(let edit): edit.tripID == id
         case .trip(let trip): trip.id == id
         case .tripNotes(let tripID, _): tripID == id
         case .flightTrip(let flightID, _), .flightTravelers(let flightID, _): flightID == id
+        case .memoryEdit(let edit): edit.memoryID == id
         case .memory(let memory): memory.id == id
         case .memoryTrip(let memoryID, _), .memoryPhotos(let memoryID, _), .removeMemoryPhoto(let memoryID, _, _): memoryID == id
         case .firstName, .partnerNickname, .partnerHomeCity, .homeCity, .anniversaryDate: false
         }
     }
 
-    /// Two writes with the same key set the same thing, so only the newer one needs sending.
+    /// Two writes with the same key set the same thing, so only the newer one needs sending —
+    /// merged onto the older first where each may set different fields (`merged(onto:)`).
     /// Nil for writes that add something and must each be sent.
     var coalescingKey: String? {
         switch self {
+        case .tripEdit(let edit): "tripEdit:\(edit.tripID)"
         case .trip(let trip): "trip:\(trip.id)"
         case .tripNotes(let id, _): "tripNotes:\(id)"
         case .flightTrip(let id, _): "flightTrip:\(id)"
         case .flightTravelers(let id, _): "flightTravelers:\(id)"
+        case .memoryEdit(let edit): "memoryEdit:\(edit.memoryID)"
         case .memory(let memory): "memory:\(memory.id)"
         case .memoryTrip(let id, _): "memoryTrip:\(id)"
         case .memoryPhotos: nil
@@ -67,6 +78,17 @@ enum PendingWrite: Codable, Hashable {
         case .partnerHomeCity: "partnerHomeCity"
         case .homeCity: "homeCity"
         case .anniversaryDate: "anniversaryDate"
+        }
+    }
+
+    /// This write in place of `older`, which has the same `coalescingKey` and has not been sent.
+    /// An edit to the title queued after one to the date has to carry the date too, or replacing
+    /// the older entry would lose it.
+    func merged(onto older: PendingWrite) -> PendingWrite {
+        switch (self, older) {
+        case let (.tripEdit(newer), .tripEdit(older)): .tripEdit(newer.merged(onto: older))
+        case let (.memoryEdit(newer), .memoryEdit(older)): .memoryEdit(newer.merged(onto: older))
+        default: self
         }
     }
 }
@@ -116,11 +138,15 @@ enum PendingWriteStore {
     /// Queues `write` at the back, replacing any older write to the same thing.
     @discardableResult
     static func add(_ write: PendingWrite) -> PendingWriteEntry {
-        let entry = PendingWriteEntry(id: UUID(), write: write, queuedAt: .now)
         var entries = all()
+        var write = write
         if let key = write.coalescingKey {
+            if let older = entries.last(where: { $0.write.coalescingKey == key }) {
+                write = write.merged(onto: older.write)
+            }
             entries.removeAll { $0.write.coalescingKey == key }
         }
+        let entry = PendingWriteEntry(id: UUID(), write: write, queuedAt: .now)
         entries.append(entry)
         save(entries)
         return entry

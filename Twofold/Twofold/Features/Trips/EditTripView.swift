@@ -123,7 +123,8 @@ struct EditTripView: View {
         updated.notes = trimmedNotes.isEmpty ? nil : trimmedNotes
 
         Task {
-            await appModel.updateTrip(updated)
+            // Against the trip this screen opened with, so only what was changed here is sent.
+            await appModel.updateTrip(updated, from: trip)
             isSaving = false
             dismiss()
         }

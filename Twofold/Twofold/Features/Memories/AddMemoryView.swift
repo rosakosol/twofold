@@ -417,12 +417,16 @@ struct AddMemoryView: View {
         let imagesData = pendingPhotos.map(\.data)
 
         Task {
-            if var existingMemory {
-                existingMemory.title = trimmedTitle
-                existingMemory.place = place
-                existingMemory.date = date
-                existingMemory.note = trimmedNote
-                await appModel.updateMemory(existingMemory, newImagesData: imagesData)
+            if let existingMemory {
+                // `existingMemory` is the copy this sheet opened with, and its photos and any
+                // field left alone here may be out of date by now. So it goes in as the base the
+                // edit is measured against, and only what changed here is applied and sent.
+                var edited = existingMemory
+                edited.title = trimmedTitle
+                edited.place = place
+                edited.date = date
+                edited.note = trimmedNote
+                await appModel.updateMemory(edited, from: existingMemory, newImagesData: imagesData)
             } else {
                 let memory = await appModel.addMemory(title: trimmedTitle, place: place, date: date, note: trimmedNote, imagesData: imagesData)
                 if let linkToTrip {

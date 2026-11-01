@@ -17,14 +17,14 @@ protocol CoupleDataBackend {
     func fetchMemories(coupleID: UUID) async throws -> [Memory]
 
     func insertTrip(coupleID: UUID, trip: Trip) async throws
-    func updateTrip(_ trip: Trip) async throws
+    func updateTrip(_ edit: TripEdit) async throws
     func updateTripNotes(tripID: UUID, notes: String?) async throws
     func setFlightTrip(flightID: UUID, tripID: UUID?) async throws
     func setFlightTravelers(flightID: UUID, travelerIDs: [UUID]) async throws
 
     func uploadMemoryPhoto(coupleID: UUID, memoryID: UUID, imageData: Data) async throws -> String
     func insertMemory(coupleID: UUID, memory: Memory, photoPaths: [String]) async throws -> [MemoryPhoto]
-    func updateMemory(_ memory: Memory) async throws
+    func updateMemory(_ edit: MemoryEdit) async throws
     func addMemoryPhotos(memoryID: UUID, photoPaths: [String], startingPosition: Int) async throws -> [MemoryPhoto]
     func deleteMemoryPhoto(id: UUID, path: String) async throws
     func setMemoryTrip(memoryID: UUID, tripID: UUID?) async throws
@@ -57,9 +57,9 @@ struct LiveCoupleDataBackend: CoupleDataBackend {
         try await BackendService.insertTrip(coupleID: coupleID, trip: trip)
     }
 
-    func updateTrip(_ trip: Trip) async throws {
+    func updateTrip(_ edit: TripEdit) async throws {
         try failIfWritesAreDown()
-        try await BackendService.updateTrip(trip)
+        try await BackendService.updateTrip(edit)
     }
 
     func updateTripNotes(tripID: UUID, notes: String?) async throws {
@@ -87,9 +87,9 @@ struct LiveCoupleDataBackend: CoupleDataBackend {
         return try await BackendService.insertMemory(coupleID: coupleID, memory: memory, photoPaths: photoPaths)
     }
 
-    func updateMemory(_ memory: Memory) async throws {
+    func updateMemory(_ edit: MemoryEdit) async throws {
         try failIfWritesAreDown()
-        try await BackendService.updateMemory(memory)
+        try await BackendService.updateMemory(edit)
     }
 
     func addMemoryPhotos(memoryID: UUID, photoPaths: [String], startingPosition: Int) async throws -> [MemoryPhoto] {

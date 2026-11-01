@@ -3050,15 +3050,30 @@ enum BackendService {
             .execute()
     }
 
+    /// Only the columns a `TripEdit` changed. Hand-written so an absent field is left out of the
+    /// PATCH entirely — PostgREST leaves an omitted column alone — while notes cleared on purpose
+    /// still write a null.
     private struct TripUpdate: Encodable {
-        var travelerIds: [UUID]
-        var originId: UUID
-        var destinationId: UUID
-        var departureAt: Date
-        var arrivalAt: Date
-        var category: TripCategory
-        var distanceKm: Double
-        var notes: String?
+        var travelerIds: [UUID]?
+        var originId: UUID?
+        var destinationId: UUID?
+        var departureAt: Date?
+        var arrivalAt: Date?
+        var category: TripCategory?
+        var distanceKm: Double?
+        var notes: Changed<String?>?
+
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encodeIfPresent(travelerIds, forKey: .travelerIds)
+            try container.encodeIfPresent(originId, forKey: .originId)
+            try container.encodeIfPresent(destinationId, forKey: .destinationId)
+            try container.encodeIfPresent(departureAt, forKey: .departureAt)
+            try container.encodeIfPresent(arrivalAt, forKey: .arrivalAt)
+            try container.encodeIfPresent(category, forKey: .category)
+            try container.encodeIfPresent(distanceKm, forKey: .distanceKm)
+            if let notes { try container.encode(notes.value, forKey: .notes) }
+        }
 
         enum CodingKeys: String, CodingKey {
             case category, notes
@@ -3071,28 +3086,30 @@ enum BackendService {
         }
     }
 
-    /// Full edit of a trip's own fields, as opposed to `updateTripNotes` (notes only) —
-    /// resolves origin/destination against `places` fresh, same as `insertTrip`, since either
-    /// city could have changed.
-    static func updateTrip(_ trip: Trip) async throws {
+    /// The fields of a trip somebody changed, and only those (`TripEdit`) — as opposed to
+    /// `updateTripNotes` (notes only). A changed city is resolved against `places` fresh, same as
+    /// `insertTrip`.
+    static func updateTrip(_ edit: TripEdit) async throws {
         let rows: [TripRow]
-        let originID = try await findOrCreatePlaceID(trip.origin)
-        let destinationID = try await findOrCreatePlaceID(trip.destination)
+        var originID: UUID?
+        var destinationID: UUID?
+        if let origin = edit.origin { originID = try await findOrCreatePlaceID(origin) }
+        if let destination = edit.destination { destinationID = try await findOrCreatePlaceID(destination) }
         rows = try await supabase
             .from("trips")
             .update(
                 TripUpdate(
-                    travelerIds: trip.travelerIDs,
+                    travelerIds: edit.travelerIDs,
                     originId: originID,
                     destinationId: destinationID,
-                    departureAt: trip.departureDate,
-                    arrivalAt: trip.arrivalDate,
-                    category: trip.category,
-                    distanceKm: trip.distanceKm,
-                    notes: trip.notes
+                    departureAt: edit.departureDate,
+                    arrivalAt: edit.arrivalDate,
+                    category: edit.category,
+                    distanceKm: edit.distanceKm,
+                    notes: edit.notes
                 )
             )
-            .eq("id", value: trip.id)
+            .eq("id", value: edit.tripID)
             // See `updateMemory` — without `.select()` a refused update looks like a saved one.
             .select()
             .execute()
@@ -3145,8 +3162,11 @@ enum BackendService {
     /// level, so `UpdatePayloadEncodingTests` reads the bytes these produce.
     static func tripIDUpdateForTesting(tripID: UUID?) -> some Encodable { TripIDUpdate(tripId: tripID) }
     static func tripNotesUpdateForTesting(notes: String?) -> some Encodable { TripNotesUpdate(notes: notes) }
-    static func memoryUpdateForTesting(placeID: UUID?, title: String, note: String) -> some Encodable {
-        MemoryUpdate(placeId: placeID, title: title, note: note, occurredAt: Date(timeIntervalSince1970: 0))
+    static func memoryUpdateForTesting(placeID: Changed<UUID?>?, title: String?, note: String?, occurredAt: Date? = nil) -> some Encodable {
+        MemoryUpdate(placeId: placeID, title: title, note: note, occurredAt: occurredAt)
+    }
+    static func tripUpdateForTesting(category: TripCategory?, notes: Changed<String?>?) -> some Encodable {
+        TripUpdate(category: category, notes: notes)
     }
     #endif
 
@@ -3230,20 +3250,21 @@ enum BackendService {
         }
     }
 
+    /// Only the columns a `MemoryEdit` changed, the rest left out so PostgREST leaves them alone.
     /// `placeId` is explicit for the same reason as `TripIDUpdate` — a memory losing its place
     /// has to write a null, not omit the column and keep the old one.
     private struct MemoryUpdate: Encodable {
-        var placeId: UUID?
-        var title: String
-        var note: String
-        var occurredAt: Date
+        var placeId: Changed<UUID?>?
+        var title: String?
+        var note: String?
+        var occurredAt: Date?
 
         func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
-            try container.encode(placeId, forKey: .placeId)
-            try container.encode(title, forKey: .title)
-            try container.encode(note, forKey: .note)
-            try container.encode(occurredAt, forKey: .occurredAt)
+            if let placeId { try container.encode(placeId.value, forKey: .placeId) }
+            try container.encodeIfPresent(title, forKey: .title)
+            try container.encodeIfPresent(note, forKey: .note)
+            try container.encodeIfPresent(occurredAt, forKey: .occurredAt)
         }
 
         enum CodingKeys: String, CodingKey {
@@ -3423,23 +3444,28 @@ enum BackendService {
         return try await addMemoryPhotos(memoryID: memory.id, photoPaths: photoPaths, startingPosition: 0)
     }
 
-    static func updateMemory(_ memory: Memory) async throws {
-        var placeID: UUID?
+    /// The fields of a memory somebody changed, and only those (`MemoryEdit`).
+    static func updateMemory(_ edit: MemoryEdit) async throws {
+        var placeID: Changed<UUID?>?
         let rows: [MemoryRow]
-        if let place = memory.place {
-            placeID = try await findOrCreatePlaceID(place)
+        if let place = edit.place {
+            if let newPlace = place.value {
+                placeID = Changed(value: try await findOrCreatePlaceID(newPlace))
+            } else {
+                placeID = Changed(value: nil)
+            }
         }
         rows = try await supabase
             .from("memories")
             .update(
                 MemoryUpdate(
                     placeId: placeID,
-                    title: memory.title,
-                    note: memory.note,
-                    occurredAt: memory.date
+                    title: edit.title,
+                    note: edit.note,
+                    occurredAt: edit.date
                 )
             )
-            .eq("id", value: memory.id)
+            .eq("id", value: edit.memoryID)
             // `.select()` so the response carries the rows it touched. Without it a policy refusal
             // is indistinguishable from success — see `WriteAffectedNoRows`.
             .select()

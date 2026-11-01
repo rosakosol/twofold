@@ -219,6 +219,28 @@ struct Scenario {
         }
     }
 
+    /// One row of a table as the server has it, by id — the columns asked for, read with the
+    /// service role.
+    func row(_ table: String, id: UUID, columns: String) async throws -> [String: Any]? {
+        let rows = try await LocalStack.send(
+            "GET", "rest/v1/\(table)",
+            query: [URLQueryItem(name: "id", value: "eq.\(id)"), URLQueryItem(name: "select", value: columns)],
+            as: .service
+        ) as? [[String: Any]]
+        return rows?.first
+    }
+
+    /// An edit the partner makes from their phone: the app's own table update, as them.
+    func updateAsPartner(_ table: String, id: UUID, _ fields: [String: Any]) async throws {
+        guard let partner else { throw LocalStack.Failure(description: "updateAsPartner needs a paired scenario") }
+        try await LocalStack.send(
+            "PATCH", "rest/v1/\(table)",
+            query: [URLQueryItem(name: "id", value: "eq.\(id)")],
+            body: fields,
+            as: partner.caller
+        )
+    }
+
     /// Ends a game as the partner would from their phone, through the RPC their abandon menu calls.
     func abandonAsPartner(_ id: UUID) async throws {
         guard let partner else { throw LocalStack.Failure(description: "abandonAsPartner needs a paired scenario") }

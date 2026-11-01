@@ -31,8 +31,9 @@ final class FakeCoupleDataBackend: CoupleDataBackend {
     var beforeUpdateFirstName: (() async -> Void)?
 
     private(set) var calls: [String] = []
-    private(set) var updatedMemories: [Memory] = []
-    private(set) var updatedTrips: [Trip] = []
+    /// Each edit as it arrived — only the fields it changed.
+    private(set) var updatedMemories: [MemoryEdit] = []
+    private(set) var updatedTrips: [TripEdit] = []
     private(set) var memoryTripLinks: [(memoryID: UUID, tripID: UUID?)] = []
     private(set) var firstNames: [String] = []
     private(set) var homeCities: [Place] = []
@@ -53,9 +54,13 @@ final class FakeCoupleDataBackend: CoupleDataBackend {
         try write("insertTrip")
         insertedTrips.append(trip.id)
     }
-    func updateTrip(_ trip: Trip) async throws {
+    /// Writes the fields the app sends to the server's copy and leaves the rest, as PostgREST does.
+    func updateTrip(_ edit: TripEdit) async throws {
         try write("updateTrip")
-        updatedTrips.append(trip)
+        updatedTrips.append(edit)
+        if let index = serverTrips.firstIndex(where: { $0.id == edit.tripID }) {
+            edit.apply(to: &serverTrips[index])
+        }
     }
     func updateTripNotes(tripID: UUID, notes: String?) async throws { try write("updateTripNotes") }
     func setFlightTrip(flightID: UUID, tripID: UUID?) async throws { try write("setFlightTrip") }
@@ -71,10 +76,13 @@ final class FakeCoupleDataBackend: CoupleDataBackend {
         insertedMemories.append(memory.id)
         return photoPaths.map { MemoryPhoto(id: UUID(), path: $0, url: URL(string: "https://example.invalid/\($0)")!) }
     }
-    func updateMemory(_ memory: Memory) async throws {
+    func updateMemory(_ edit: MemoryEdit) async throws {
         duringUpdateMemory?()
         try write("updateMemory")
-        updatedMemories.append(memory)
+        updatedMemories.append(edit)
+        if let index = serverMemories.firstIndex(where: { $0.id == edit.memoryID }) {
+            edit.apply(to: &serverMemories[index])
+        }
     }
     func addMemoryPhotos(memoryID: UUID, photoPaths: [String], startingPosition: Int) async throws -> [MemoryPhoto] {
         try write("addMemoryPhotos")

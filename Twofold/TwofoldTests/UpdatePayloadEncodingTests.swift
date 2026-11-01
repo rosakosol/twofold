@@ -60,12 +60,34 @@ struct UpdatePayloadEncodingTests {
     @Test("a memory with no place writes place_id null, and keeps its other fields")
     func memoryWithoutPlaceWritesNull() throws {
         let encoded = try json(
-            BackendService.memoryUpdateForTesting(placeID: nil, title: "Ferry", note: "Rough crossing")
+            BackendService.memoryUpdateForTesting(
+                placeID: Changed(value: nil), title: "Ferry", note: "Rough crossing", occurredAt: Date(timeIntervalSince1970: 0)
+            )
         )
         #expect(encoded.contains("\"place_id\":null"), "got \(encoded)")
         #expect(encoded.contains("Ferry"), "title was dropped by the hand-written encoder")
         #expect(encoded.contains("Rough crossing"), "note was dropped by the hand-written encoder")
         #expect(encoded.contains("occurred_at"), "occurred_at was dropped by the hand-written encoder")
+    }
+
+    /// The other half since edits send only what changed (HOME-7): a field the edit did not touch
+    /// must be absent, not null — a null would clear the partner's value instead of leaving it.
+    @Test("a memory edit to the title alone writes only the title")
+    func memoryTitleEditWritesOnlyTheTitle() throws {
+        let encoded = try json(BackendService.memoryUpdateForTesting(placeID: nil, title: "Ferry", note: nil))
+        #expect(encoded == "{\"title\":\"Ferry\"}", "got \(encoded)")
+    }
+
+    @Test("a trip edit to the category alone writes only the category")
+    func tripCategoryEditWritesOnlyTheCategory() throws {
+        let encoded = try json(BackendService.tripUpdateForTesting(category: .reunion, notes: nil))
+        #expect(encoded == "{\"category\":\"\(TripCategory.reunion.rawValue)\"}", "got \(encoded)")
+    }
+
+    @Test("a trip edit that clears the notes writes null for them")
+    func tripEditClearingNotesWritesNull() throws {
+        let encoded = try json(BackendService.tripUpdateForTesting(category: nil, notes: Changed(value: nil)))
+        #expect(encoded == "{\"notes\":null}", "got \(encoded)")
     }
 
     // A fourth case used to sit here: a subscription re-check that omitted a nil tier on purpose,
