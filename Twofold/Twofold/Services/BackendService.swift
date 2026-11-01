@@ -389,28 +389,36 @@ enum BackendService {
     /// True when the server refused a write outright, rather than failing to hear it.
     ///
     /// The difference decides whether an optimistic local edit may stand. A dropped connection is
-    /// temporary — the edit is right and the write will land later, which is why `updateTrip` and
-    /// `updateMemory` keep their local change on failure and why editing works offline. An RLS
-    /// refusal is permanent: retrying changes nothing, so keeping the edit on screen shows somebody
-    /// a change that no longer exists anywhere and will vanish at the next relaunch.
+    /// temporary — the edit is right, and AppModel's outbox (`PendingWriteStore`) sends it again
+    /// later, which is what makes editing work offline. An RLS refusal is permanent: retrying
+    /// changes nothing, so keeping the edit on screen shows somebody a change that exists nowhere
+    /// and will vanish at the next refresh.
     ///
-    /// Matched on PostgREST's `42501` (insufficient_privilege) and on HTTP 401/403, which is what a
-    /// policy denial surfaces as. Anything else — including every network error — is treated as
-    /// temporary, because guessing wrong in that direction only costs a retry, where guessing wrong
-    /// the other way throws away somebody's writing.
+    /// Matched on the error types themselves: PostgREST's `42501` (insufficient_privilege, which is
+    /// also how a deleted account is refused), an HTTP 403 from PostgREST or an Edge Function, and
+    /// `storage-url` declining a photo. It used to match on the error's description, which for the
+    /// errors the SDK throws never contains the status code, and could not see a storage refusal
+    /// at all — so a refused photo upload was kept as "pending" and retried for ever.
+    ///
+    /// 401 is deliberately not a refusal: it is what an expired access token gets, which the next
+    /// attempt with a refreshed one fixes. Anything else — including every network error — is
+    /// treated as temporary, because guessing wrong in that direction only costs a retry, where
+    /// guessing wrong the other way throws away somebody's writing.
     static func isPermanentRefusal(_ error: Error) -> Bool {
-        if error is WriteAffectedNoRows { return true }
-        if error is URLError {
-            // A transport failure is never a refusal, whatever else it is.
+        switch error {
+        case is WriteAffectedNoRows:
+            return true
+        case let error as PostgrestError:
+            return error.code == "42501"
+        case let error as HTTPError:
+            return error.response.statusCode == 403
+        case FunctionsError.httpError(let code, _):
+            return code == 403
+        case R2Storage.StorageError.refused:
+            return true
+        default:
             return false
         }
-        let text = String(describing: error)
-        if text.contains("42501") { return true }
-        if let http = (error as NSError?)?.userInfo["statusCode"] as? Int, http == 401 || http == 403 {
-            return true
-        }
-        return text.contains("\"code\":401") || text.contains("\"code\":403")
-            || text.contains("row-level security") || text.contains("violates row-level security")
     }
 
     // MARK: - Subscription sync
@@ -573,7 +581,7 @@ enum BackendService {
             // included, with "account_deleted". That refusal is the answer, not a failed check:
             // read as "not deleted", it left a deleted account signed in to a wall of errors.
             // Anything else (offline, a timeout) still means "don't know", so not deleted.
-            return "\(error)".contains("account_deleted")
+            return (error as? PostgrestError)?.message == "account_deleted"
         }
     }
 

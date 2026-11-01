@@ -34,11 +34,14 @@ enum R2Storage {
     }
 
     enum StorageError: Error {
-        /// The server declined, or could not be reached. Deliberately one case: a caller cannot do
-        /// anything different about a 403 than about a 500, and the two are not distinguishable to
-        /// the person holding the phone either — the photo does not appear.
+        /// No URL: the server failed or could not be reached.
         case urlUnavailable
         case uploadFailed
+        /// `storage-url` said no (403): `can_access_storage_object` decided against the caller.
+        /// Separate from the two above because a write treats them differently — a refused photo
+        /// will never upload, so it is rolled back rather than kept and retried (see
+        /// `BackendService.isPermanentRefusal`).
+        case refused(status: Int)
     }
 
     // MARK: - Reading
@@ -167,7 +170,12 @@ enum R2Storage {
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
         guard let (data, response) = try? await URLSession.shared.data(for: request),
-              let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode),
+              let http = response as? HTTPURLResponse else {
+            throw StorageError.urlUnavailable
+        }
+        // Only 403. A 401 is an expired token, which the next attempt fixes.
+        if http.statusCode == 403 { throw StorageError.refused(status: http.statusCode) }
+        guard (200..<300).contains(http.statusCode),
               let decoded = try? JSONDecoder().decode(Response.self, from: data) else {
             throw StorageError.urlUnavailable
         }
