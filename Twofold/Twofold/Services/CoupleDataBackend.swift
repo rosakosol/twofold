@@ -38,6 +38,12 @@ protocol CoupleDataBackend {
 }
 
 struct LiveCoupleDataBackend: CoupleDataBackend {
+    /// The end-to-end tests' stand-in for a connection that drops writes (`TWOFOLD_E2E_WRITES_FAIL`,
+    /// DEBUG only — always false in a release build).
+    private func failIfWritesAreDown() throws {
+        if E2ELaunch.writesFail { throw URLError(.notConnectedToInternet) }
+    }
+
     func fetchTrips(coupleID: UUID) async throws -> [Trip] {
         try await BackendService.fetchTrips(coupleID: coupleID)
     }
@@ -47,70 +53,87 @@ struct LiveCoupleDataBackend: CoupleDataBackend {
     }
 
     func insertTrip(coupleID: UUID, trip: Trip) async throws {
+        try failIfWritesAreDown()
         try await BackendService.insertTrip(coupleID: coupleID, trip: trip)
     }
 
     func updateTrip(_ trip: Trip) async throws {
+        try failIfWritesAreDown()
         try await BackendService.updateTrip(trip)
     }
 
     func updateTripNotes(tripID: UUID, notes: String?) async throws {
+        try failIfWritesAreDown()
         try await BackendService.updateTripNotes(tripID: tripID, notes: notes)
     }
 
     func setFlightTrip(flightID: UUID, tripID: UUID?) async throws {
+        try failIfWritesAreDown()
         try await BackendService.setFlightTrip(flightID: flightID, tripID: tripID)
     }
 
     func setFlightTravelers(flightID: UUID, travelerIDs: [UUID]) async throws {
+        try failIfWritesAreDown()
         try await BackendService.setFlightTravelers(flightID: flightID, travelerIDs: travelerIDs)
     }
 
     func uploadMemoryPhoto(coupleID: UUID, memoryID: UUID, imageData: Data) async throws -> String {
-        try await BackendService.uploadMemoryPhoto(coupleID: coupleID, memoryID: memoryID, imageData: imageData)
+        try failIfWritesAreDown()
+        return try await BackendService.uploadMemoryPhoto(coupleID: coupleID, memoryID: memoryID, imageData: imageData)
     }
 
     func insertMemory(coupleID: UUID, memory: Memory, photoPaths: [String]) async throws -> [MemoryPhoto] {
-        try await BackendService.insertMemory(coupleID: coupleID, memory: memory, photoPaths: photoPaths)
+        try failIfWritesAreDown()
+        return try await BackendService.insertMemory(coupleID: coupleID, memory: memory, photoPaths: photoPaths)
     }
 
     func updateMemory(_ memory: Memory) async throws {
+        try failIfWritesAreDown()
         try await BackendService.updateMemory(memory)
     }
 
     func addMemoryPhotos(memoryID: UUID, photoPaths: [String], startingPosition: Int) async throws -> [MemoryPhoto] {
-        try await BackendService.addMemoryPhotos(memoryID: memoryID, photoPaths: photoPaths, startingPosition: startingPosition)
+        try failIfWritesAreDown()
+        return try await BackendService.addMemoryPhotos(memoryID: memoryID, photoPaths: photoPaths, startingPosition: startingPosition)
     }
 
     func deleteMemoryPhoto(id: UUID, path: String) async throws {
+        try failIfWritesAreDown()
         try await BackendService.deleteMemoryPhoto(id: id, path: path)
     }
 
     func setMemoryTrip(memoryID: UUID, tripID: UUID?) async throws {
+        try failIfWritesAreDown()
         try await BackendService.setMemoryTrip(memoryID: memoryID, tripID: tripID)
     }
 
     func updateFirstName(_ name: String) async throws {
+        try failIfWritesAreDown()
         try await BackendService.updateFirstName(name)
     }
 
     func updatePartnerNickname(_ name: String) async throws {
+        try failIfWritesAreDown()
         try await BackendService.updatePartnerNickname(name)
     }
 
     func updatePartnerHomeCityGuess(_ place: Place) async throws {
+        try failIfWritesAreDown()
         try await BackendService.updatePartnerHomeCityGuess(place)
     }
 
     func updateHomeCity(_ place: Place) async throws {
+        try failIfWritesAreDown()
         try await BackendService.updateHomeCity(place)
     }
 
     func updateAnniversaryDate(_ date: Date) async throws {
+        try failIfWritesAreDown()
         try await BackendService.updateAnniversaryDate(date)
     }
 
     func updateCoupleAnniversaryDate(coupleID: UUID, date: Date) async throws {
+        try failIfWritesAreDown()
         try await BackendService.updateCoupleAnniversaryDate(coupleID: coupleID, date: date)
     }
 }

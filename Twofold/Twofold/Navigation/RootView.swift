@@ -232,6 +232,7 @@ struct RootView: View {
                 Task { await refreshPendingOutgoingConnectionRequestIfNeeded() }
                 refreshCurrentCityIfNeeded()
             } else if newPhase == .background {
+                E2ELaunch.noteBackgrounded()
                 // Only meaningful once signed in — locking behind Face ID/passcode while signed
                 // out (mid-onboarding, or after a sign-out on a device that had this enabled from
                 // a previous account) gated the sign-in/onboarding screens themselves behind a

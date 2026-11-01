@@ -29,6 +29,11 @@
 //                                    empty means no product has one. See `introductoryOffers`.
 //    TWOFOLD_E2E_KEEP_DEVICE=1       skip the clean-device reset, for a second launch that must see
 //                                    what the first one left behind (the offline tests).
+//    TWOFOLD_E2E_WRITES_FAIL=1       every trip, memory and profile write fails as if offline,
+//                                    while reads still work — the state a refresh used to drop
+//                                    unsent work in. `until-background` lifts it the first time the
+//                                    app is sent to the background, so returning to the foreground
+//                                    is a reconnect. See `LiveCoupleDataBackend`.
 //
 //  Refused outright unless the build is pointed at a loopback Supabase (`SupabaseConfig
 //  .isLocalLoopback`). Both halves of this — erasing the session, and signing in with a password
@@ -153,6 +158,25 @@ enum E2ELaunch {
         return offers
     }
 
+    /// Whether `LiveCoupleDataBackend` should fail every write right now. `NetworkMonitor`'s
+    /// `TWOFOLD_FORCE_OFFLINE` is no use here: it takes reads down too, and what needs testing is
+    /// a refresh that succeeds while the writes before it did not.
+    static var writesFail: Bool {
+        guard isOn else { return false }
+        switch environment["TWOFOLD_E2E_WRITES_FAIL"] {
+        case "1": return true
+        case "until-background": return !hasBeenBackgrounded
+        default: return false
+        }
+    }
+
+    private static var hasBeenBackgrounded = false
+
+    /// Called by `RootView` when the scene goes to the background.
+    static func noteBackgrounded() {
+        hasBeenBackgrounded = true
+    }
+
     /// Erases what a previous run, or a person using this simulator by hand, left on the device.
     ///
     /// Called first thing in `TwofoldApp.init()`, before anything reads the session or the
@@ -177,6 +201,8 @@ enum E2ELaunch {
     static var tier: Tier? { nil }
     static var configuresRevenueCat: Bool { true }
     static var introductoryOffers: [String: IntroductoryOfferTerms]? { nil }
+    static var writesFail: Bool { false }
+    static func noteBackgrounded() {}
     static func prepareCleanDeviceIfRequested() {}
     #endif
 }

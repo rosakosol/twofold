@@ -204,6 +204,21 @@ struct Scenario {
         return rows?.first?["status"] as? String
     }
 
+    /// The couple's memories as the server has them, by title — for asserting on what reached it.
+    func memoryRows() async throws -> [(id: UUID, title: String)] {
+        let coupleID = try requireCouple()
+        let rows = try await LocalStack.send(
+            "GET", "rest/v1/memories",
+            query: [URLQueryItem(name: "couple_id", value: "eq.\(coupleID)"), URLQueryItem(name: "select", value: "id,title")],
+            as: .service
+        ) as? [[String: Any]] ?? []
+        return rows.compactMap { row in
+            guard let raw = row["id"] as? String, let id = UUID(uuidString: raw),
+                  let title = row["title"] as? String else { return nil }
+            return (id, title)
+        }
+    }
+
     /// Every Sudoku session this account started, newest first.
     func sudokuSessions() async throws -> [(id: UUID, status: String)] {
         let rows = try await LocalStack.send(
