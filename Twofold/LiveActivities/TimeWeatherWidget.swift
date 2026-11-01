@@ -38,21 +38,23 @@ struct TimeWeatherProvider: TimelineProvider {
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<TimeWeatherEntry>) -> Void) {
-        let current = entry(from: WidgetSnapshot.read())
-        let nextRefresh = Calendar.current.date(byAdding: .minute, value: 15, to: .now) ?? .now.addingTimeInterval(900)
-        completion(Timeline(entries: [current], policy: .after(nextRefresh)))
+        let snapshot = WidgetSnapshot.read()
+        // An entry on every minute for the next hour, as PartnersTimeWidget does, so the clock is
+        // never behind. The weather is still re-read on the reload after the last one.
+        let moments = TimeMath.minuteMarks(from: .now)
+        completion(Timeline(entries: moments.map { entry(from: snapshot, at: $0) }, policy: .after(moments.last ?? .now.addingTimeInterval(3600))))
     }
 
-    private func entry(from snapshot: WidgetSnapshot?) -> TimeWeatherEntry {
+    private func entry(from snapshot: WidgetSnapshot?, at date: Date = .now) -> TimeWeatherEntry {
         TimeWeatherEntry(
-            date: .now,
+            date: date,
             subscriptionTier: snapshot?.subscriptionTier,
             partnerCity: snapshot?.partnerCity,
             timeZone: snapshot?.partnerTimeZoneIdentifier.flatMap(TimeZone.init(identifier:)),
             weatherSymbolName: snapshot?.partnerWeather?.symbolName,
             temperatureLabel: snapshot?.partnerWeather.map { "\(Int($0.temperatureC.rounded()))°" },
             isDaylight: snapshot?.partnerWeather?.isDaylight,
-            readingAge: snapshot.map { Date.now.timeIntervalSince($0.writtenAt) }
+            readingAge: snapshot.map { date.timeIntervalSince($0.writtenAt) }
         )
     }
 }

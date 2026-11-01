@@ -115,6 +115,14 @@ enum TimeMath {
         return moments.sorted()
     }
 
+    /// `now`, then the start of each following minute for `minutes` minutes: when a widget that
+    /// shows a clock as a plain string needs an entry so the time it shows is never behind.
+    /// One entry refreshed every 15 minutes showed "11:36" until 11:51.
+    static func minuteMarks(from now: Date, minutes: Int = 60, calendar: Calendar = .current) -> [Date] {
+        guard let startOfMinute = calendar.dateInterval(of: .minute, for: now)?.start else { return [now] }
+        return [now] + (1...max(1, minutes)).compactMap { calendar.date(byAdding: .minute, value: $0, to: startOfMinute) }
+    }
+
     /// Whole calendar days between two instants — the number of times the date changes between
     /// them, not the number of 24-hour spans that fit.
     ///

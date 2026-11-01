@@ -68,4 +68,18 @@ struct CountdownMomentsTests {
     func noTargets() {
         #expect(TimeMath.countdownMoments(to: [], from: now) == [now])
     }
+
+    @Test("a clock gets now, then every minute boundary for the next hour")
+    func clockMinuteMarks() {
+        let midMinute = now.addingTimeInterval(23)
+        let marks = TimeMath.minuteMarks(from: midMinute, minutes: 60, calendar: Calendar(identifier: .gregorian))
+
+        #expect(marks.first == midMinute)
+        #expect(marks.count == 61)
+        for mark in marks.dropFirst() {
+            #expect(mark > midMinute)
+            #expect(mark.timeIntervalSince1970.truncatingRemainder(dividingBy: 60) == 0)
+        }
+        #expect(marks.last!.timeIntervalSince(midMinute) <= 3600)
+    }
 }

@@ -24,7 +24,10 @@ struct WidgetLockOverlay: ViewModifier {
             .overlay {
                 if isLocked {
                     ZStack {
-                        Color.black.opacity(0.4)
+                        // 0.6, not 0.4: over the drawing pad's white paper 0.4 left a mid-grey
+                        // behind the white caption, about 2.7:1. 0.6 is about 5.7:1, past 4.5:1
+                        // whatever the widget underneath.
+                        Color.black.opacity(0.6)
                         VStack(spacing: 4) {
                             Image(systemName: "lock.fill")
                                 .font(.title3)

@@ -27,17 +27,16 @@ struct PartnersTimeProvider: TimelineProvider {
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<PartnersTimeEntry>) -> Void) {
         let snapshot = WidgetSnapshot.read()
-        let current = entry(from: snapshot)
-        // Nothing here changes faster than once every 15 minutes worth noticing — keep the
-        // reload cadence cheap, matching TimeZoneCard's own 15s TimelineView being a UI nicety
-        // rather than something a static widget needs to mirror exactly.
-        let nextRefresh = Calendar.current.date(byAdding: .minute, value: 15, to: .now) ?? .now.addingTimeInterval(900)
-        completion(Timeline(entries: [current], policy: .after(nextRefresh)))
+        // An entry on every minute for the next hour. The clock is a plain string worked out per
+        // entry, so a single entry refreshed every 15 minutes showed a time up to 15 minutes old.
+        // Entries are free; only the reload at the end of them counts against the budget.
+        let moments = TimeMath.minuteMarks(from: .now)
+        completion(Timeline(entries: moments.map { entry(from: snapshot, at: $0) }, policy: .after(moments.last ?? .now.addingTimeInterval(3600))))
     }
 
-    private func entry(from snapshot: WidgetSnapshot?) -> PartnersTimeEntry {
+    private func entry(from snapshot: WidgetSnapshot?, at date: Date = .now) -> PartnersTimeEntry {
         PartnersTimeEntry(
-            date: .now,
+            date: date,
             partnerName: snapshot?.partnerName ?? "Partner",
             partnerCity: snapshot?.partnerCity,
             timeZone: snapshot?.partnerTimeZoneIdentifier.flatMap(TimeZone.init(identifier:))
