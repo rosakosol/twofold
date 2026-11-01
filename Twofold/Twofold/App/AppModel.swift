@@ -297,6 +297,10 @@ final class AppModel {
     /// double-inserting it server-side and leaving a duplicate local copy.
     private var inFlightAdopt: Task<Void, Never>?
 
+    /// The trip, memory and profile calls below go through this rather than `BackendService`
+    /// directly, so a unit test can hand in a backend that fails or answers on cue.
+    @ObservationIgnored var backend: any CoupleDataBackend = LiveCoupleDataBackend()
+
     /// Optimistic edits to `flights`/`trips`/`memories` still awaiting their network write.
     /// `refreshFlights()`/`refreshTrips()`/`refreshMemories()` each do a full overwrite of their
     /// array from the server — and any of them can run concurrently with one of these writes,
@@ -1301,7 +1305,7 @@ final class AppModel {
     func updateProfile(name: String) async {
         let trimmedName = name.trimmingCharacters(in: .whitespaces)
         if !trimmedName.isEmpty, trimmedName != couple.partnerA.name {
-            try? await BackendService.updateFirstName(trimmedName)
+            try? await backend.updateFirstName(trimmedName)
             couple.partnerA.name = trimmedName
         }
     }
@@ -1319,7 +1323,7 @@ final class AppModel {
     func updatePartnerName(_ name: String) async {
         let trimmed = name.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty, trimmed != couple.partnerB.name else { return }
-        try? await BackendService.updatePartnerNickname(trimmed)
+        try? await backend.updatePartnerNickname(trimmed)
         couple.partnerB.name = trimmed
     }
 
@@ -1328,7 +1332,7 @@ final class AppModel {
     /// this field once `partnerConnected` is true.
     func updatePartnerHomeCity(_ city: Place) async {
         guard city.id != couple.partnerB.homeCity?.id else { return }
-        try? await BackendService.updatePartnerHomeCityGuess(city)
+        try? await backend.updatePartnerHomeCityGuess(city)
         couple.partnerB.homeCity = city
     }
 
@@ -1347,9 +1351,9 @@ final class AppModel {
     func updateAnniversaryDate(_ date: Date) async {
         guard date != couple.startedDatingOn else { return }
         if let coupleID = backendCoupleID {
-            try? await BackendService.updateCoupleAnniversaryDate(coupleID: coupleID, date: date)
+            try? await backend.updateCoupleAnniversaryDate(coupleID: coupleID, date: date)
         } else {
-            try? await BackendService.updateAnniversaryDate(date)
+            try? await backend.updateAnniversaryDate(date)
         }
         couple.startedDatingOn = date
     }
@@ -2129,7 +2133,7 @@ final class AppModel {
                 (id == state.couple.partnerA.id || id == state.couple.partnerB.id) ? id : state.couple.partnerB.id
             }
             do {
-                try await BackendService.insertTrip(coupleID: state.couple.id, trip: tripToInsert)
+                try await backend.insertTrip(coupleID: state.couple.id, trip: tripToInsert)
                 // Now durably on the backend — the local disk copy was only ever a stand-in
                 // until this succeeded.
                 PendingTripStore.remove(id: trip.id)
@@ -2175,9 +2179,9 @@ final class AppModel {
             do {
                 var photoPaths: [String] = []
                 for imageData in pendingMemoryPhotoData[memory.id] ?? [] {
-                    photoPaths.append(try await BackendService.uploadMemoryPhoto(coupleID: state.couple.id, memoryID: memory.id, imageData: imageData))
+                    photoPaths.append(try await backend.uploadMemoryPhoto(coupleID: state.couple.id, memoryID: memory.id, imageData: imageData))
                 }
-                synced.photos = try await BackendService.insertMemory(coupleID: state.couple.id, memory: memory, photoPaths: photoPaths)
+                synced.photos = try await backend.insertMemory(coupleID: state.couple.id, memory: memory, photoPaths: photoPaths)
                 pendingMemoryPhotoData.removeValue(forKey: memory.id)
                 // Now durably on the backend — the local disk copy (and its cached photo
                 // files) was only ever a stand-in until this succeeded.
@@ -2333,25 +2337,25 @@ final class AppModel {
         // it back as "You". Idempotent for the email path, which is writing the same string it
         // already sent.
         if !onboarding.firstName.isEmpty {
-            try? await BackendService.updateFirstName(onboarding.firstName)
+            try? await backend.updateFirstName(onboarding.firstName)
         }
 
         if let homeCity = onboarding.homeCity {
-            try? await BackendService.updateHomeCity(homeCity)
+            try? await backend.updateHomeCity(homeCity)
             couple.partnerA.homeCity = homeCity
         }
 
         if !onboarding.partnerName.isEmpty {
-            try? await BackendService.updatePartnerNickname(onboarding.partnerName)
+            try? await backend.updatePartnerNickname(onboarding.partnerName)
             couple.partnerB.name = onboarding.partnerName
         }
         if let partnerCity = onboarding.partnerCity {
-            try? await BackendService.updatePartnerHomeCityGuess(partnerCity)
+            try? await backend.updatePartnerHomeCityGuess(partnerCity)
             couple.partnerB.homeCity = partnerCity
         }
 
         if let anniversaryDate = onboarding.anniversaryDate {
-            try? await BackendService.updateAnniversaryDate(anniversaryDate)
+            try? await backend.updateAnniversaryDate(anniversaryDate)
             couple.startedDatingOn = anniversaryDate
         }
 
@@ -2452,7 +2456,7 @@ final class AppModel {
 
         if let backendCoupleID {
             do {
-                try await BackendService.insertTrip(coupleID: backendCoupleID, trip: trip)
+                try await backend.insertTrip(coupleID: backendCoupleID, trip: trip)
                 // A schedule-only candidate (no faFlightId yet — see AeroFlightCandidate.canTrack)
                 // still gets persisted as a pending flight — add-flight accepts it without one and
                 // refresh-due-flights' cron backfills a real faFlightId (and starts live tracking)
@@ -2574,7 +2578,7 @@ final class AppModel {
     func refreshMemories() async {
         if DemoMode.isOn { return }  // -demoMode: the sample couple, nothing fetched
         guard let backendCoupleID else { return }
-        if let fresh = try? await BackendService.fetchMemories(coupleID: backendCoupleID) {
+        if let fresh = try? await backend.fetchMemories(coupleID: backendCoupleID) {
             memories = fresh
             reapplyInFlightMutations()
         }
@@ -2588,7 +2592,7 @@ final class AppModel {
     func refreshTrips() async {
         if DemoMode.isOn { return }  // -demoMode: the sample couple, nothing fetched
         guard let backendCoupleID else { return }
-        if var fresh = try? await BackendService.fetchTrips(coupleID: backendCoupleID) {
+        if var fresh = try? await backend.fetchTrips(coupleID: backendCoupleID) {
             for index in fresh.indices {
                 fresh[index].flights = flights.filter { $0.tripID == fresh[index].id }
             }
@@ -2667,7 +2671,7 @@ final class AppModel {
             self.trips[index].notes = trip.notes
         }
         defer { clearInFlightMutation(mutationID) }
-        try? await BackendService.updateTripNotes(tripID: trip.id, notes: trip.notes)
+        try? await backend.updateTripNotes(tripID: trip.id, notes: trip.notes)
     }
 
     /// Full edit of a trip's own fields (origin/destination/dates/category/notes) — as opposed
@@ -2689,7 +2693,7 @@ final class AppModel {
         }
         defer { clearInFlightMutation(mutationID) }
         do {
-            try await BackendService.updateTrip(updated)
+            try await backend.updateTrip(updated)
         } catch {
             // `try?` used to swallow this, which was fine while every failure here was a dropped
             // connection: the local edit is right and the write lands later, which is what makes
@@ -2767,7 +2771,7 @@ final class AppModel {
             self.syncTripFlights(tripID: trip.id)
         }
         defer { clearInFlightMutation(mutationID) }
-        try? await BackendService.setFlightTrip(flightID: flight.id, tripID: trip.id)
+        try? await backend.setFlightTrip(flightID: flight.id, tripID: trip.id)
     }
 
     func unlinkFlight(_ flight: Flight) async {
@@ -2781,7 +2785,7 @@ final class AppModel {
             if let tripID { self.syncTripFlights(tripID: tripID) }
         }
         defer { clearInFlightMutation(mutationID) }
-        try? await BackendService.setFlightTrip(flightID: flight.id, tripID: nil)
+        try? await backend.setFlightTrip(flightID: flight.id, tripID: nil)
     }
 
     /// Same gap `linkFlight`/`unlinkFlight` closed for `tripID` — travelers were also only ever
@@ -2798,7 +2802,7 @@ final class AppModel {
             if let tripID = self.flights[index].tripID { self.syncTripFlights(tripID: tripID) }
         }
         defer { clearInFlightMutation(mutationID) }
-        try? await BackendService.setFlightTravelers(flightID: flight.id, travelerIDs: travelerIDs)
+        try? await backend.setFlightTravelers(flightID: flight.id, travelerIDs: travelerIDs)
     }
 
     /// Memories have no automatic trip association (no place/date matching) — linking is
@@ -2811,7 +2815,7 @@ final class AppModel {
             self.memories[index].tripID = trip.id
         }
         defer { clearInFlightMutation(mutationID) }
-        try? await BackendService.setMemoryTrip(memoryID: memory.id, tripID: trip.id)
+        try? await backend.setMemoryTrip(memoryID: memory.id, tripID: trip.id)
     }
 
     func unlinkMemory(_ memory: Memory) async {
@@ -2822,7 +2826,7 @@ final class AppModel {
             self.memories[index].tripID = nil
         }
         defer { clearInFlightMutation(mutationID) }
-        try? await BackendService.setMemoryTrip(memoryID: memory.id, tripID: nil)
+        try? await backend.setMemoryTrip(memoryID: memory.id, tripID: nil)
     }
 
     /// Registers this device's APNs token against the signed-in profile so
@@ -2895,9 +2899,9 @@ final class AppModel {
         do {
             var photoPaths: [String] = []
             for imageData in imagesData {
-                photoPaths.append(try await BackendService.uploadMemoryPhoto(coupleID: backendCoupleID, memoryID: memory.id, imageData: imageData))
+                photoPaths.append(try await backend.uploadMemoryPhoto(coupleID: backendCoupleID, memoryID: memory.id, imageData: imageData))
             }
-            let photos = try await BackendService.insertMemory(coupleID: backendCoupleID, memory: memory, photoPaths: photoPaths)
+            let photos = try await backend.insertMemory(coupleID: backendCoupleID, memory: memory, photoPaths: photoPaths)
             if let index = memories.firstIndex(where: { $0.id == memory.id }) {
                 memories[index].photos = photos
             }
@@ -2934,13 +2938,13 @@ final class AppModel {
         memories[index] = memory
 
         do {
-            try await BackendService.updateMemory(memory)
+            try await backend.updateMemory(memory)
             if !newImagesData.isEmpty {
                 var photoPaths: [String] = []
                 for imageData in newImagesData {
-                    photoPaths.append(try await BackendService.uploadMemoryPhoto(coupleID: backendCoupleID, memoryID: memory.id, imageData: imageData))
+                    photoPaths.append(try await backend.uploadMemoryPhoto(coupleID: backendCoupleID, memoryID: memory.id, imageData: imageData))
                 }
-                let newPhotos = try await BackendService.addMemoryPhotos(memoryID: memory.id, photoPaths: photoPaths, startingPosition: memory.photos.count)
+                let newPhotos = try await backend.addMemoryPhotos(memoryID: memory.id, photoPaths: photoPaths, startingPosition: memory.photos.count)
                 memories[index].photos.append(contentsOf: newPhotos)
             }
         } catch {
@@ -2973,7 +2977,7 @@ final class AppModel {
             return
         }
 
-        try? await BackendService.deleteMemoryPhoto(id: photo.id, path: photo.path)
+        try? await backend.deleteMemoryPhoto(id: photo.id, path: photo.path)
     }
 
     func deleteMemory(_ memory: Memory) async {
@@ -3007,7 +3011,7 @@ final class AppModel {
     func setHomeCity(for personID: Person.ID, city: Place) async {
         guard personID == currentUser.id else { return }
         do {
-            try await BackendService.updateHomeCity(city)
+            try await backend.updateHomeCity(city)
             couple.partnerA.homeCity = city
         } catch {
             // Best-effort for now; the picker just won't reflect the change.
@@ -3041,6 +3045,12 @@ final class AppModel {
 
 #if DEBUG
 extension AppModel {
+    /// Puts the model in the paired state as far as the trip and memory paths care — a couple id
+    /// to write under — without running `adopt`, which needs the whole backend.
+    func setBackendCoupleIDForTesting(_ id: UUID?) {
+        backendCoupleID = id
+    }
+
     /// The sample couple from Mock/DemoData.swift, adopted the way a real couple would be, with no
     /// backend behind it (`-demoMode`, see App/DemoMode.swift). In this file because several of
     /// the fields it sets are `private(set)`.
