@@ -103,4 +103,21 @@ final class NotificationDeepLinkUITests: E2ETestCase {
         XCTAssertTrue(home.waitForExistence(timeout: 10))
         XCTAssertTrue(home.isSelected, "An unrecognised route should leave the app on its default tab.")
     }
+
+    /// CORE-6. Somebody without a subscription used to tap a flight or drawing push and get
+    /// nothing at all: every route waited on a subscription that was never coming, for the rest of
+    /// the session. A route that needs one now shows the paywall, which at least says why.
+    @MainActor
+    func testDrawingNotificationShowsThePaywallWithoutASubscription() async throws {
+        let app = launch(try await Scenario.lapsed(), arguments: ["-notificationRoute", "partner_drawing_pad"])
+        waitForSignedInApp(app)
+
+        // Either state of the paywall: with plans, or — on a run with no StoreKit configuration,
+        // like this one — the "couldn't load" state it shows without them.
+        let paywall = app.descendants(matching: .any).matching(NSPredicate(
+            format: "label == %@ OR label == %@", "Restore purchases", "Couldn't load subscription options"
+        )).firstMatch
+        XCTAssertTrue(paywall.waitForExistence(timeout: 20), "A lapsed couple's tap on a drawing push did nothing")
+        capture(app, "Paywall from a notification")
+    }
 }

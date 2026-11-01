@@ -813,7 +813,20 @@ struct RootView: View {
     }
 
     private func consumePendingRoute() {
-        guard let route = router.pending, notificationRouteHandling == .open else { return }
+        guard let route = router.pending, let handling = notificationRouteHandling else { return }
+        switch handling {
+        case .wait:
+            return
+        case .drop:
+            router.pending = nil
+            return
+        case .showPaywall:
+            showingPaywallFromWidget = true
+            router.pending = nil
+            return
+        case .open:
+            break
+        }
 
         switch route {
         case .game(let sessionID, let gameType):

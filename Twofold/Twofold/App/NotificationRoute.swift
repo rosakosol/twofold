@@ -70,14 +70,37 @@ enum NotificationRoute: Hashable {
         /// Not yet. The route stays held, and is tried again when any of the inputs change.
         case wait
         case open
+        /// Somewhere that needs a subscription, for somebody without one: the paywall instead,
+        /// which at least says why.
+        case showPaywall
+        /// Nowhere to open it into — signed out, or still onboarding. Let go rather than held for
+        /// whoever signs in next.
+        case drop
     }
 
+    /// The same rules as a widget link to the same place (`RootView.consumePendingOpenURL`).
+    ///
+    /// Every route used to wait for `isSubscriptionActive`, from when a non-dismissable paywall
+    /// sat over the whole app for a lapsed subscription. That paywall is gone, and the gate stayed:
+    /// for somebody without a subscription — most solo accounts, anyone lapsed — a tapped push did
+    /// nothing, the route sat held for the rest of the session, and it opened by surprise if they
+    /// subscribed later. Now a route that needs a subscription shows the paywall, and the rest
+    /// open; only the answer still being on its way is a reason to wait.
     func handling(isLoadingSession: Bool, hasCouple: Bool, hasResolvedSubscription: Bool, isSubscriptionActive: Bool) -> Handling {
-        // `isSubscriptionActive` is part of it deliberately: this presents over the whole app,
-        // including the non-dismissable lapsed-subscription paywall, so an old notification left
-        // sitting in Notification Center from before a lapse must not become a way back into
-        // premium gameplay.
-        !isLoadingSession && hasCouple && isSubscriptionActive ? .open : .wait
+        if isLoadingSession { return .wait }
+        guard hasCouple else { return .drop }
+        switch self {
+        case .invitePartner:
+            return .open
+        case .dailyQuestion:
+            // Waits for the answer like the gated routes, because the question screen checks for a
+            // subscription the moment it opens, and shows its own message to somebody without one.
+            return hasResolvedSubscription ? .open : .wait
+        case .game, .flight, .drawingPad, .partnerDrawingPad:
+            // A `false` before the answer is in only means "not known yet".
+            guard hasResolvedSubscription else { return .wait }
+            return isSubscriptionActive ? .open : .showPaywall
+        }
     }
 }
 

@@ -149,3 +149,71 @@ struct NotificationRouteTests {
         router.pending = nil
     }
 }
+
+/// What happens to a tapped notification once the session has loaded (CORE-6).
+///
+/// Every route used to wait for `isSubscriptionActive`, left over from a lapsed-subscription
+/// paywall that no longer exists. Somebody without a subscription — most solo accounts, anyone
+/// lapsed — tapped a push and nothing happened; the route sat held for the rest of the session and
+/// opened by surprise if they subscribed later.
+@MainActor
+struct NotificationRouteHandlingTests {
+
+    private let everyRoute: [NotificationRoute] = [
+        .game(sessionID: UUID(), gameType: .thisOrThat), .dailyQuestion, .flight(UUID()),
+        .drawingPad, .partnerDrawingPad, .invitePartner,
+    ]
+
+    private func handling(_ route: NotificationRoute, subscribed: Bool) -> NotificationRoute.Handling {
+        route.handling(isLoadingSession: false, hasCouple: true, hasResolvedSubscription: true, isSubscriptionActive: subscribed)
+    }
+
+    @Test("no tap is held for ever once the subscription answer is in")
+    func unsubscribedTapsAreActedOn() {
+        for route in everyRoute {
+            #expect(handling(route, subscribed: false) != .wait, "\(route) is held with nothing to release it")
+        }
+    }
+
+    @Test("the invite reminder opens for somebody with no subscription")
+    func inviteReminderOpensUnsubscribed() {
+        #expect(handling(.invitePartner, subscribed: false) == .open)
+    }
+
+    @Test("a subscriber's tap opens")
+    func subscriberTapsOpen() {
+        for route in everyRoute {
+            #expect(handling(route, subscribed: true) == .open)
+        }
+    }
+
+    @Test("a tap for somewhere that needs a subscription shows the paywall to somebody without one")
+    func gatedRoutesShowThePaywall() {
+        for route: NotificationRoute in [.game(sessionID: UUID(), gameType: .sudoku), .flight(UUID()), .drawingPad, .partnerDrawingPad] {
+            #expect(handling(route, subscribed: false) == .showPaywall, "\(route)")
+        }
+        // Like the widget link to it: the question screen says for itself what it needs.
+        #expect(handling(.dailyQuestion, subscribed: false) == .open)
+    }
+
+    @Test("a gated tap waits while the subscription answer is still on its way")
+    func gatedRoutesWaitForTheAnswer() {
+        let route = NotificationRoute.flight(UUID())
+        #expect(route.handling(isLoadingSession: false, hasCouple: true, hasResolvedSubscription: false, isSubscriptionActive: false) == .wait)
+        #expect(NotificationRoute.invitePartner.handling(isLoadingSession: false, hasCouple: true, hasResolvedSubscription: false, isSubscriptionActive: false) == .open)
+    }
+
+    @Test("a tap with nobody signed in is let go, not kept for the next account")
+    func signedOutTapsAreDropped() {
+        for route in everyRoute {
+            #expect(route.handling(isLoadingSession: false, hasCouple: false, hasResolvedSubscription: false, isSubscriptionActive: false) == .drop)
+        }
+    }
+
+    @Test("a tap during launch waits for the session")
+    func waitsForTheSession() {
+        for route in everyRoute {
+            #expect(route.handling(isLoadingSession: true, hasCouple: false, hasResolvedSubscription: false, isSubscriptionActive: false) == .wait)
+        }
+    }
+}
