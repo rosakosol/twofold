@@ -60,6 +60,8 @@ struct SudokuGameView: View {
                     .padding(Theme.Spacing.lg)
             case .ready:
                 board
+            case .ended:
+                GameAbandonedState(message: "This puzzle was ended, so it can't be finished.")
             }
 
             // Outside the switch, so it is mounted before the puzzle finishes loading. It animates
@@ -96,7 +98,7 @@ struct SudokuGameView: View {
             }
             // Only while the puzzle is unsolved. Once it is finished the thing you want is the
             // comparison, and abandoning would throw away a solve that is already submitted.
-            if store.play?.isComplete == false {
+            if store.phase == .ready, store.play?.isComplete == false {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         Button(role: .destructive) {
@@ -169,6 +171,18 @@ struct SudokuGameView: View {
             // The clock measures time at the board, so backgrounding stops it. Without this a
             // puzzle left open in a pocket would report an afternoon's solve.
             if phase == .active { store.startClock() } else { store.stopClock() }
+            if phase == .active { Task { await store.retryPendingResult() } }
+        }
+        .onChange(of: NetworkMonitor.shared.isConnected) { _, isConnected in
+            // The result may have been waiting on exactly this. `GameResponseOutbox` sends it
+            // too, from `RootView`'s reconnect; whichever gets there first, the other finds
+            // nothing left to send.
+            if isConnected { Task { await store.retryPendingResult() } }
+        }
+        .safeAreaInset(edge: .top) {
+            if store.resultPending {
+                OfflineGameBanner(isConnected: NetworkMonitor.shared.isConnected, pendingCount: 1, isResult: true)
+            }
         }
     }
 
@@ -514,8 +528,12 @@ struct SudokuGameView: View {
                 // unpaired player a session of their own with a null couple, so this card is what
                 // they see every time they finish — and the version naming a partner was promising
                 // a comparison that could never arrive, from a person who does not exist.
+                // Only "saved" once the server has it. Before, this said so whether or not the one
+                // send had landed, and the partner it promised a comparison to was never told.
                 Text(
-                    appModel.partnerConnected
+                    store.resultPending
+                        ? "Your time is saved on this phone and will be sent as soon as it can be."
+                        : appModel.partnerConnected
                         ? "Your time is saved. You'll see how it compares once \(appModel.partner.name) finishes theirs."
                         : "Your time is saved."
                 )

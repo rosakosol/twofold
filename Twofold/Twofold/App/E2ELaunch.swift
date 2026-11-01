@@ -29,11 +29,13 @@
 //                                    empty means no product has one. See `introductoryOffers`.
 //    TWOFOLD_E2E_KEEP_DEVICE=1       skip the clean-device reset, for a second launch that must see
 //                                    what the first one left behind (the offline tests).
-//    TWOFOLD_E2E_WRITES_FAIL=1       every trip, memory and profile write fails as if offline,
+//    TWOFOLD_E2E_WRITES_FAIL=1       every trip, memory and profile write, and every puzzle
+//                                    result, fails as if offline,
 //                                    while reads still work — the state a refresh used to drop
 //                                    unsent work in. `until-background` lifts it the first time the
 //                                    app is sent to the background, so returning to the foreground
-//                                    is a reconnect. See `LiveCoupleDataBackend`.
+//                                    is a reconnect. See `LiveCoupleDataBackend` and
+//                                    `LivePuzzleSessionBackend`.
 //
 //  Refused outright unless the build is pointed at a loopback Supabase (`SupabaseConfig
 //  .isLocalLoopback`). Both halves of this — erasing the session, and signing in with a password

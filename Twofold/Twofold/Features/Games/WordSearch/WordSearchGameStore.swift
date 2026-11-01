@@ -21,9 +21,16 @@ final class WordSearchGameStore {
         case loading
         case ready
         case failed(String)
+        /// Abandoned by the partner, or archived by the cron, so it can no longer be finished —
+        /// see `SudokuGameStore.Phase.ended`.
+        case ended
     }
 
     let sessionID: UUID
+    /// The grid's result on its way to the server. See `PuzzleResult`.
+    let result: PuzzleResult
+    /// A finished grid the server does not have yet.
+    var resultPending: Bool { result.isPending }
 
     private(set) var phase: Phase = .loading
     private(set) var play: WordSearchPlayState?
@@ -41,12 +48,20 @@ final class WordSearchGameStore {
     private var responderID: UUID?
     private var clock: Task<Void, Never>?
     private var hasSubmitted = false
+    private var submission: Task<Void, Never>?
     private var channel: RealtimeChannelV2?
+    private let backend: any PuzzleSessionBackend
 
     var theme: WordSearchTheme? { play?.puzzle.theme }
 
-    init(sessionID: UUID) {
+    init(
+        sessionID: UUID,
+        backend: any PuzzleSessionBackend = LivePuzzleSessionBackend(),
+        queue: any GameResponseQueue = DiskGameResponseQueue.shared
+    ) {
         self.sessionID = sessionID
+        self.backend = backend
+        self.result = PuzzleResult(sessionID: sessionID, gameType: .wordSearch, backend: backend, queue: queue)
     }
 
     // MARK: - Loading
@@ -54,7 +69,13 @@ final class WordSearchGameStore {
     func load() async {
         phase = .loading
         do {
-            let detail = try await BackendService.fetchGameSession(id: sessionID)
+            let detail = try await backend.fetchGameSession(id: sessionID)
+            let me = backend.currentUserID
+            responderID = me
+            if detail.session.status.hasEnded {
+                end()
+                return
+            }
             guard let round = detail.rounds.first else {
                 phase = .failed("This grid has no round.")
                 return
@@ -71,9 +92,6 @@ final class WordSearchGameStore {
             // makes a started grid playable with no connection.
             let puzzle = WordSearchGenerator.puzzle(for: round.contentID, theme: theme)
 
-            let me = BackendService.currentUserID
-            responderID = me
-
             let fromServer = detail.responses
                 .first { $0.responderID == me }
                 .flatMap { WordSearchPlayState.decoded(from: $0.answerValue, puzzle: puzzle) }
@@ -83,11 +101,12 @@ final class WordSearchGameStore {
 
             play = Self.furtherAlong(fromServer, fromDevice) ?? WordSearchPlayState(puzzle: puzzle)
             hasSubmitted = fromServer?.isComplete == true
+            if hasSubmitted, let me { result.noteDelivered(responderID: me) }
             partnerResult = me.flatMap { Self.partnerResult(in: detail, me: $0) }
             phase = .ready
 
-            // Finished here but never delivered: the one send failed, and nothing else retries it.
-            // Left alone the session never completes and both partners are stuck on this grid.
+            // Finished here but never delivered. Sent again now, as well as on reconnect, on
+            // foreground and by `GameResponseOutbox` — see `PuzzleResult`.
             if play?.isComplete == true, !hasSubmitted {
                 submitResult()
             }
@@ -153,26 +172,55 @@ final class WordSearchGameStore {
 
     /// The one write to `game_responses` this game makes.
     private func submitResult() {
-        guard !hasSubmitted, let current = play, current.isComplete else { return }
+        guard !hasSubmitted, let current = play, current.isComplete, let me = responderID else { return }
         hasSubmitted = true
-        let encoded = current.encoded
-        let id = sessionID
-        Task {
-            do {
-                try await BackendService.submitGameResponse(
-                    sessionID: id, roundNumber: 1, answerValue: encoded, isCorrect: true
-                )
-                // If they finished first, their row was invisible until this insert: RLS reveals it
-                // only once both sides have answered.
-                await refreshPartner()
-                await notifyPartnerOfResult()
-            } catch {
-                // The device's copy still holds the finished grid, and `load()` prefers a complete
-                // state, so reopening shows the result rather than a grid to re-clear.
-                hasSubmitted = false
-            }
+        let detail = notifyDetail
+        submission = Task {
+            let outcome = await result.send(encoded: current.encoded, isCorrect: true, notifyDetail: detail, responderID: me)
+            await handle(outcome)
         }
     }
+
+    /// Tries the result again if it is still waiting. The screen calls this on reconnecting and
+    /// on returning to the foreground.
+    func retryPendingResult() async {
+        guard phase == .ready, let me = responderID else { return }
+        await submission?.value
+        guard let outcome = await result.resendIfQueued(responderID: me) else {
+            // Nothing left to send — it may have gone from `GameResponseOutbox` meanwhile.
+            await refreshPartner()
+            return
+        }
+        await handle(outcome)
+    }
+
+    private func handle(_ outcome: PuzzleResult.Outcome) async {
+        switch outcome {
+        case .sent:
+            // If they finished first, their row was invisible until this insert: RLS reveals it
+            // only once both sides have answered.
+            await refreshPartner()
+            await notifyPartnerOfResult()
+        case .pending:
+            break
+        case .refused:
+            // Almost always because the session was ended meanwhile; this read is what shows it.
+            await refreshPartner()
+        }
+    }
+
+    /// The session was ended elsewhere: the grid and any unsent result go, and the screen says so
+    /// rather than offering a grid that can no longer be finished.
+    private func end() {
+        stopClock()
+        phase = .ended
+        if let me = responderID {
+            PuzzleProgressCache.wordSearch.remove(sessionID: sessionID, responderID: me)
+            result.discard(responderID: me)
+        }
+    }
+
+    private var notifyDetail: String? { theme.map { "\($0.displayName) Word Search" } }
 
     /// Tells the other side the grid is done — the same two events every other game sends, chosen
     /// by whether their result came back visible from the `refreshPartner()` above.
@@ -180,10 +228,9 @@ final class WordSearchGameStore {
     /// Sent for a solo player too, as the others do: `couple_id` is null, `notify-couple-event`
     /// finds no couple and returns without sending anything.
     private func notifyPartnerOfResult() async {
-        let detail = theme.map { "\($0.displayName) Word Search" }
-        await BackendService.notifyPartner(
+        await backend.notifyPartner(
             event: partnerResult == nil ? .gamePartnerFinished : .gameResultsReady,
-            detail: detail,
+            detail: notifyDetail,
             sessionID: sessionID,
             gameType: .wordSearch
         )
@@ -217,9 +264,18 @@ final class WordSearchGameStore {
     /// Re-reads only the partner's half. Deliberately leaves `play` alone: a refresh arriving
     /// mid-grid must not replace the finds under the player's hands with what the server last
     /// heard, which for a grid in progress is nothing at all.
+    ///
+    /// Also notices the session ending under it, and the server having this player's result.
     private func refreshPartner() async {
         guard let me = responderID else { return }
-        guard let detail = try? await BackendService.fetchGameSession(id: sessionID) else { return }
+        guard let detail = try? await backend.fetchGameSession(id: sessionID) else { return }
+        if detail.session.status.hasEnded {
+            end()
+            return
+        }
+        if detail.responses.contains(where: { $0.responderID == me }) {
+            result.noteDelivered(responderID: me)
+        }
         partnerResult = Self.partnerResult(in: detail, me: me)
     }
 

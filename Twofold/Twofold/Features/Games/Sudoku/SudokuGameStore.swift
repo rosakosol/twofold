@@ -40,9 +40,17 @@ final class SudokuGameStore {
         case loading
         case ready
         case failed(String)
+        /// Abandoned by the partner, or archived by the cron, so it can no longer be finished: the
+        /// server refuses any result for it (2-games-NEW-2). Was shown as a playable board, and a
+        /// solve sent into it brought the session back for both of them.
+        case ended
     }
 
     let sessionID: UUID
+    /// The solve on its way to the server. See `PuzzleResult`.
+    let result: PuzzleResult
+    /// A finished solve the server does not have yet.
+    var resultPending: Bool { result.isPending }
 
     private(set) var phase: Phase = .loading
     private(set) var generated: SudokuPuzzle?
@@ -74,6 +82,7 @@ final class SudokuGameStore {
     /// `startAnother(difficulty:using:)`.
     private var submission: Task<Void, Never>?
     private var channel: RealtimeChannelV2?
+    private let backend: any PuzzleSessionBackend
 
     var difficulty: SudokuDifficulty? { generated?.difficulty }
     var canUndo: Bool { !undoStack.isEmpty }
@@ -85,8 +94,14 @@ final class SudokuGameStore {
         return 9 - (0..<81).count { play[$0] == value }
     }
 
-    init(sessionID: UUID) {
+    init(
+        sessionID: UUID,
+        backend: any PuzzleSessionBackend = LivePuzzleSessionBackend(),
+        queue: any GameResponseQueue = DiskGameResponseQueue.shared
+    ) {
         self.sessionID = sessionID
+        self.backend = backend
+        self.result = PuzzleResult(sessionID: sessionID, gameType: .sudoku, backend: backend, queue: queue)
     }
 
     // MARK: - Loading
@@ -94,7 +109,13 @@ final class SudokuGameStore {
     func load() async {
         phase = .loading
         do {
-            let detail = try await BackendService.fetchGameSession(id: sessionID)
+            let detail = try await backend.fetchGameSession(id: sessionID)
+            let me = backend.currentUserID
+            responderID = me
+            if detail.session.status.hasEnded {
+                end()
+                return
+            }
             guard let round = detail.rounds.first else {
                 phase = .failed("This puzzle has no round.")
                 return
@@ -112,9 +133,6 @@ final class SudokuGameStore {
             let generated = SudokuGenerator.puzzle(for: round.contentID, difficulty: difficulty)
             self.generated = generated
 
-            let me = BackendService.currentUserID
-            responderID = me
-
             let fromServer = detail.responses
                 .first { $0.responderID == me }
                 .flatMap { SudokuPlayState.decoded(from: $0.answerValue, puzzle: generated.puzzle) }
@@ -125,14 +143,15 @@ final class SudokuGameStore {
             let restored = SudokuPlayState.furtherAlong(fromServer, fromDevice)
             play = restored ?? SudokuPlayState(puzzle: generated.puzzle)
             hasSubmitted = fromServer?.isComplete == true
+            if hasSubmitted, let me { result.noteDelivered(responderID: me) }
             partnerResult = me.flatMap {
                 Self.partnerResult(in: detail, me: $0, puzzle: generated.puzzle)
             }
             recomputeConflicts()
             phase = .ready
 
-            // Solved here but never delivered: the one send failed, and nothing else retries it.
-            // Left alone the session never completes and both partners are stuck on this grid.
+            // Solved here but never delivered. Sent again now, as well as on reconnect, on
+            // foreground and by `GameResponseOutbox` — see `PuzzleResult`.
             if play?.isComplete == true, !hasSubmitted {
                 submitSolve()
             }
@@ -149,8 +168,19 @@ final class SudokuGameStore {
         try await actions.abandon(sessionID: sessionID)
         // The device's own copy goes too, or the grid would sit in the cache forever — harmless,
         // but it is the abandoned puzzle's last trace and nothing will ever ask for it again.
-        if let me = responderID ?? BackendService.currentUserID {
+        if let me = responderID ?? backend.currentUserID {
             SudokuProgressCache.remove(sessionID: sessionID, responderID: me)
+        }
+    }
+
+    /// The session was ended elsewhere. Nothing on this device can finish it now, so the grid and
+    /// any unsent solve go, and the screen says it has ended rather than offering a board.
+    private func end() {
+        stopClock()
+        phase = .ended
+        if let me = responderID {
+            SudokuProgressCache.remove(sessionID: sessionID, responderID: me)
+            result.discard(responderID: me)
         }
     }
 
@@ -282,30 +312,53 @@ final class SudokuGameStore {
     }
 
     /// The one write to `game_responses` this game makes. See the note at the top of the file.
+    ///
+    /// Queued before it is sent, so a send that fails is kept and tried again — see
+    /// `PuzzleResult`.
     private func submitSolve() {
-        guard !hasSubmitted, let play, play.isComplete else { return }
+        guard !hasSubmitted, let play, play.isComplete, let me = responderID else { return }
         hasSubmitted = true
         let encoded = play.encoded
-        let id = sessionID
+        let detail = notifyDetail
         submission = Task {
-            do {
-                try await BackendService.submitGameResponse(
-                    sessionID: id, roundNumber: 1, answerValue: encoded, isCorrect: true
-                )
-                // If they finished first, their response was invisible until this insert — RLS only
-                // reveals it once both sides have answered. Realtime would echo this same insert
-                // back and trigger the read anyway, but that leaves the comparison depending on a
-                // live socket to show a result both halves of which are already on the server.
-                await refreshPartner()
-                await notifyPartnerOfSolve()
-            } catch {
-                // The local copy still holds the finished grid, and `load()` prefers a complete
-                // state over an incomplete one, so reopening the puzzle offers the solve again
-                // rather than the board.
-                hasSubmitted = false
-            }
+            let outcome = await result.send(encoded: encoded, isCorrect: true, notifyDetail: detail, responderID: me)
+            await handle(outcome)
         }
     }
+
+    /// Tries the solve again if it is still waiting. The screen calls this on reconnecting and on
+    /// returning to the foreground.
+    func retryPendingResult() async {
+        guard phase == .ready, let me = responderID else { return }
+        await submission?.value
+        guard let outcome = await result.resendIfQueued(responderID: me) else {
+            // Nothing left to send — it may have gone from `GameResponseOutbox` meanwhile, so
+            // the partner's side is worth a fresh look.
+            await refreshPartner()
+            return
+        }
+        await handle(outcome)
+    }
+
+    private func handle(_ outcome: PuzzleResult.Outcome) async {
+        switch outcome {
+        case .sent:
+            // If they finished first, their response was invisible until this insert — RLS only
+            // reveals it once both sides have answered. Realtime would echo this same insert
+            // back and trigger the read anyway, but that leaves the comparison depending on a
+            // live socket to show a result both halves of which are already on the server.
+            await refreshPartner()
+            await notifyPartnerOfSolve()
+        case .pending:
+            // Kept on the device and in the queue. The screen says so while `resultPending`.
+            break
+        case .refused:
+            // Almost always because the session was ended meanwhile; this read is what shows it.
+            await refreshPartner()
+        }
+    }
+
+    private var notifyDetail: String? { difficulty.map { "\($0.displayName) Sudoku" } }
 
     /// Tells the other side that a grid was just finished — the same two pushes the other four
     /// games send from `GameSessionStore.performSubmit`, which this game does not go through.
@@ -325,10 +378,9 @@ final class SudokuGameStore {
     private func notifyPartnerOfSolve() async {
         // The difficulty is the whole of what names a sudoku — there is no deck title — and it
         // lands inside the push copy, so a nil reads better as an omission than as an empty string.
-        let detail = difficulty.map { "\($0.displayName) Sudoku" }
-        await BackendService.notifyPartner(
+        await backend.notifyPartner(
             event: partnerResult == nil ? .gamePartnerFinished : .gameResultsReady,
-            detail: detail,
+            detail: notifyDetail,
             sessionID: sessionID,
             gameType: .sudoku
         )
@@ -365,9 +417,20 @@ final class SudokuGameStore {
     /// Deliberately leaves `play` alone. A refresh arriving mid-solve must not be able to replace
     /// the grid under the player's hands with whatever the server last heard — which, for a puzzle
     /// in progress, is nothing at all, since the one response row is written on solve.
+    ///
+    /// It does read two other things from the session: whether it has ended (the partner
+    /// abandoned it, or the cron archived it, while this screen was open), and whether the server
+    /// has this player's solve, which clears a pending one however it was delivered.
     private func refreshPartner() async {
         guard let generated, let me = responderID else { return }
-        guard let detail = try? await BackendService.fetchGameSession(id: sessionID) else { return }
+        guard let detail = try? await backend.fetchGameSession(id: sessionID) else { return }
+        if detail.session.status.hasEnded {
+            end()
+            return
+        }
+        if detail.responses.contains(where: { $0.responderID == me }) {
+            result.noteDelivered(responderID: me)
+        }
         partnerResult = Self.partnerResult(in: detail, me: me, puzzle: generated.puzzle)
     }
 

@@ -58,14 +58,21 @@ struct GameRoundNavRow: View {
 }
 
 struct GameAbandonedState: View {
+    var message: LocalizedStringResource = "This game was left unfinished."
+
     var body: some View {
         VStack(spacing: Theme.Spacing.sm) {
             Image(systemName: "flag.slash.fill").font(.largeTitle).foregroundStyle(Theme.textSecondary)
-            Text("This game was left unfinished.")
+            Text(message)
                 .font(.subheadline)
                 .foregroundStyle(Theme.textSecondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
         }
+        .padding(Theme.Spacing.lg)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("game.ended")
     }
 }
 

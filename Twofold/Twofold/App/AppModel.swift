@@ -472,9 +472,9 @@ final class AppModel {
         }
     }
 
-    /// Sends what is in the outbox, oldest first. Called at launch, on returning to the
-    /// foreground and on reconnecting — through `performAdopt` for a couple, and from the solo
-    /// paths directly.
+    /// Sends what is in the outbox, oldest first, then the game answers waiting in theirs
+    /// (`GameResponseOutbox`). Called at launch, on returning to the foreground and on
+    /// reconnecting — through `performAdopt` for a couple, and from the solo paths directly.
     ///
     /// Stops at the first failure that is not a refusal: the connection is down, and the rest
     /// would fail the same way one timeout at a time. A refusal here is a write made earlier that
@@ -487,11 +487,12 @@ final class AppModel {
 
         var tried = Set<PendingWriteEntry.ID>()
         var refusedAny = false
+        var connectionFailed = false
         // Re-read each time round, so a write queued while this runs is sent by this pass.
         while let entry = PendingWriteStore.all().first(where: { !tried.contains($0.id) && isReadyToSend($0.write) }) {
             tried.insert(entry.id)
             let outcome = await send(entry)
-            if outcome == .failed { break }
+            if outcome == .failed { connectionFailed = true; break }
             if outcome == .refused {
                 refusedAny = true
                 // Its stand-in photos point at files that have just been deleted.
@@ -504,6 +505,12 @@ final class AppModel {
         }
         if refusedAny {
             writeRefusedMessage = "Some changes you made while offline couldn't be saved."
+        }
+        // Game answers and puzzle results queued with no game screen left open to send them —
+        // their own queue, sent at the same moments (GAME-3). Not after a write above has just
+        // timed out: these would only time out the same way.
+        if !connectionFailed {
+            await GameResponseOutbox.flush()
         }
     }
 

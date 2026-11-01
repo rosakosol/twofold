@@ -27,6 +27,8 @@ struct WordGuessGameView: View {
     @State private var confettiTrigger = false
     @State private var celebratedSession: UUID?
     @State private var shareData: GameResultShareData?
+    @State private var confirmingAbandon = false
+    @State private var abandonFailed: String?
 
     init(sessionID: UUID) {
         _store = State(initialValue: WordGuessGameStore(sessionID: sessionID))
@@ -45,6 +47,8 @@ struct WordGuessGameView: View {
                     .padding(Theme.Spacing.lg)
             case .ready:
                 content
+            case .ended:
+                GameAbandonedState(message: "This word was ended, so it can't be finished.")
             }
 
             // Outside the switch so it is mounted before the board loads — it animates on a change
@@ -66,6 +70,42 @@ struct WordGuessGameView: View {
             ToolbarItem(placement: .topBarLeading) {
                 GameBackButton(action: { dismiss() })
             }
+        }
+        .toolbar {
+            // The same way out Sudoku and Word Search have, and only while there are guesses left
+            // — a finished board's result is already submitted. Without it a board neither of you
+            // was going to finish could only wait for the cron, which for some boards never came
+            // (GAME-4).
+            if store.phase == .ready, store.play?.isComplete == false {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        Button(role: .destructive) {
+                            confirmingAbandon = true
+                        } label: {
+                            Label("Abandon this word", systemImage: "trash")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                    }
+                    .accessibilityLabel("More")
+                }
+            }
+        }
+        .confirmationDialog("Abandon this word?", isPresented: $confirmingAbandon, titleVisibility: .visible) {
+            Button("Abandon", role: .destructive) { abandon() }
+            Button("Keep guessing", role: .cancel) {}
+        } message: {
+            // Named plainly because the board is the couple's: ending it ends it for both.
+            Text(
+                appModel.partnerConnected
+                ? "This ends it for both of you — \(appModel.partner.name)'s guesses on this word go too."
+                : "Your guesses on this word will be lost."
+            )
+        }
+        .alert("Couldn't abandon", isPresented: Binding(get: { abandonFailed != nil }, set: { if !$0 { abandonFailed = nil } })) {
+            Button("OK") { abandonFailed = nil }
+        } message: {
+            Text(abandonFailed ?? "")
         }
         .sheet(isPresented: Binding(get: { shareData != nil }, set: { if !$0 { shareData = nil } })) {
             if let shareData {
@@ -105,6 +145,18 @@ struct WordGuessGameView: View {
         .onChange(of: scenePhase) { _, phase in
             // The clock measures time at the board, so backgrounding stops it.
             if phase == .active { store.startClock() } else { store.stopClock() }
+            if phase == .active { Task { await store.retryPendingResult() } }
+        }
+        .onChange(of: NetworkMonitor.shared.isConnected) { _, isConnected in
+            // The result may have been waiting on exactly this. `GameResponseOutbox` sends it
+            // too, from `RootView`'s reconnect; whichever gets there first, the other finds
+            // nothing left to send.
+            if isConnected { Task { await store.retryPendingResult() } }
+        }
+        .safeAreaInset(edge: .top) {
+            if store.resultPending {
+                OfflineGameBanner(isConnected: NetworkMonitor.shared.isConnected, pendingCount: 1, isResult: true)
+            }
         }
         .alert("Reminder sent", isPresented: $showingReminderSent) {
             Button("OK", role: .cancel) {}
@@ -409,7 +461,13 @@ struct WordGuessGameView: View {
                     .font(.subheadline.weight(.medium))
                     .foregroundStyle(Theme.textPrimary)
 
-                if appModel.partnerConnected {
+                if store.resultPending {
+                    Text("Your result is saved on this phone and will be sent as soon as it can be.")
+                        .font(.caption)
+                        .foregroundStyle(Theme.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else if appModel.partnerConnected {
                     // Shorter than it was ("Your result is saved. You'll see how it compares
                     // once ... has played theirs."), which ran to three lines on a narrow phone
                     // and said twice over what the card already shows by existing.
@@ -427,6 +485,19 @@ struct WordGuessGameView: View {
                 }
             }
             .frame(maxWidth: .infinity)
+        }
+    }
+
+    /// Ends the board for both of you and goes back to the entry screen, where Play starts today's
+    /// word — or says today's is done — rather than handing this one back.
+    private func abandon() {
+        Task {
+            do {
+                try await store.abandon()
+                dismiss()
+            } catch {
+                abandonFailed = error.localizedDescription
+            }
         }
     }
 

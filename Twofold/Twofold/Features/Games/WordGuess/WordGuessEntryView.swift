@@ -113,12 +113,19 @@ struct WordGuessEntryView: View {
         Button(action: start) {
             HStack(spacing: Theme.Spacing.xs) {
                 if isStarting { ProgressView().controlSize(.small).tint(.white) }
-                Text("Play today's word")
+                Text(hasBoardInPlay ? "Back to your word" : "Play today's word")
                     .font(.headline)
             }
         }
         .buttonStyle(.twofoldPrimary)
         .disabled(isStarting)
+    }
+
+    /// A board this person has started and not finished, which is what the button opens rather
+    /// than a new word — `start_word_guess_session` resumes it. The label said "Play today's word"
+    /// whatever it was about to open, which for a board from days ago was simply untrue.
+    private var hasBoardInPlay: Bool {
+        history.contains { ($0.status == .active || $0.status == .waitingForPartner) && $0.mine == nil }
     }
 
     /// Shown instead of the button once the server has refused, rather than letting them tap into
@@ -232,9 +239,9 @@ struct WordGuessEntryView: View {
         }
     }
 
-    /// An abandoned game has nothing to open; anything else opens on the board.
+    /// An abandoned or archived game has nothing to open; anything else opens on the board.
     private func canOpen(_ entry: BackendService.WordGuessHistoryEntry) -> Bool {
-        entry.status != .abandoned
+        !entry.status.hasEnded
     }
 
     /// A finished game's results are a Premium feature: on Plus the row says how it went, and tapping

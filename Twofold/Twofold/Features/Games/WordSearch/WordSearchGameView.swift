@@ -42,6 +42,8 @@ struct WordSearchGameView: View {
                     .padding(Theme.Spacing.lg)
             case .ready:
                 content
+            case .ended:
+                GameAbandonedState(message: "This grid was ended, so it can't be finished.")
             }
 
             // Outside the switch so it is mounted before the grid loads — it animates on a change
@@ -67,7 +69,7 @@ struct WordSearchGameView: View {
         .toolbar {
             // Only while there are words left. Once the grid is cleared the thing you want is the
             // comparison, and abandoning would throw away a result that is already submitted.
-            if store.play?.isComplete == false {
+            if store.phase == .ready, store.play?.isComplete == false {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         Button(role: .destructive) {
@@ -130,6 +132,18 @@ struct WordSearchGameView: View {
         .onChange(of: scenePhase) { _, phase in
             // The clock measures time at the grid, so backgrounding stops it.
             if phase == .active { store.startClock() } else { store.stopClock() }
+            if phase == .active { Task { await store.retryPendingResult() } }
+        }
+        .onChange(of: NetworkMonitor.shared.isConnected) { _, isConnected in
+            // The result may have been waiting on exactly this. `GameResponseOutbox` sends it
+            // too, from `RootView`'s reconnect; whichever gets there first, the other finds
+            // nothing left to send.
+            if isConnected { Task { await store.retryPendingResult() } }
+        }
+        .safeAreaInset(edge: .top) {
+            if store.resultPending {
+                OfflineGameBanner(isConnected: NetworkMonitor.shared.isConnected, pendingCount: 1, isResult: true)
+            }
         }
         .postHogScreenView("Games: Word Search")
     }
@@ -254,7 +268,13 @@ struct WordSearchGameView: View {
                     .font(.title3.weight(.bold))
                     .foregroundStyle(Theme.textPrimary)
 
-                if appModel.partnerConnected {
+                if store.resultPending {
+                    Text("Your time is saved on this phone and will be sent as soon as it can be.")
+                        .font(.caption)
+                        .foregroundStyle(Theme.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else if appModel.partnerConnected {
                     Text("Your time is saved. You'll see how it compares once \(appModel.partner.name) has cleared theirs.")
                         .font(.caption)
                         .foregroundStyle(Theme.textSecondary)

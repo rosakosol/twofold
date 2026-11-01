@@ -27,9 +27,16 @@ final class WordGuessGameStore {
         case loading
         case ready
         case failed(String)
+        /// Abandoned by the partner, or archived by the cron, so it can no longer be finished —
+        /// see `SudokuGameStore.Phase.ended`.
+        case ended
     }
 
     let sessionID: UUID
+    /// The board's result on its way to the server. See `PuzzleResult`.
+    let result: PuzzleResult
+    /// A finished board the server does not have yet.
+    var resultPending: Bool { result.isPending }
 
     private(set) var phase: Phase = .loading
     private(set) var play: WordGuessPlayState?
@@ -61,13 +68,21 @@ final class WordGuessGameStore {
     private var responderID: UUID?
     private var clock: Task<Void, Never>?
     private var hasSubmitted = false
+    private var submission: Task<Void, Never>?
     private var channel: RealtimeChannelV2?
+    private let backend: any PuzzleSessionBackend
 
     var answer: String? { play?.answer }
     var canType: Bool { play?.canGuessAgain == true }
 
-    init(sessionID: UUID) {
+    init(
+        sessionID: UUID,
+        backend: any PuzzleSessionBackend = LivePuzzleSessionBackend(),
+        queue: any GameResponseQueue = DiskGameResponseQueue.shared
+    ) {
         self.sessionID = sessionID
+        self.backend = backend
+        self.result = PuzzleResult(sessionID: sessionID, gameType: .wordGuess, backend: backend, queue: queue)
     }
 
     // MARK: - Loading
@@ -75,7 +90,13 @@ final class WordGuessGameStore {
     func load() async {
         phase = .loading
         do {
-            let detail = try await BackendService.fetchGameSession(id: sessionID)
+            let detail = try await backend.fetchGameSession(id: sessionID)
+            let me = backend.currentUserID
+            responderID = me
+            if detail.session.status.hasEnded {
+                end()
+                return
+            }
             guard let round = detail.rounds.first else {
                 phase = .failed("This board has no round.")
                 return
@@ -88,9 +109,6 @@ final class WordGuessGameStore {
                 return
             }
 
-            let me = BackendService.currentUserID
-            responderID = me
-
             let fromServer = detail.responses
                 .first { $0.responderID == me }
                 .flatMap { WordGuessPlayState.decoded(from: $0.answerValue, answer: word) }
@@ -100,16 +118,16 @@ final class WordGuessGameStore {
 
             play = Self.furtherAlong(fromServer, fromDevice) ?? WordGuessPlayState(answer: word)
             hasSubmitted = fromServer?.isComplete == true
+            if hasSubmitted, let me { result.noteDelivered(responderID: me) }
             partnerResult = me.flatMap { Self.partnerResult(in: detail, me: $0) }
             partnerPlay = me.flatMap { Self.partnerPlay(in: detail, me: $0, answer: word) }
             playedAt = detail.session.createdAt
             phase = .ready
 
-            // Finished on this device but never heard of by the server: the one send in
-            // `submitGuess` failed (no signal, or the app was closed before it landed). Nothing
-            // else ever sends it, and until it does the session stays open, so the partner waits on
-            // a result that already exists and "Play today's word" resumes this board for both of
-            // them indefinitely. Opening the board is the moment to deliver it.
+            // Finished on this device but never heard of by the server: the send in
+            // `submitGuess` failed (no signal, or the app was closed before it landed). Until it
+            // lands the session stays open and the partner waits on a result that already exists.
+            // Sent again now, as well as on reconnect, on foreground and by `GameResponseOutbox`.
             if play?.isComplete == true, !hasSubmitted {
                 submitResult()
             }
@@ -194,29 +212,67 @@ final class WordGuessGameStore {
     /// being compared against, and a board that quietly wrote nothing on failure would leave them
     /// waiting forever on someone who had in fact finished.
     private func submitResult() {
-        guard !hasSubmitted, let current = play, current.isComplete else { return }
+        guard !hasSubmitted, let current = play, current.isComplete, let me = responderID else { return }
         hasSubmitted = true
-        let encoded = current.encoded
-        let id = sessionID
-        Task {
-            do {
-                try await BackendService.submitGameResponse(
-                    sessionID: id,
-                    roundNumber: 1,
-                    answerValue: encoded,
-                    // Whether this player got the word — the column means "was this answer right",
-                    // and for once in this app that has a literal answer.
-                    isCorrect: current.isSolved
-                )
-                // If they finished first, their row was invisible until this insert: RLS reveals it
-                // only once both sides have answered.
-                await refreshPartner()
-                await notifyPartnerOfResult()
-            } catch {
-                // The device's copy still holds the finished board, and `load()` prefers a complete
-                // state, so reopening shows the result again rather than an empty board.
-                hasSubmitted = false
-            }
+        submission = Task {
+            let outcome = await result.send(
+                encoded: current.encoded,
+                // Whether this player got the word — the column means "was this answer right",
+                // and for once in this app that has a literal answer.
+                isCorrect: current.isSolved,
+                notifyDetail: GameType.wordGuess.displayName,
+                responderID: me
+            )
+            await handle(outcome)
+        }
+    }
+
+    /// Tries the result again if it is still waiting. The screen calls this on reconnecting and
+    /// on returning to the foreground.
+    func retryPendingResult() async {
+        guard phase == .ready, let me = responderID else { return }
+        await submission?.value
+        guard let outcome = await result.resendIfQueued(responderID: me) else {
+            // Nothing left to send — it may have gone from `GameResponseOutbox` meanwhile.
+            await refreshPartner()
+            return
+        }
+        await handle(outcome)
+    }
+
+    private func handle(_ outcome: PuzzleResult.Outcome) async {
+        switch outcome {
+        case .sent:
+            // If they finished first, their row was invisible until this insert: RLS reveals it
+            // only once both sides have answered.
+            await refreshPartner()
+            await notifyPartnerOfResult()
+        case .pending:
+            break
+        case .refused:
+            // Almost always because the session was ended meanwhile; this read is what shows it.
+            await refreshPartner()
+        }
+    }
+
+    /// Ends this board for both partners — Word Guess had no way to, so a board neither of them
+    /// was going to finish could only wait for the cron (GAME-4).
+    func abandon() async throws {
+        stopClock()
+        try await BackendService.abandonGameSession(id: sessionID)
+        if let me = responderID ?? backend.currentUserID {
+            PuzzleProgressCache.wordGuess.remove(sessionID: sessionID, responderID: me)
+        }
+    }
+
+    /// The session was ended elsewhere: the board and any unsent result go, and the screen says
+    /// so rather than offering a board that can no longer be finished.
+    private func end() {
+        stopClock()
+        phase = .ended
+        if let me = responderID {
+            PuzzleProgressCache.wordGuess.remove(sessionID: sessionID, responderID: me)
+            result.discard(responderID: me)
         }
     }
 
@@ -228,7 +284,7 @@ final class WordGuessGameStore {
     /// Sent for a solo player too, exactly as the other games do: `couple_id` is null,
     /// `notify-couple-event` finds no couple and returns without sending anything.
     private func notifyPartnerOfResult() async {
-        await BackendService.notifyPartner(
+        await backend.notifyPartner(
             event: partnerResult == nil ? .gamePartnerFinished : .gameResultsReady,
             detail: GameType.wordGuess.displayName,
             sessionID: sessionID,
@@ -266,9 +322,18 @@ final class WordGuessGameStore {
     /// Deliberately leaves `play` alone: a refresh arriving mid-board must not replace the guesses
     /// under the player's hands with what the server last heard, which for a board in progress is
     /// nothing at all.
+    ///
+    /// Also notices the session ending under it, and the server having this player's result.
     private func refreshPartner() async {
         guard let me = responderID else { return }
-        guard let detail = try? await BackendService.fetchGameSession(id: sessionID) else { return }
+        guard let detail = try? await backend.fetchGameSession(id: sessionID) else { return }
+        if detail.session.status.hasEnded {
+            end()
+            return
+        }
+        if detail.responses.contains(where: { $0.responderID == me }) {
+            result.noteDelivered(responderID: me)
+        }
         partnerResult = Self.partnerResult(in: detail, me: me)
         if let word = answer {
             partnerPlay = Self.partnerPlay(in: detail, me: me, answer: word)

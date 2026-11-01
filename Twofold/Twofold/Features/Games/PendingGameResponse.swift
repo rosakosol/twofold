@@ -5,6 +5,9 @@
 //  Local queue for game answers submitted while offline — GameSessionStore.submit() writes here
 //  (and applies the same response optimistically in memory) instead of losing the tap, and
 //  GameSessionStore.syncPendingResponses() drains it in order once connectivity returns.
+//  A generated puzzle's one result is queued here too, before it is sent (`PuzzleResult`), and
+//  `GameResponseOutbox` drains whatever is left at launch, on foreground and on reconnect, with
+//  no game screen open.
 //  Main-app only, plain UserDefaults — nothing outside this process ever touches it, so there's
 //  no need for the App Group storage the widget/share-extension hand-off structs use.
 //
@@ -28,8 +31,15 @@ struct PendingGameResponse: Codable, Identifiable, Equatable {
     /// build — which are all for real sessions, where the round number is already correct — still
     /// decode.
     let contentID: UUID?
+    /// Set only for a generated puzzle's one result (`PuzzleResult`), where sending it *is*
+    /// finishing: `GameResponseOutbox` sends the partner the same push the puzzle screen would
+    /// have, had it still been open when the result landed. Nil for a deck answer, whose push
+    /// depends on what else the session holds and is left to `GameSessionStore`.
+    let resultGameType: GameType?
+    /// What that push calls the puzzle — "Hard Sudoku" — when `resultGameType` is set.
+    let resultNotifyDetail: String?
 
-    init(id: UUID = UUID(), sessionID: UUID, roundNumber: Int, responderID: UUID, answerValue: String, isCorrect: Bool?, contentID: UUID? = nil, queuedAt: Date = .now) {
+    init(id: UUID = UUID(), sessionID: UUID, roundNumber: Int, responderID: UUID, answerValue: String, isCorrect: Bool?, contentID: UUID? = nil, resultGameType: GameType? = nil, resultNotifyDetail: String? = nil, queuedAt: Date = .now) {
         self.id = id
         self.sessionID = sessionID
         self.roundNumber = roundNumber
@@ -37,7 +47,15 @@ struct PendingGameResponse: Codable, Identifiable, Equatable {
         self.answerValue = answerValue
         self.isCorrect = isCorrect
         self.contentID = contentID
+        self.resultGameType = resultGameType
+        self.resultNotifyDetail = resultNotifyDetail
         self.queuedAt = queuedAt
+    }
+
+    /// Whether this answers the same round, for the same person, as `other` — the key the
+    /// server's upsert uses, so only the newer of two such answers is worth sending.
+    func answersSameRound(as other: PendingGameResponse) -> Bool {
+        sessionID == other.sessionID && roundNumber == other.roundNumber && responderID == other.responderID
     }
 }
 
@@ -76,6 +94,12 @@ enum PendingGameResponseStore {
 
     static func add(_ response: PendingGameResponse) {
         save(all() + [response])
+    }
+
+    /// Queues `response` in place of any older answer to the same round. For a puzzle's result,
+    /// which is resent whole rather than appended to.
+    static func put(_ response: PendingGameResponse) {
+        save(all().filter { !$0.answersSameRound(as: response) } + [response])
     }
 
     static func remove(id: UUID) {
