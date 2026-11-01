@@ -301,31 +301,221 @@ final class AppModel {
     /// directly, so a unit test can hand in a backend that fails or answers on cue.
     @ObservationIgnored var backend: any CoupleDataBackend = LiveCoupleDataBackend()
 
-    /// Optimistic edits to `flights`/`trips`/`memories` still awaiting their network write.
-    /// `refreshFlights()`/`refreshTrips()`/`refreshMemories()` each do a full overwrite of their
-    /// array from the server — and any of them can run concurrently with one of these writes,
-    /// since they're also triggered independently by the couple-wide flights realtime
-    /// subscription and by Home's own tab-switch/foreground refresh. A refresh landing in that
-    /// window fetches server state that doesn't reflect the write yet, silently reverting the
-    /// edit (e.g. an unlinked flight looking linked again) until the next refresh happens to
-    /// catch up. Re-applied after every full-array overwrite until the write they belong to
-    /// finishes — same fix as the one already in `GameSessionStore.refresh()`.
-    private var inFlightMutations: [UUID: () -> Void] = [:]
+    // MARK: - Outbox
 
-    private func trackInFlightMutation(_ reapply: @escaping () -> Void) -> UUID {
-        let id = UUID()
-        inFlightMutations[id] = reapply
-        return id
-    }
+    /// True while `syncPendingWrites()` is draining the outbox. A write made meanwhile is queued
+    /// and left for that pass to send, rather than sent alongside it and risking the two landing
+    /// out of order.
+    private var isSyncingPendingWrites = false
 
-    private func clearInFlightMutation(_ id: UUID) {
-        inFlightMutations.removeValue(forKey: id)
-    }
-
-    private func reapplyInFlightMutations() {
-        for reapply in inFlightMutations.values {
-            reapply()
+    /// Every refresh replaces `trips`/`memories`/`flights` (and `adopt` the couple's own fields)
+    /// with the server's copy, which knows nothing of an edit that hasn't been sent yet — or that
+    /// is in the air right now. Re-applying the outbox afterwards is what keeps such an edit on
+    /// screen instead of silently reverting it until the next refresh catches up. It replaces the
+    /// in-memory list of in-flight edits this used to keep, which forgot an edit the moment its
+    /// one attempt failed.
+    private func reapplyPendingWrites() {
+        for entry in PendingWriteStore.all() {
+            apply(entry.write)
         }
+    }
+
+    /// The local half of a write: what the screen should show once it has landed.
+    private func apply(_ write: PendingWrite) {
+        switch write {
+        case .trip(let trip):
+            guard let index = trips.firstIndex(where: { $0.id == trip.id }) else { return }
+            var applied = trip
+            applied.flights = trips[index].flights
+            trips[index] = applied
+        case let .tripNotes(tripID, notes):
+            guard let index = trips.firstIndex(where: { $0.id == tripID }) else { return }
+            trips[index].notes = notes
+        case let .flightTrip(flightID, tripID):
+            guard let index = flights.firstIndex(where: { $0.id == flightID }) else { return }
+            let previousTripID = flights[index].tripID
+            flights[index].tripID = tripID
+            if let previousTripID { syncTripFlights(tripID: previousTripID) }
+            if let tripID { syncTripFlights(tripID: tripID) }
+        case let .flightTravelers(flightID, travelerIDs):
+            guard let index = flights.firstIndex(where: { $0.id == flightID }) else { return }
+            flights[index].travelerIDs = travelerIDs
+            if let tripID = flights[index].tripID { syncTripFlights(tripID: tripID) }
+        case .memory(let memory):
+            // The fields `updateMemory` writes, and only those: photos are added and removed by
+            // writes of their own, and a copy's photo list may be older than the one on screen.
+            guard let index = memories.firstIndex(where: { $0.id == memory.id }) else { return }
+            memories[index].title = memory.title
+            memories[index].place = memory.place
+            memories[index].date = memory.date
+            memories[index].note = memory.note
+        case let .memoryTrip(memoryID, tripID):
+            guard let index = memories.firstIndex(where: { $0.id == memoryID }) else { return }
+            memories[index].tripID = tripID
+        case let .memoryPhotos(memoryID, photos):
+            guard let index = memories.firstIndex(where: { $0.id == memoryID }) else { return }
+            let shown = Set(memories[index].photos.map(\.id))
+            memories[index].photos.append(contentsOf: photos.filter { !shown.contains($0.id) })
+        case let .removeMemoryPhoto(memoryID, photoID, _):
+            guard let index = memories.firstIndex(where: { $0.id == memoryID }) else { return }
+            memories[index].photos.removeAll { $0.id == photoID }
+        case .firstName(let name):
+            couple.partnerA.name = name
+        case .partnerNickname(let name):
+            couple.partnerB.name = name
+        case .partnerHomeCity(let city):
+            couple.partnerB.homeCity = city
+        case .homeCity(let city):
+            couple.partnerA.homeCity = city
+        case .anniversaryDate(let date):
+            couple.startedDatingOn = date
+        }
+    }
+
+    /// Applies a write here, puts it in the outbox and sends it.
+    ///
+    /// Queued before it is sent, not after it fails: an app killed mid-request still has it, and a
+    /// refresh landing while it is in the air re-applies it. On success it leaves the queue. On a
+    /// failure that is not a refusal it stays, and `syncPendingWrites()` sends it at the next
+    /// launch, foreground or reconnect — this is what makes editing work offline, which the code
+    /// used to promise ("the write lands later") without anything ever sending it again. A refusal
+    /// will never land, so it leaves the queue and `onRefusal` undoes the local half.
+    private func commit(_ write: PendingWrite, onRefusal: () -> Void) async {
+        let entry = PendingWriteStore.add(write)
+        apply(write)
+        guard !isSyncingPendingWrites, isReadyToSend(write) else { return }
+        if await send(entry) == .refused { onRefusal() }
+    }
+
+    private enum SendOutcome { case sent, refused, failed }
+
+    private func send(_ entry: PendingWriteEntry) async -> SendOutcome {
+        do {
+            try await deliver(entry.write)
+            PendingWriteStore.remove(id: entry.id)
+            return .sent
+        } catch {
+            guard BackendService.isPermanentRefusal(error) else { return .failed }
+            PendingWriteStore.remove(id: entry.id)
+            return .refused
+        }
+    }
+
+    /// An edit to a trip or memory that is itself still waiting to be created can't land before
+    /// it — the row isn't there, and an update to a missing row succeeds having changed nothing.
+    /// It waits in the queue until `performAdopt` has created what it refers to.
+    private func isReadyToSend(_ write: PendingWrite) -> Bool {
+        switch write {
+        case .trip(let trip): !pendingTripIDs.contains(trip.id)
+        case .tripNotes(let tripID, _): !pendingTripIDs.contains(tripID)
+        case .flightTrip(_, let tripID): tripID.map { !pendingTripIDs.contains($0) } ?? true
+        case .memory(let memory): !pendingMemoryIDs.contains(memory.id)
+        case let .memoryTrip(memoryID, tripID):
+            !pendingMemoryIDs.contains(memoryID) && (tripID.map { !pendingTripIDs.contains($0) } ?? true)
+        case .memoryPhotos(let memoryID, _): !pendingMemoryIDs.contains(memoryID)
+        case .removeMemoryPhoto(let memoryID, _, _): !pendingMemoryIDs.contains(memoryID)
+        case .flightTravelers, .firstName, .partnerNickname, .partnerHomeCity, .homeCity, .anniversaryDate: true
+        }
+    }
+
+    /// The network half of a write.
+    private func deliver(_ write: PendingWrite) async throws {
+        switch write {
+        case .trip(let trip):
+            try await backend.updateTrip(trip)
+        case let .tripNotes(tripID, notes):
+            try await backend.updateTripNotes(tripID: tripID, notes: notes)
+        case let .flightTrip(flightID, tripID):
+            try await backend.setFlightTrip(flightID: flightID, tripID: tripID)
+        case let .flightTravelers(flightID, travelerIDs):
+            try await backend.setFlightTravelers(flightID: flightID, travelerIDs: travelerIDs)
+        case .memory(let memory):
+            try await backend.updateMemory(memory)
+        case let .memoryTrip(memoryID, tripID):
+            try await backend.setMemoryTrip(memoryID: memoryID, tripID: tripID)
+        case let .memoryPhotos(memoryID, photos):
+            // A photo can only be stored under a couple. Not a refusal: it stays queued.
+            guard let backendCoupleID else { throw URLError(.userAuthenticationRequired) }
+            var photoPaths: [String] = []
+            for photo in photos {
+                guard let data = PendingWriteStore.photoData(id: photo.id) else { continue }
+                photoPaths.append(try await backend.uploadMemoryPhoto(coupleID: backendCoupleID, memoryID: memoryID, imageData: data))
+            }
+            // Positions after the photos the server already has, read now rather than when the
+            // write was queued: others may have been added or removed since.
+            let startingPosition = memories.first { $0.id == memoryID }?.photos.filter { !$0.isPending }.count ?? 0
+            let uploaded = try await backend.addMemoryPhotos(memoryID: memoryID, photoPaths: photoPaths, startingPosition: startingPosition)
+            // Looked up again after the awaits, by id: a refresh may have replaced the array.
+            if let index = memories.firstIndex(where: { $0.id == memoryID }) {
+                let standIns = Set(photos.map(\.id))
+                memories[index].photos.removeAll { standIns.contains($0.id) }
+                memories[index].photos.append(contentsOf: uploaded)
+            }
+        case let .removeMemoryPhoto(_, photoID, path):
+            try await backend.deleteMemoryPhoto(id: photoID, path: path)
+        case .firstName(let name):
+            try await backend.updateFirstName(name)
+        case .partnerNickname(let name):
+            try await backend.updatePartnerNickname(name)
+        case .partnerHomeCity(let city):
+            try await backend.updatePartnerHomeCityGuess(city)
+        case .homeCity(let city):
+            try await backend.updateHomeCity(city)
+        case .anniversaryDate(let date):
+            // Whichever is authoritative when it is sent, which may not be what it was when it was
+            // made: pairing in between moves the date onto the couple (see `updateAnniversaryDate`).
+            if let backendCoupleID {
+                try await backend.updateCoupleAnniversaryDate(coupleID: backendCoupleID, date: date)
+            } else {
+                try await backend.updateAnniversaryDate(date)
+            }
+        }
+    }
+
+    /// Sends what is in the outbox, oldest first. Called at launch, on returning to the
+    /// foreground and on reconnecting — through `performAdopt` for a couple, and from the solo
+    /// paths directly.
+    ///
+    /// Stops at the first failure that is not a refusal: the connection is down, and the rest
+    /// would fail the same way one timeout at a time. A refusal here is a write made earlier that
+    /// will never land; it leaves the queue, and the next refresh shows what the server has.
+    func syncPendingWrites() async {
+        if DemoMode.isOn { return }  // -demoMode: the sample couple, nothing sent
+        guard !isSyncingPendingWrites else { return }
+        isSyncingPendingWrites = true
+        defer { isSyncingPendingWrites = false }
+
+        var tried = Set<PendingWriteEntry.ID>()
+        var refusedAny = false
+        // Re-read each time round, so a write queued while this runs is sent by this pass.
+        while let entry = PendingWriteStore.all().first(where: { !tried.contains($0.id) && isReadyToSend($0.write) }) {
+            tried.insert(entry.id)
+            let outcome = await send(entry)
+            if outcome == .failed { break }
+            if outcome == .refused {
+                refusedAny = true
+                // Its stand-in photos point at files that have just been deleted.
+                if case let .memoryPhotos(memoryID, photos) = entry.write,
+                   let index = memories.firstIndex(where: { $0.id == memoryID }) {
+                    let standIns = Set(photos.map(\.id))
+                    memories[index].photos.removeAll { standIns.contains($0.id) }
+                }
+            }
+        }
+        if refusedAny {
+            writeRefusedMessage = "Some changes you made while offline couldn't be saved."
+        }
+    }
+
+    /// A refresh's trips or memories, with anything not yet created kept. The server doesn't have
+    /// those, so a plain overwrite dropped them from the screen — and `performAdopt`, which builds
+    /// its retry list from what is on screen, then stopped retrying them.
+    private func mergingPendingTrips(_ fresh: [Trip]) -> [Trip] {
+        fresh.filter { !pendingTripIDs.contains($0.id) } + trips.filter { pendingTripIDs.contains($0.id) }
+    }
+
+    private func mergingPendingMemories(_ fresh: [Memory]) -> [Memory] {
+        fresh.filter { !pendingMemoryIDs.contains($0.id) } + memories.filter { pendingMemoryIDs.contains($0.id) }
     }
 
     var currentUser: Person { couple.partnerA }
@@ -560,6 +750,9 @@ final class AppModel {
             if couple.connectedAt == nil { couple.connectedAt = cached.connectedAt }
             if couple.maxDistanceKm == nil { couple.maxDistanceKm = cached.maxDistanceKm }
         }
+        // And anything edited offline and not yet sent wins over its cached copy too, for the
+        // same reason.
+        reapplyPendingWrites()
         applyCachedGameState()
     }
 
@@ -813,6 +1006,10 @@ final class AppModel {
         if let anniversaryDate = profile.anniversaryDate {
             couple.startedDatingOn = anniversaryDate
         }
+        // The profile just read is the server's, so a name or city changed offline and not yet
+        // sent goes back on top of it — then gets sent, since solo there is no `performAdopt` to.
+        reapplyPendingWrites()
+        Task { [weak self] in await self?.syncPendingWrites() }
         isSubscriptionActive = await resolvedSubscriptionActive(backendSaysActive: profile.subscriptionActive)
         // Unpaired, so their own row is the only row: whatever access they have is theirs.
         let deviceEntitled = await deviceHoldsEntitlement()
@@ -1126,6 +1323,9 @@ final class AppModel {
         // photo bytes too.
         PendingTripStore.clear()
         PendingMemoryStore.clear()
+        // Edits waiting to be sent, for the same reason: each goes out as whoever is signed in
+        // when it is sent.
+        PendingWriteStore.clear()
         // Written by the share extension, read by `HomeView` with no user id in the record. Holds
         // the text of a shared booking email, including anything scraped from a boarding pass.
         PendingShareStore.clear()
@@ -1305,10 +1505,15 @@ final class AppModel {
     func updateProfile(name: String) async {
         let trimmedName = name.trimmingCharacters(in: .whitespaces)
         if !trimmedName.isEmpty, trimmedName != couple.partnerA.name {
-            try? await backend.updateFirstName(trimmedName)
-            couple.partnerA.name = trimmedName
+            let previous = couple.partnerA.name
+            await commit(.firstName(trimmedName)) {
+                couple.partnerA.name = previous
+                writeRefusedMessage = Self.profileRefusedMessage
+            }
         }
     }
+
+    private static let profileRefusedMessage = "That change wasn't saved."
 
     func updateAvatar(imageData: Data) async throws {
         let url = try await BackendService.uploadAvatar(imageData: imageData)
@@ -1323,8 +1528,11 @@ final class AppModel {
     func updatePartnerName(_ name: String) async {
         let trimmed = name.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty, trimmed != couple.partnerB.name else { return }
-        try? await backend.updatePartnerNickname(trimmed)
-        couple.partnerB.name = trimmed
+        let previous = couple.partnerB.name
+        await commit(.partnerNickname(trimmed)) {
+            couple.partnerB.name = previous
+            writeRefusedMessage = Self.profileRefusedMessage
+        }
     }
 
     /// Unlike the name (always personal), the city is shared/real once paired — only
@@ -1332,8 +1540,11 @@ final class AppModel {
     /// this field once `partnerConnected` is true.
     func updatePartnerHomeCity(_ city: Place) async {
         guard city.id != couple.partnerB.homeCity?.id else { return }
-        try? await backend.updatePartnerHomeCityGuess(city)
-        couple.partnerB.homeCity = city
+        let previous = couple.partnerB.homeCity
+        await commit(.partnerHomeCity(city)) {
+            couple.partnerB.homeCity = previous
+            writeRefusedMessage = Self.profileRefusedMessage
+        }
     }
 
     /// Always personal, paired or not — it's always *your own* custom photo of your partner,
@@ -1350,12 +1561,12 @@ final class AppModel {
     /// is actually authoritative right now or the edit silently reverts on the next refresh.
     func updateAnniversaryDate(_ date: Date) async {
         guard date != couple.startedDatingOn else { return }
-        if let coupleID = backendCoupleID {
-            try? await backend.updateCoupleAnniversaryDate(coupleID: coupleID, date: date)
-        } else {
-            try? await backend.updateAnniversaryDate(date)
+        let previous = couple.startedDatingOn
+        // Which of the two it lands on is decided when it is sent — see `deliver`.
+        await commit(.anniversaryDate(date)) {
+            couple.startedDatingOn = previous
+            writeRefusedMessage = Self.profileRefusedMessage
         }
-        couple.startedDatingOn = date
     }
 
     /// Sets or clears this person's own birthday. Nil removes it, which is always allowed — it is
@@ -1554,6 +1765,10 @@ final class AppModel {
             // reach here and announce that the partner had disconnected.
             if partnerConnected, let profile = try? await BackendService.fetchOwnProfile() {
                 await adoptSoloProfile(profile)
+            } else {
+                // Still solo, so this is the foreground or reconnect that would have replayed the
+                // outbox through `performAdopt` for a couple.
+                await syncPendingWrites()
             }
         case .unknown:
             break
@@ -2035,6 +2250,12 @@ final class AppModel {
     /// locally before pairing completed (drafted during onboarding, or via the home screen's
     /// "add a trip"/"add a memory" cards while still solo).
     private func performAdopt(_ state: BackendService.CoupleState) async {
+        // The retry list below is built from what is on screen, so anything a refresh or a reset
+        // took off the screen would also stop being retried — for the rest of the session, until a
+        // relaunch read it back from disk. Reading it back here as well means the disk copy, not
+        // the array, decides what is still waiting.
+        restorePendingMemoriesFromDisk()
+        restorePendingTripsFromDisk()
         let localOnlyTrips = trips.filter { pendingTripIDs.contains($0.id) }
         let localOnlyMemories = memories.filter { pendingMemoryIDs.contains($0.id) }
 
@@ -2048,7 +2269,7 @@ final class AppModel {
         // `refreshFlights` and `refreshMemories` have always reapplied here; this one never did,
         // and `refreshAll` only got away with it because it called those three afterwards and
         // they reapplied on its behalf. It no longer does — see `refreshAll`.
-        reapplyInFlightMutations()
+        reapplyPendingWrites()
         Task { [weak self] in await self?.resolveMissingAirportTimezones() }
         // Both of these used to be assigned ~50 lines below, after the `await` on the next
         // subscription line. `partnerConnected` flipping true is what `RootView` watches to show
@@ -2192,6 +2413,11 @@ final class AppModel {
             memories.append(synced)
         }
         pendingMemoryIDs = stillPendingMemories
+        // Again now the pending trips and memories are back in the arrays, for an edit made to one.
+        reapplyPendingWrites()
+        // Edits go after creates, so one made to a trip or memory just created above can now be
+        // sent. Not awaited: a queue of photos is no reason to hold up everything waiting on adopt.
+        Task { [weak self] in await self?.syncPendingWrites() }
         Task { await WidgetSnapshotWriter.refresh(appModel: self) }
         await startFlightsRealtimeSubscription(coupleID: state.couple.id)
     }
@@ -2336,27 +2562,26 @@ final class AppModel {
         // the flow, and then dropped — `profiles.first_name` stayed '' and the next sign-in read
         // it back as "You". Idempotent for the email path, which is writing the same string it
         // already sent.
+        //
+        // These go through the outbox like any other edit, so an answer given on a dropped
+        // connection is sent later rather than lost. None is refusable by the subscription.
         if !onboarding.firstName.isEmpty {
-            try? await backend.updateFirstName(onboarding.firstName)
+            await commit(.firstName(onboarding.firstName)) {}
         }
 
         if let homeCity = onboarding.homeCity {
-            try? await backend.updateHomeCity(homeCity)
-            couple.partnerA.homeCity = homeCity
+            await commit(.homeCity(homeCity)) {}
         }
 
         if !onboarding.partnerName.isEmpty {
-            try? await backend.updatePartnerNickname(onboarding.partnerName)
-            couple.partnerB.name = onboarding.partnerName
+            await commit(.partnerNickname(onboarding.partnerName)) {}
         }
         if let partnerCity = onboarding.partnerCity {
-            try? await backend.updatePartnerHomeCityGuess(partnerCity)
-            couple.partnerB.homeCity = partnerCity
+            await commit(.partnerHomeCity(partnerCity)) {}
         }
 
         if let anniversaryDate = onboarding.anniversaryDate {
-            try? await backend.updateAnniversaryDate(anniversaryDate)
-            couple.startedDatingOn = anniversaryDate
+            await commit(.anniversaryDate(anniversaryDate)) {}
         }
 
         // Only when they gave one. `BirthdayView` has a Skip, and skipping leaves this nil — which
@@ -2503,7 +2728,7 @@ final class AppModel {
                 trips[index].flights = fresh.filter { $0.tripID == trips[index].id }
             }
             await resolveMissingAirportTimezones()
-            reapplyInFlightMutations()
+            reapplyPendingWrites()
             await LiveActivityManager.shared.reconcileOnLaunch(with: fresh)
             await LiveActivityManager.shared.syncActivities(
                 for: fresh,
@@ -2579,8 +2804,8 @@ final class AppModel {
         if DemoMode.isOn { return }  // -demoMode: the sample couple, nothing fetched
         guard let backendCoupleID else { return }
         if let fresh = try? await backend.fetchMemories(coupleID: backendCoupleID) {
-            memories = fresh
-            reapplyInFlightMutations()
+            memories = mergingPendingMemories(fresh)
+            reapplyPendingWrites()
         }
     }
 
@@ -2596,8 +2821,8 @@ final class AppModel {
             for index in fresh.indices {
                 fresh[index].flights = flights.filter { $0.tripID == fresh[index].id }
             }
-            trips = fresh
-            reapplyInFlightMutations()
+            trips = mergingPendingTrips(fresh)
+            reapplyPendingWrites()
         }
     }
 
@@ -2609,6 +2834,7 @@ final class AppModel {
     /// cleanup rather than duplicating it here.
     func deleteFlight(_ flight: Flight) async {
         flights.removeAll { $0.id == flight.id }
+        PendingWriteStore.removeAll(targeting: flight.id)
         for index in trips.indices {
             trips[index].flights.removeAll { $0.id == flight.id }
         }
@@ -2665,14 +2891,20 @@ final class AppModel {
     /// rather than inventing a separate checklist feature/table.
     func updateTripNotes(_ trip: Trip) async {
         guard let index = trips.firstIndex(where: { $0.id == trip.id }) else { return }
-        trips[index].notes = trip.notes
-        let mutationID = trackInFlightMutation { [weak self] in
-            guard let self, let index = self.trips.firstIndex(where: { $0.id == trip.id }) else { return }
-            self.trips[index].notes = trip.notes
+        let originalNotes = trips[index].notes
+        if pendingTripIDs.contains(trip.id) {
+            // Not created yet: the edit goes into the copy that will be.
+            trips[index].notes = trip.notes
+            PendingTripStore.save(trips[index])
+            return
         }
-        defer { clearInFlightMutation(mutationID) }
-        try? await backend.updateTripNotes(tripID: trip.id, notes: trip.notes)
+        await commit(.tripNotes(tripID: trip.id, notes: trip.notes)) {
+            if let index = trips.firstIndex(where: { $0.id == trip.id }) { trips[index].notes = originalNotes }
+            writeRefusedMessage = Self.tripsRefusedMessage
+        }
     }
+
+    private static let tripsRefusedMessage = "Changes to your trips need an active subscription. Nothing was saved."
 
     /// Full edit of a trip's own fields (origin/destination/dates/category/notes) — as opposed
     /// to `updateTripNotes`, which only ever touched notes. Recomputes `distanceKm` since
@@ -2683,31 +2915,23 @@ final class AppModel {
         let original = trips[index]
         var updated = trip
         updated.distanceKm = Geo.distanceKm(trip.origin.coordinate, trip.destination.coordinate)
-        updated.flights = trips[index].flights
-        trips[index] = updated
-        let mutationID = trackInFlightMutation { [weak self] in
-            guard let self, let index = self.trips.firstIndex(where: { $0.id == trip.id }) else { return }
-            var reapplied = updated
-            reapplied.flights = self.trips[index].flights
-            self.trips[index] = reapplied
+        updated.flights = []
+        if pendingTripIDs.contains(trip.id) {
+            // Not created yet, so there is no row to update — the edit used to be sent anyway, came
+            // back as "no rows", and was rolled back as if refused. It goes into the copy that will
+            // be created instead.
+            apply(.trip(updated))
+            PendingTripStore.save(trips[index])
+            return
         }
-        defer { clearInFlightMutation(mutationID) }
-        do {
-            try await backend.updateTrip(updated)
-        } catch {
-            // `try?` used to swallow this, which was fine while every failure here was a dropped
-            // connection: the local edit is right and the write lands later, which is what makes
-            // editing work offline. A policy refusal is not that. It will never land, so leaving
-            // the change on screen shows somebody an edit that exists nowhere and disappears at
-            // the next launch — silently, with no reason to suspect it.
-            guard BackendService.isPermanentRefusal(error) else { return }
-            // The copy taken before the mutation, not a refetch: this has to work with no network
-            // (a refusal can arrive while the connection is fine and the subscription is not) and
-            // a refetch would be a second thing to fail while undoing the first.
+        await commit(.trip(updated)) {
+            // The copy taken before the edit, not a refetch: this has to work with no network (a
+            // refusal can arrive while the connection is fine and the subscription is not), and a
+            // refetch would be a second thing to fail while undoing the first.
             if let index = trips.firstIndex(where: { $0.id == trip.id }) {
                 trips[index] = original
             }
-            writeRefusedMessage = "Changes to your trips need an active subscription. Nothing was saved."
+            writeRefusedMessage = Self.tripsRefusedMessage
         }
     }
 
@@ -2719,6 +2943,7 @@ final class AppModel {
         trips.removeAll { $0.id == trip.id }
         pendingTripIDs.remove(trip.id)
         PendingTripStore.remove(id: trip.id)
+        PendingWriteStore.removeAll(targeting: trip.id)
         pendingFlightCandidates.removeValue(forKey: trip.id)
         Analytics.capture(Analytics.Event.tripDelete)
         // `flights.trip_id` has ON DELETE SET NULL server-side — every leg survives untethered
@@ -2762,30 +2987,20 @@ final class AppModel {
     /// other write path for `flight.tripID` (`AeroFlightService.addFlight`) only ever sets it
     /// once, at add-flight time.
     func linkFlight(_ flight: Flight, to trip: Trip) async {
-        guard let flightIndex = flights.firstIndex(where: { $0.id == flight.id }) else { return }
-        flights[flightIndex].tripID = trip.id
-        syncTripFlights(tripID: trip.id)
-        let mutationID = trackInFlightMutation { [weak self] in
-            guard let self, let index = self.flights.firstIndex(where: { $0.id == flight.id }) else { return }
-            self.flights[index].tripID = trip.id
-            self.syncTripFlights(tripID: trip.id)
-        }
-        defer { clearInFlightMutation(mutationID) }
-        try? await backend.setFlightTrip(flightID: flight.id, tripID: trip.id)
+        guard let index = flights.firstIndex(where: { $0.id == flight.id }) else { return }
+        await setFlightTrip(flight, tripID: trip.id, previous: flights[index].tripID)
     }
 
     func unlinkFlight(_ flight: Flight) async {
-        guard let flightIndex = flights.firstIndex(where: { $0.id == flight.id }) else { return }
-        let tripID = flights[flightIndex].tripID
-        flights[flightIndex].tripID = nil
-        if let tripID { syncTripFlights(tripID: tripID) }
-        let mutationID = trackInFlightMutation { [weak self] in
-            guard let self, let index = self.flights.firstIndex(where: { $0.id == flight.id }) else { return }
-            self.flights[index].tripID = nil
-            if let tripID { self.syncTripFlights(tripID: tripID) }
+        guard let index = flights.firstIndex(where: { $0.id == flight.id }) else { return }
+        await setFlightTrip(flight, tripID: nil, previous: flights[index].tripID)
+    }
+
+    private func setFlightTrip(_ flight: Flight, tripID: UUID?, previous: UUID?) async {
+        await commit(.flightTrip(flightID: flight.id, tripID: tripID)) {
+            apply(.flightTrip(flightID: flight.id, tripID: previous))
+            writeRefusedMessage = Self.tripsRefusedMessage
         }
-        defer { clearInFlightMutation(mutationID) }
-        try? await backend.setFlightTrip(flightID: flight.id, tripID: nil)
     }
 
     /// Same gap `linkFlight`/`unlinkFlight` closed for `tripID` — travelers were also only ever
@@ -2794,39 +3009,30 @@ final class AppModel {
     /// they're travelling together.
     func setFlightTravelers(_ flight: Flight, travelerIDs: [UUID]) async {
         guard let index = flights.firstIndex(where: { $0.id == flight.id }) else { return }
-        flights[index].travelerIDs = travelerIDs
-        if let tripID = flights[index].tripID { syncTripFlights(tripID: tripID) }
-        let mutationID = trackInFlightMutation { [weak self] in
-            guard let self, let index = self.flights.firstIndex(where: { $0.id == flight.id }) else { return }
-            self.flights[index].travelerIDs = travelerIDs
-            if let tripID = self.flights[index].tripID { self.syncTripFlights(tripID: tripID) }
+        let previous = flights[index].travelerIDs
+        await commit(.flightTravelers(flightID: flight.id, travelerIDs: travelerIDs)) {
+            apply(.flightTravelers(flightID: flight.id, travelerIDs: previous))
+            writeRefusedMessage = Self.tripsRefusedMessage
         }
-        defer { clearInFlightMutation(mutationID) }
-        try? await backend.setFlightTravelers(flightID: flight.id, travelerIDs: travelerIDs)
     }
 
     /// Memories have no automatic trip association (no place/date matching) — linking is
     /// always this explicit, user-driven action from Trip Details.
     func linkMemory(_ memory: Memory, to trip: Trip) async {
-        guard let index = memories.firstIndex(where: { $0.id == memory.id }) else { return }
-        memories[index].tripID = trip.id
-        let mutationID = trackInFlightMutation { [weak self] in
-            guard let self, let index = self.memories.firstIndex(where: { $0.id == memory.id }) else { return }
-            self.memories[index].tripID = trip.id
-        }
-        defer { clearInFlightMutation(mutationID) }
-        try? await backend.setMemoryTrip(memoryID: memory.id, tripID: trip.id)
+        await setMemoryTrip(memory, tripID: trip.id)
     }
 
     func unlinkMemory(_ memory: Memory) async {
+        await setMemoryTrip(memory, tripID: nil)
+    }
+
+    private func setMemoryTrip(_ memory: Memory, tripID: UUID?) async {
         guard let index = memories.firstIndex(where: { $0.id == memory.id }) else { return }
-        memories[index].tripID = nil
-        let mutationID = trackInFlightMutation { [weak self] in
-            guard let self, let index = self.memories.firstIndex(where: { $0.id == memory.id }) else { return }
-            self.memories[index].tripID = nil
+        let previous = memories[index].tripID
+        await commit(.memoryTrip(memoryID: memory.id, tripID: tripID)) {
+            apply(.memoryTrip(memoryID: memory.id, tripID: previous))
+            writeRefusedMessage = Self.memoriesRefusedMessage
         }
-        defer { clearInFlightMutation(mutationID) }
-        try? await backend.setMemoryTrip(memoryID: memory.id, tripID: nil)
     }
 
     /// Registers this device's APNs token against the signed-in profile so
@@ -2907,6 +3113,20 @@ final class AppModel {
             }
             Task { await WidgetSnapshotWriter.refresh(appModel: self) }
         } catch {
+            if BackendService.isPermanentRefusal(error) {
+                // It will never land, so keeping it as "pending" retried it on every adopt for as
+                // long as the app was installed, while showing a memory that existed nowhere else.
+                memories.removeAll { $0.id == memory.id }
+                writeRefusedMessage = "Adding memories needs an active subscription. Nothing was saved."
+                return memory
+            }
+            // To disk, as the solo branch above does, and swapped in with its photos pointing at
+            // the local files. This used to be kept in memory only: the photos didn't show while it
+            // waited, and if the app was killed before the next adopt sent it, it was gone.
+            let persisted = PendingMemoryStore.save(memory: memory, photosData: imagesData)
+            if let index = memories.firstIndex(where: { $0.id == memory.id }) {
+                memories[index] = persisted
+            }
             pendingMemoryIDs.insert(memory.id)
             if !imagesData.isEmpty { pendingMemoryPhotoData[memory.id] = imagesData }
         }
@@ -2915,11 +3135,12 @@ final class AppModel {
     }
 
     /// Edits an existing memory's fields in place, optionally appending new photos in the
-    /// same call — both persisted best-effort, matching `addMemory`'s error handling.
+    /// same call. Both go through the outbox, so made offline they show at once and are sent
+    /// when the connection comes back.
     func updateMemory(_ memory: Memory, newImagesData: [Data] = []) async {
         guard let index = memories.firstIndex(where: { $0.id == memory.id }) else { return }
 
-        guard let backendCoupleID, !pendingMemoryIDs.contains(memory.id) else {
+        guard backendCoupleID != nil, !pendingMemoryIDs.contains(memory.id) else {
             // Still pending (never synced) — everything happens locally, same as the initial
             // add: new photos join the accumulated pending data and get re-persisted, so the
             // edit shows immediately and survives a relaunch. Without this, editing a pending
@@ -2934,35 +3155,42 @@ final class AppModel {
             return
         }
 
+        // Everything below finds the memory again by id rather than holding on to `index`: each
+        // `commit` awaits the network, and a refresh landing meanwhile can replace or reorder the
+        // array — writing through the old index put photos on, or rolled back, a different memory.
         let original = memories[index]
-        memories[index] = memory
-
-        do {
-            try await backend.updateMemory(memory)
-            if !newImagesData.isEmpty {
-                var photoPaths: [String] = []
-                for imageData in newImagesData {
-                    photoPaths.append(try await backend.uploadMemoryPhoto(coupleID: backendCoupleID, memoryID: memory.id, imageData: imageData))
-                }
-                let newPhotos = try await backend.addMemoryPhotos(memoryID: memory.id, photoPaths: photoPaths, startingPosition: memory.photos.count)
-                memories[index].photos.append(contentsOf: newPhotos)
+        let fieldsChanged = memory.title != original.title || memory.place != original.place
+            || memory.date != original.date || memory.note != original.note
+        // Adding photos passes the memory back unchanged. Queuing a copy of its fields anyway
+        // would pin them over a partner's edit until it was sent.
+        if fieldsChanged {
+            var fields = memory
+            fields.photos = []
+            await commit(.memory(fields)) {
+                apply(.memory(original))
+                writeRefusedMessage = Self.memoriesRefusedMessage
             }
-        } catch {
-            // Best-effort *for a dropped connection* — the local edit is right and the write lands
-            // later, which is what makes editing work offline. Not for a refusal: that one will
-            // never land, so the edit on screen is already gone and would vanish at the next
-            // launch without ever saying so. Photos are worse again — somebody picks three, watches
-            // them appear, and loses them.
-            guard BackendService.isPermanentRefusal(error) else { return }
-            memories[index] = original
-            writeRefusedMessage = newImagesData.isEmpty
-                ? "Changes to your memories need an active subscription. Nothing was saved."
-                : "Adding photos needs an active subscription. Nothing was saved."
+        }
+
+        guard !newImagesData.isEmpty else { return }
+        // Written to disk first and shown from there, so picking photos offline no longer looks
+        // like nothing happened, and they are uploaded with the rest of the outbox.
+        let standIns = newImagesData.compactMap(PendingWriteStore.savePhoto)
+        guard !standIns.isEmpty else { return }
+        await commit(.memoryPhotos(memoryID: memory.id, photos: standIns)) {
+            let ids = Set(standIns.map(\.id))
+            if let index = memories.firstIndex(where: { $0.id == memory.id }) {
+                memories[index].photos.removeAll { ids.contains($0.id) }
+            }
+            writeRefusedMessage = "Adding photos needs an active subscription. Nothing was saved."
         }
     }
 
+    private static let memoriesRefusedMessage = "Changes to your memories need an active subscription. Nothing was saved."
+
     func removePhoto(_ photo: MemoryPhoto, from memory: Memory) async {
         guard let index = memories.firstIndex(where: { $0.id == memory.id }) else { return }
+        let position = memories[index].photos.firstIndex { $0.id == photo.id }
         memories[index].photos.removeAll { $0.id == photo.id }
 
         guard !pendingMemoryIDs.contains(memory.id) else {
@@ -2977,7 +3205,20 @@ final class AppModel {
             return
         }
 
-        try? await backend.deleteMemoryPhoto(id: photo.id, path: photo.path)
+        // Added offline and not uploaded yet: there is nothing on the server to remove.
+        guard !photo.isPending else {
+            PendingWriteStore.removeQueuedPhoto(id: photo.id)
+            return
+        }
+
+        await commit(.removeMemoryPhoto(memoryID: memory.id, photoID: photo.id, path: photo.path)) {
+            // This used to keep the removal on screen whatever happened.
+            if let index = memories.firstIndex(where: { $0.id == memory.id }),
+               !memories[index].photos.contains(where: { $0.id == photo.id }) {
+                memories[index].photos.insert(photo, at: min(position ?? 0, memories[index].photos.count))
+            }
+            writeRefusedMessage = Self.memoriesRefusedMessage
+        }
     }
 
     func deleteMemory(_ memory: Memory) async {
@@ -2985,6 +3226,7 @@ final class AppModel {
         pendingMemoryIDs.remove(memory.id)
         pendingMemoryPhotoData.removeValue(forKey: memory.id)
         PendingMemoryStore.remove(id: memory.id)
+        PendingWriteStore.removeAll(targeting: memory.id)
         Analytics.capture(Analytics.Event.memoryDelete)
         guard backendCoupleID != nil else { return }
         do {
@@ -3010,11 +3252,10 @@ final class AppModel {
     /// profile row, so there's no "set it on their behalf" path anymore.
     func setHomeCity(for personID: Person.ID, city: Place) async {
         guard personID == currentUser.id else { return }
-        do {
-            try await backend.updateHomeCity(city)
-            couple.partnerA.homeCity = city
-        } catch {
-            // Best-effort for now; the picker just won't reflect the change.
+        let previous = couple.partnerA.homeCity
+        await commit(.homeCity(city)) {
+            couple.partnerA.homeCity = previous
+            writeRefusedMessage = Self.profileRefusedMessage
         }
     }
 
