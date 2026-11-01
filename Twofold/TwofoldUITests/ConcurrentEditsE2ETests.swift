@@ -66,7 +66,9 @@ final class ConcurrentEditsE2ETests: E2ETestCase {
         waitForSignedInApp(app)
 
         openTab("Travel", in: app)
-        require(row("Rome", in: app), timeout: 20, "The seeded trip isn't on the Travel tab").tap()
+        // A button, so the map's own "Rome" labels — there before the trip list loads — don't match.
+        let card = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Rome")).firstMatch
+        require(card, timeout: 30, "The seeded trip isn't on the Travel tab").tap()
         require(app.buttons["More options"], timeout: 10, "No menu on the trip").tap()
         require(app.buttons["Edit trip"], timeout: 5, "No Edit trip in the menu").tap()
         require(app.navigationBars["Edit trip"], timeout: 10, "The trip editor never opened")
