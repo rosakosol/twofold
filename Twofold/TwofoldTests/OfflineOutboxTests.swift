@@ -27,6 +27,8 @@ final class FakeCoupleDataBackend: CoupleDataBackend {
     var serverMemories: [Memory] = []
     /// Runs inside `updateMemory`, between the call and its return — where a refresh can land.
     var duringUpdateMemory: (() -> Void)?
+    /// Awaited inside `updateFirstName` before it lands, so a test can hold a send in the air.
+    var beforeUpdateFirstName: (() async -> Void)?
 
     private(set) var calls: [String] = []
     private(set) var updatedMemories: [Memory] = []
@@ -85,6 +87,7 @@ final class FakeCoupleDataBackend: CoupleDataBackend {
     }
 
     func updateFirstName(_ name: String) async throws {
+        await beforeUpdateFirstName?()
         try write("updateFirstName")
         firstNames.append(name)
     }

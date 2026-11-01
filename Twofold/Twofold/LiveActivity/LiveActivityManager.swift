@@ -103,9 +103,21 @@ final class LiveActivityManager {
     /// default: sign-out needs the signed-out account's Live Activity gone from the Lock Screen
     /// right away, not sitting there for another half hour after the person who tracked it is no
     /// longer signed in.
+    ///
+    /// Every card ActivityKit still has, not only the ones in `runningActivities`. That list is
+    /// this process's, filled by `reconcileOnLaunch` on the first successful flight refresh — so a
+    /// sign-out before one (offline, or solo with no couple to fetch flights for) used to end
+    /// nothing, and the previous run's card stayed on the Lock Screen for the next account.
+    ///
+    /// Needs the session still signed in: `endActivity` ends the server's token row too, and that
+    /// call is refused once it has gone. `AppModel.signOut()` calls this before signing out.
     func endAll() async {
         for (flightID, activity) in runningActivities {
             await endActivity(activity, flightID: flightID, dismissalPolicy: .immediate)
+        }
+        for activity in Activity<JourneyActivityAttributes>.activities
+        where activity.activityState == .active || activity.activityState == .stale {
+            await endActivity(activity, flightID: activity.attributes.flightID, dismissalPolicy: .immediate)
         }
     }
 

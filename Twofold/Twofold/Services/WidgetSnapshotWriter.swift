@@ -164,35 +164,61 @@ enum WidgetSnapshotWriter {
 
         // ---- Everything past here is network work. A cancellation from here on leaves the
         // ---- snapshot above in place, which is the whole point of writing it first.
+        //
+        // And every await is a point where the person can sign out. Sign-out clears the app group
+        // (`WidgetSnapshot.clear()`, `WidgetImageCache.clearAll()`), and this used to carry on
+        // regardless: the second write put the signed-out couple's names, trips, partner id and
+        // signed drawing-pad URLs straight back. Each step checks the account is still the one
+        // this started for, and stops if not.
+        let generation = appModel.accountGeneration
+        var isStillSignedIn: Bool { appModel.accountGeneration == generation }
 
-        if let avatarURL = appModel.currentUser.avatarURL, let data = try? await URLSession.shared.data(from: avatarURL).0 {
+        // Every URL read up front: the model's fields are the next account's after a sign-out.
+        let myAvatarURL = appModel.currentUser.avatarURL
+        let partnerAvatarURL = appModel.partner.avatarURL
+        let logoURL = appModel.activeOrUpcomingFlight?.displayLogoURL
+        let coupleID = appModel.couple.id
+        let myID = appModel.currentUser.id
+        let partnerID = appModel.partner.id
+        let dailySessionID = appModel.todaysDailySessionID
+        let bothAnswered = appModel.todaysMyAnswered && appModel.todaysPartnerAnswered
+
+        if let myAvatarURL, let data = try? await URLSession.shared.data(from: myAvatarURL).0 {
+            guard isStillSignedIn else { return }
             WidgetImageCache.writeMyAvatarImage(data)
         }
-        if let avatarURL = appModel.partner.avatarURL, let data = try? await URLSession.shared.data(from: avatarURL).0 {
+        guard isStillSignedIn else { return }
+        if let partnerAvatarURL, let data = try? await URLSession.shared.data(from: partnerAvatarURL).0 {
+            guard isStillSignedIn else { return }
             WidgetImageCache.writePartnerAvatarImage(data)
         }
+        guard isStillSignedIn else { return }
 
-        if let flight = appModel.activeOrUpcomingFlight,
-           let logoURL = flight.displayLogoURL,
-           let data = try? await URLSession.shared.data(from: logoURL).0 {
+        if let logoURL, let data = try? await URLSession.shared.data(from: logoURL).0 {
+            guard isStillSignedIn else { return }
             WidgetImageCache.writeAirlineLogoImage(data)
         }
+        guard isStillSignedIn else { return }
 
         if let latestMemory, let photoURL = latestMemory.photoURL, let data = try? await URLSession.shared.data(from: photoURL).0 {
+            guard isStillSignedIn else { return }
             WidgetImageCache.writeLatestMemoryImage(data)
         } else if latestMemory == nil {
             WidgetImageCache.clearLatestMemoryImage()
         }
+        guard isStillSignedIn else { return }
 
         // `drawing-pads` is a private bucket — DrawingPadWidget still fetches these live itself
         // (see WidgetSnapshot's doc comment), so what it needs cached here is a signed URL, not
         // the bytes themselves.
         let mySignedDrawingPadURL = (try? await BackendService.drawingPadSignedURL(
-            coupleID: appModel.couple.id, personID: appModel.currentUser.id
+            coupleID: coupleID, personID: myID
         )) ?? previous?.mySignedDrawingPadURL
+        guard isStillSignedIn else { return }
         let partnerSignedDrawingPadURL = (try? await BackendService.drawingPadSignedURL(
-            coupleID: appModel.couple.id, personID: appModel.partner.id
+            coupleID: coupleID, personID: partnerID
         )) ?? previous?.partnerSignedDrawingPadURL
+        guard isStillSignedIn else { return }
 
         // Cached against the previously-written snapshot rather than re-fetched every time —
         // this whole function reruns on every realtime `flights` row change, which can fire
@@ -207,7 +233,7 @@ enum WidgetSnapshotWriter {
             let stillFresh = previous.map { Date.now.timeIntervalSince($0.writtenAt) < 3600 } ?? false
             if cityUnchanged, stillFresh, let cached = previous?.partnerWeather {
                 weatherInfo = cached
-            } else if let reading = await TwofoldWeatherService.currentWeather(for: partnerCity) {
+            } else if let reading = await TwofoldWeatherService.currentWeather(for: partnerCity), isStillSignedIn {
                 weatherInfo = WidgetSnapshot.WeatherInfo(symbolName: reading.symbolName, temperatureC: reading.temperatureC, isDaylight: reading.isDaylight)
             } else {
                 weatherInfo = previous?.partnerWeather
@@ -216,12 +242,14 @@ enum WidgetSnapshotWriter {
 
         // The partner's answer, only once you have both answered (and so only once the database
         // will return it at all).
+        guard isStillSignedIn else { return }
         var dailyQuestionWithAnswer = dailyQuestion
-        if let sessionID = appModel.todaysDailySessionID, appModel.todaysMyAnswered, appModel.todaysPartnerAnswered {
+        if let sessionID = dailySessionID, bothAnswered {
             dailyQuestionWithAnswer?.partnerAnswer = try? await BackendService.fetchPartnerDailyAnswer(
-                sessionID: sessionID, partnerID: appModel.partner.id
+                sessionID: sessionID, partnerID: partnerID
             )
         }
+        guard isStillSignedIn else { return }
 
         write(
             snapshot(

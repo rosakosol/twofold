@@ -15,6 +15,8 @@ protocol SessionTeardown {
     func endLiveActivities() async
     func signOut() async throws
     func deleteAccount() async throws
+    /// Forgets the game answers being sent right now (`GameResponseOutbox.reset()`).
+    func resetGameResponseOutbox()
 }
 
 struct LiveSessionTeardown: SessionTeardown {
@@ -32,5 +34,9 @@ struct LiveSessionTeardown: SessionTeardown {
 
     func deleteAccount() async throws {
         try await BackendService.deleteAccount()
+    }
+
+    func resetGameResponseOutbox() {
+        GameResponseOutbox.reset()
     }
 }

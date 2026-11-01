@@ -61,7 +61,11 @@ final class FakePuzzleBackend: PuzzleSessionBackend {
         return BackendService.GameSessionDetail(session: session, rounds: [round], content: [:], responses: responses)
     }
 
+    /// Awaited before a result lands, so a test can hold a send in the air.
+    var beforeSubmit: (() async -> Void)?
+
     func submitGameResponse(sessionID: UUID, roundNumber: Int, answerValue: String, isCorrect: Bool?) async throws {
+        await beforeSubmit?()
         if isOffline { throw URLError(.notConnectedToInternet) }
         // Stands in for the 42501 RLS answers with; `isPermanentRefusal` reads both the same.
         if isRefusing || status.hasEnded { throw BackendService.WriteAffectedNoRows() }

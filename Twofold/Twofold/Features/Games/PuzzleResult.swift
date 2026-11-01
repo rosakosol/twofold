@@ -191,11 +191,25 @@ enum GameResponseOutbox {
     /// Answers being sent right now, by this drain or by a puzzle screen, so the two never send
     /// the same one at once and the partner gets one push rather than two.
     private static var sending: Set<UUID> = []
-    private static var isFlushing = false
+    /// Which account's flush is running, by `generation`; nil when none is.
+    private static var flushingGeneration: Int?
+    /// Moves on at every sign-out (`reset()`), so a flush started before one can tell it is now
+    /// working for an account that has gone.
+    private static var generation = 0
 
     static func claim(_ id: UUID) -> Bool { sending.insert(id).inserted }
     static func release(_ id: UUID) { sending.remove(id) }
     static func isSending(_ id: UUID) -> Bool { sending.contains(id) }
+
+    /// Called at sign-out. A flush still waiting on the server stops when it hears back, without
+    /// touching the queue or pushing the partner, and no longer counts as running — the "already
+    /// flushing" flag used to outlive the account, so the next one's answers were not sent until
+    /// the old request finished, however long that took.
+    static func reset() {
+        generation += 1
+        sending = []
+        flushingGeneration = nil
+    }
 
     /// Oldest first. Stops at the first failure that is not a refusal: the connection is down,
     /// and the rest would fail the same way one timeout at a time. A refused answer is for a
@@ -205,15 +219,17 @@ enum GameResponseOutbox {
         queue: any GameResponseQueue = DiskGameResponseQueue.shared,
         isLocalSession: (UUID) -> Bool = { LocalGameSessionStore.session(id: $0) != nil }
     ) async {
-        guard !isFlushing, let me = backend.currentUserID else { return }
-        isFlushing = true
-        defer { isFlushing = false }
+        let started = generation
+        guard flushingGeneration != started, let me = backend.currentUserID else { return }
+        flushingGeneration = started
+        defer { if flushingGeneration == started { flushingGeneration = nil } }
 
         let waiting = queue.all()
             .filter { $0.responderID == me && !isLocalSession($0.sessionID) }
             .sorted { $0.queuedAt < $1.queuedAt }
         for item in waiting {
             // Re-read, so an answer replaced or sent meanwhile is not sent again.
+            guard generation == started else { return }
             guard queue.all().contains(where: { $0.id == item.id }), claim(item.id) else { continue }
             defer { release(item.id) }
             do {
@@ -223,11 +239,14 @@ enum GameResponseOutbox {
                     answerValue: item.answerValue,
                     isCorrect: item.isCorrect
                 )
+                // Signed out while it was in the air: the queue is the next account's now.
+                guard generation == started else { return }
                 queue.remove(id: item.id)
                 if let gameType = item.resultGameType {
                     await notifyOfResult(item, gameType: gameType, me: me, backend: backend)
                 }
             } catch where BackendService.isPermanentRefusal(error) {
+                guard generation == started else { return }
                 queue.remove(id: item.id)
             } catch {
                 break

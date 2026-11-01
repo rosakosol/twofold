@@ -62,6 +62,14 @@ final class AppModel {
     /// "Go back" or "Start a new signup" kept the previous account's names, photos and invite code
     /// for whoever started next. The coordinator watches this and builds a fresh model.
     private(set) var accountGeneration = 0
+
+    /// Whether the account that was signed in at `generation` still is. Work that awaits the
+    /// network captures `accountGeneration` before it leaves and checks this when it comes back,
+    /// so an answer for an account that has since signed out is dropped rather than applied to
+    /// whoever is signed in now (CORE-4).
+    private func isCurrent(_ generation: Int) -> Bool {
+        generation == accountGeneration
+    }
     /// Set when "Sign in" produced a brand-new account instead of resuming an existing one, which
     /// is what Apple's Hide My Email does to anyone who already signed up with their real address:
     /// the relay `...@privaterelay.appleid.com` is a different email, so Supabase makes a different
@@ -313,7 +321,12 @@ final class AppModel {
     /// True while `syncPendingWrites()` is draining the outbox. A write made meanwhile is queued
     /// and left for that pass to send, rather than sent alongside it and risking the two landing
     /// out of order.
-    private var isSyncingPendingWrites = false
+    ///
+    /// Scoped to the account the pass started for. A plain flag outlived sign-out whenever a send
+    /// was in the air at the time, and the next account's edits — from `commit` and from its own
+    /// passes — were all left for a pass that had stopped working for anyone.
+    private var syncingPendingWritesGeneration: Int?
+    private var isSyncingPendingWrites: Bool { syncingPendingWritesGeneration == accountGeneration }
 
     /// Every refresh replaces `trips`/`memories`/`flights` (and `adopt` the couple's own fields)
     /// with the server's copy, which knows nothing of an edit that hasn't been sent yet — or that
@@ -391,7 +404,9 @@ final class AppModel {
         let entry = PendingWriteStore.add(write)
         apply(write)
         guard !isSyncingPendingWrites, isReadyToSend(write) else { return }
-        if await send(entry) == .refused { onRefusal() }
+        let generation = accountGeneration
+        // Undoing it on the next account's screen would be undoing something it never did.
+        if await send(entry) == .refused, isCurrent(generation) { onRefusal() }
     }
 
     private enum SendOutcome { case sent, refused, failed }
@@ -443,15 +458,21 @@ final class AppModel {
         case let .memoryPhotos(memoryID, photos):
             // A photo can only be stored under a couple. Not a refusal: it stays queued.
             guard let backendCoupleID else { throw URLError(.userAuthenticationRequired) }
+            // Several round trips, so the one place a sign-out can land between two of them and
+            // the next is sent as somebody else. Thrown as a failure, not a refusal: nothing is
+            // undone, and the queue it came from has already been cleared.
+            let generation = accountGeneration
             var photoPaths: [String] = []
             for photo in photos {
                 guard let data = PendingWriteStore.photoData(id: photo.id) else { continue }
                 photoPaths.append(try await backend.uploadMemoryPhoto(coupleID: backendCoupleID, memoryID: memoryID, imageData: data))
+                guard isCurrent(generation) else { throw CancellationError() }
             }
             // Positions after the photos the server already has, read now rather than when the
             // write was queued: others may have been added or removed since.
             let startingPosition = memories.first { $0.id == memoryID }?.photos.filter { !$0.isPending }.count ?? 0
             let uploaded = try await backend.addMemoryPhotos(memoryID: memoryID, photoPaths: photoPaths, startingPosition: startingPosition)
+            guard isCurrent(generation) else { throw CancellationError() }
             // Looked up again after the awaits, by id: a refresh may have replaced the array.
             if let index = memories.firstIndex(where: { $0.id == memoryID }) {
                 let standIns = Set(photos.map(\.id))
@@ -489,8 +510,9 @@ final class AppModel {
     func syncPendingWrites() async {
         if DemoMode.isOn { return }  // -demoMode: the sample couple, nothing sent
         guard !isSyncingPendingWrites else { return }
-        isSyncingPendingWrites = true
-        defer { isSyncingPendingWrites = false }
+        let generation = accountGeneration
+        syncingPendingWritesGeneration = generation
+        defer { if syncingPendingWritesGeneration == generation { syncingPendingWritesGeneration = nil } }
 
         var tried = Set<PendingWriteEntry.ID>()
         var refusedAny = false
@@ -499,6 +521,9 @@ final class AppModel {
         while let entry = PendingWriteStore.all().first(where: { !tried.contains($0.id) && isReadyToSend($0.write) }) {
             tried.insert(entry.id)
             let outcome = await send(entry)
+            // Signed out while that was in the air. What is in the queue now is the next
+            // account's, for its own pass to send as itself.
+            guard isCurrent(generation) else { return }
             if outcome == .failed { connectionFailed = true; break }
             if outcome == .refused {
                 refusedAny = true
@@ -833,6 +858,7 @@ final class AppModel {
         // Must run before anything else touches profile/couple state, so a scrubbed, deleted
         // account is never actually adopted and shown.
         if await BackendService.currentAccountIsDeleted() {
+            await sessionTeardown.endLiveActivities()
             try? await BackendService.signOut()
             // This path used to stop at the line above, which signs out of the backend and leaves
             // every local cache and every in-memory field belonging to the deleted account exactly
@@ -842,6 +868,7 @@ final class AppModel {
             isLoadingSession = false
             return
         }
+        let generation = accountGeneration
         await retryPendingPushTokenRegistrationIfNeeded()
         try? await BackendService.updateDeviceContext()
         await identifyWithRevenueCat()
@@ -849,14 +876,16 @@ final class AppModel {
         restorePendingMemoriesFromDisk()
         restorePendingTripsFromDisk()
         let outcome = await CoupleStateOutcome.fetch()
+        // Signed out while that was in the air: nothing below is for whoever is here now.
+        guard isCurrent(generation) else { return }
         if case let .paired(state) = outcome {
-            await adopt(state)
+            await adopt(state, startedIn: generation)
             // A couple cannot exist without both people having been through onboarding.
             needsOnboarding = false
         } else if case .noCouple = outcome, let profile = try? await BackendService.fetchOwnProfile() {
             // Only when the backend actually said so. A failed fetch used to land here too, so a
             // launch on a flaky connection could show a paired couple their solo, unpaired app.
-            await adoptSoloProfile(profile)
+            await adoptSoloProfile(profile, startedIn: generation)
             // Adopted first, so the subscription and tier this account bought on the web are
             // already in hand by the time onboarding starts and can be used to skip the paywall.
             //
@@ -904,6 +933,9 @@ final class AppModel {
             hasResolvedSubscription = true
             hasLoadedCoupleState = true
         }
+        // The branches above all await, and the one thing that must not happen after a sign-out
+        // landed among them is this line letting the signed-out person back into the app.
+        guard isCurrent(generation) else { return }
         // Not `true` outright any more — see `needsOnboarding`, which is the one case where a
         // real session should still land on the onboarding flow rather than the app.
         hasCouple = !needsOnboarding
@@ -981,8 +1013,10 @@ final class AppModel {
     /// couple in the first place (added before ever pairing, still only durable via
     /// `PendingTripStore`/`PendingMemoryStore`), so they survive this reset rather than being
     /// discarded along with the dissolved couple's data.
-    private func adoptSoloProfile(_ profile: BackendService.OwnProfileState) async {
+    private func adoptSoloProfile(_ profile: BackendService.OwnProfileState, startedIn generation: Int) async {
+        guard isCurrent(generation) else { return }
         await stopFlightsRealtimeSubscription()
+        guard isCurrent(generation) else { return }
         if partnerConnected {
             let name = couple.partnerB.name.isEmpty ? "your partner" : couple.partnerB.name
             partnerDisconnectedMessage = "We're sorry — your connection with \(name) has ended. Nothing has been deleted; your shared trips, memories, and flights are still there, safe and yours to look back on or export anytime from Settings."
@@ -994,15 +1028,13 @@ final class AppModel {
         flights = []
         // Unlike every other path that clears `flights`, this one can't just call
         // `refreshFlights()` afterward to reconcile Live Activities — it guards on
-        // `backendCoupleID`, which is already nil above. Ending against an empty list directly
-        // instead, so a flight-tracking Live Activity doesn't keep showing (now stale, since the
-        // couple that authorized it no longer exists) until the app happens to background/
-        // foreground or relaunch.
-        await LiveActivityManager.shared.syncActivities(
-            for: [],
-            participants: { _ in JourneyParticipants(travelerName: "", partnerName: "", viewerIsTraveler: false) },
-            isReunion: { _ in false }
-        )
+        // `backendCoupleID`, which is already nil above. Ending them directly instead, so a
+        // flight-tracking Live Activity doesn't keep showing (now stale, since the couple that
+        // authorized it no longer exists) until the app happens to background/foreground or
+        // relaunch. `endAll`, not a sync against an empty list: that only ended what this run of
+        // the app had started or reconciled, which in a fresh process is nothing.
+        await LiveActivityManager.shared.endAll()
+        guard isCurrent(generation) else { return }
         myDrawingURL = nil
         partnerDrawingURL = nil
         couple = Self.placeholderCouple
@@ -1024,9 +1056,11 @@ final class AppModel {
         // sent goes back on top of it — then gets sent, since solo there is no `performAdopt` to.
         reapplyPendingWrites()
         Task { [weak self] in await self?.syncPendingWrites() }
-        isSubscriptionActive = await resolvedSubscriptionActive(backendSaysActive: profile.subscriptionActive)
+        let subscribed = await resolvedSubscriptionActive(backendSaysActive: profile.subscriptionActive)
         // Unpaired, so their own row is the only row: whatever access they have is theirs.
         let deviceEntitled = await deviceHoldsEntitlement()
+        guard isCurrent(generation) else { return }
+        isSubscriptionActive = subscribed
         viewerHoldsSubscription = profile.subscriptionActive || deviceEntitled
         hasResolvedSubscription = true
         hasLoadedCoupleState = true
@@ -1255,6 +1289,11 @@ final class AppModel {
         if let lastRegisteredPushTokenHex {
             try? await sessionTeardown.unregisterDeviceToken(lastRegisteredPushTokenHex)
         }
+        // Before signing out too, for the same reason: ending a Live Activity also ends its token
+        // row on the server, which needs the session. Run after it, as it used to be from
+        // `clearLocalSessionState()`, every one of those calls was refused and swallowed, and the
+        // server kept pushing to cards for an account no longer on the phone.
+        await sessionTeardown.endLiveActivities()
         try? await sessionTeardown.signOut()
         await clearLocalSessionState()
     }
@@ -1270,6 +1309,8 @@ final class AppModel {
     /// forward — see `DeleteAccountView`'s header.
     func deleteAccount() async throws {
         await stopFlightsRealtimeSubscription()
+        // While the account can still end its own token rows — see `signOut()`.
+        await sessionTeardown.endLiveActivities()
         try await sessionTeardown.deleteAccount()
         await clearLocalSessionState()
     }
@@ -1281,11 +1322,15 @@ final class AppModel {
             _ = try? await Purchases.shared.logOut()
         }
         PostHogSDK.shared.reset()
+        // Any game answer or result still in the air belongs to the account that just left — see
+        // `GameResponseOutbox.reset()`.
+        sessionTeardown.resetGameResponseOutbox()
         // Without this, Home Screen widgets and Live Activities kept showing the signed-out
         // account's (and their partner's) name, photos, anniversary date, and upcoming trip/
         // flight until a different account signed in and overwrote them — none of this was
-        // previously cleared by sign-out at all.
-        await sessionTeardown.endLiveActivities()
+        // previously cleared by sign-out at all. (Live Activities are ended by the callers, before
+        // the session goes; see `signOut()`.)
+        //
         // Same reasoning as the widget snapshot below — the next account to sign in on this device
         // must not inherit this one's entitlement. (`restore(for:)` is account-scoped as a second
         // guard, but clearing on the way out is the honest place to do it.)
@@ -1770,15 +1815,19 @@ final class AppModel {
     func refreshCoupleStateIfNeeded() async {
         if DemoMode.isOn { return }  // -demoMode: the sample couple, nothing fetched
         guard hasCouple else { return }
+        // Taken before the fetch: an answer about the account that has since signed out must not
+        // be adopted for whoever is signed in now (or for nobody).
+        let generation = accountGeneration
         switch await fetchCoupleStateOutcome() {
         case let .paired(state):
-            await adopt(state)
+            await adopt(state, startedIn: generation)
         case .noCouple:
             // The backend answered, and there is no active couple. This is the only outcome that
             // may tear down a pairing — see `CoupleStateOutcome` for the Wi-Fi blip that used to
             // reach here and announce that the partner had disconnected.
+            guard isCurrent(generation) else { return }
             if partnerConnected, let profile = try? await BackendService.fetchOwnProfile() {
-                await adoptSoloProfile(profile)
+                await adoptSoloProfile(profile, startedIn: generation)
             } else {
                 // Still solo, so this is the foreground or reconnect that would have replayed the
                 // outbox through `performAdopt` for a couple.
@@ -1801,8 +1850,16 @@ final class AppModel {
     func loadDrawingPads() async {
         if DemoMode.isOn { return }  // -demoMode: the sample couple, nothing fetched
         guard let backendCoupleID else { return }
-        myDrawingURL = try? await BackendService.drawingPadSignedURL(coupleID: backendCoupleID, personID: currentUser.id)
-        partnerDrawingURL = try? await BackendService.drawingPadSignedURL(coupleID: backendCoupleID, personID: partner.id)
+        // Signed URLs, so landing after sign-out would hand the previous couple's drawings to the
+        // next account's Home — the leak `resetAccountScopedState` describes.
+        let generation = accountGeneration
+        let personIDs = (mine: currentUser.id, theirs: partner.id)
+        let mine = try? await BackendService.drawingPadSignedURL(coupleID: backendCoupleID, personID: personIDs.mine)
+        guard isCurrent(generation) else { return }
+        myDrawingURL = mine
+        let theirs = try? await BackendService.drawingPadSignedURL(coupleID: backendCoupleID, personID: personIDs.theirs)
+        guard isCurrent(generation) else { return }
+        partnerDrawingURL = theirs
     }
 
     /// Fires once — the first time a couple both (a) has a connected partner and (b) has already
@@ -2250,11 +2307,16 @@ final class AppModel {
     /// Holding the tail of a chain removes the loop entirely: waiting happens inside the new task,
     /// so there is no flag to re-read and nothing to clear. `inFlightAdopt` is only ever the most
     /// recently queued adopt, and each one releases its predecessor as it completes.
-    private func adopt(_ state: BackendService.CoupleState) async {
+    ///
+    /// `generation` is `accountGeneration` as it was before `state` was fetched. Sign-out moves it
+    /// on, and an adopt that finds it has moved does nothing more: a fetch that left before
+    /// somebody signed out and came back after it used to put the previous couple back on screen,
+    /// restart their flights channel and write their data into the offline cache for nobody.
+    private func adopt(_ state: BackendService.CoupleState, startedIn generation: Int) async {
         let previous = inFlightAdopt
         let task = Task { [weak self] () -> Void in
             await previous?.value
-            await self?.performAdopt(state)
+            await self?.performAdopt(state, startedIn: generation)
         }
         inFlightAdopt = task
         await task.value
@@ -2263,7 +2325,9 @@ final class AppModel {
     /// Adopts real couple/trip/memory rows from the backend, flushing anything that was added
     /// locally before pairing completed (drafted during onboarding, or via the home screen's
     /// "add a trip"/"add a memory" cards while still solo).
-    private func performAdopt(_ state: BackendService.CoupleState) async {
+    private func performAdopt(_ state: BackendService.CoupleState, startedIn generation: Int) async {
+        // Checked again after every suspension below, for the same reason.
+        guard isCurrent(generation) else { return }
         // The retry list below is built from what is on screen, so anything a refresh or a reset
         // took off the screen would also stop being retried — for the rest of the session, until a
         // relaunch read it back from disk. Reading it back here as well means the disk copy, not
@@ -2306,10 +2370,12 @@ final class AppModel {
         // same person or a new one — left "your connection with X has ended" sitting over a Home
         // screen that was showing the new couple.
         partnerDisconnectedMessage = nil
-        isSubscriptionActive = await resolvedSubscriptionActive(backendSaysActive: state.subscriptionActive)
+        let subscribed = await resolvedSubscriptionActive(backendSaysActive: state.subscriptionActive)
         // ORed with the device, because the row can lag a purchase made moments ago — and a buyer
         // who is told nothing about cancelling is the worse of the two mistakes.
         let deviceEntitled = await deviceHoldsEntitlement()
+        guard isCurrent(generation) else { return }
+        isSubscriptionActive = subscribed
         viewerHoldsSubscription = state.viewerSubscriptionActive || deviceEntitled
         hasResolvedSubscription = true
         hasLoadedCoupleState = true
@@ -2369,10 +2435,12 @@ final class AppModel {
             }
             do {
                 try await backend.insertTrip(coupleID: state.couple.id, trip: tripToInsert)
+                guard isCurrent(generation) else { return }
                 // Now durably on the backend — the local disk copy was only ever a stand-in
                 // until this succeeded.
                 PendingTripStore.remove(id: trip.id)
             } catch {
+                guard isCurrent(generation) else { return }
                 stillPendingTrips.insert(trip.id)
             }
             trips.append(tripToInsert)
@@ -2392,7 +2460,9 @@ final class AppModel {
             // adopt finishes off.
             var unattached: [AeroFlightCandidate] = []
             for candidate in pending.candidates {
-                if (try? await AeroFlightService.addFlight(candidate: candidate, tripID: tripID, travelerIDs: pending.travelerIDs, notifyMe: true)) != nil {
+                let added = (try? await AeroFlightService.addFlight(candidate: candidate, tripID: tripID, travelerIDs: pending.travelerIDs, notifyMe: true)) != nil
+                guard isCurrent(generation) else { return }
+                if added {
                     didAttachPendingFlight = true
                 } else {
                     unattached.append(candidate)
@@ -2406,6 +2476,7 @@ final class AppModel {
         }
         if didAttachPendingFlight {
             await refreshFlights()
+            guard isCurrent(generation) else { return }
         }
 
         var stillPendingMemories = Set<Memory.ID>()
@@ -2417,11 +2488,13 @@ final class AppModel {
                     photoPaths.append(try await backend.uploadMemoryPhoto(coupleID: state.couple.id, memoryID: memory.id, imageData: imageData))
                 }
                 synced.photos = try await backend.insertMemory(coupleID: state.couple.id, memory: memory, photoPaths: photoPaths)
+                guard isCurrent(generation) else { return }
                 pendingMemoryPhotoData.removeValue(forKey: memory.id)
                 // Now durably on the backend — the local disk copy (and its cached photo
                 // files) was only ever a stand-in until this succeeded.
                 PendingMemoryStore.remove(id: memory.id)
             } catch {
+                guard isCurrent(generation) else { return }
                 stillPendingMemories.insert(memory.id)
             }
             memories.append(synced)
@@ -2499,8 +2572,11 @@ final class AppModel {
     /// nothing left to onboard, so this does finish immediately — a narrow edge case where a
     /// returning user skips straight past the paywall.
     func applyOnboardingAccount(_ onboarding: OnboardingModel) async {
+        let generation = accountGeneration
         if let state = try? await BackendService.fetchCoupleState() {
-            await adopt(state)
+            guard isCurrent(generation) else { return }
+            await adopt(state, startedIn: generation)
+            guard isCurrent(generation) else { return }
             inviteCode = onboarding.inviteCode
             hasCouple = true
             return
@@ -2736,14 +2812,20 @@ final class AppModel {
     func refreshFlights() async {
         if DemoMode.isOn { return }  // -demoMode: the sample couple, nothing fetched
         guard let backendCoupleID else { return }
+        let generation = accountGeneration
         if let fresh = try? await BackendService.fetchFlights(coupleID: backendCoupleID) {
+            // Not for an account that signed out meanwhile — it would start that couple's Live
+            // Activities again for whoever holds the phone now.
+            guard isCurrent(generation) else { return }
             flights = fresh
             for index in trips.indices {
                 trips[index].flights = fresh.filter { $0.tripID == trips[index].id }
             }
             await resolveMissingAirportTimezones()
+            guard isCurrent(generation) else { return }
             reapplyPendingWrites()
             await LiveActivityManager.shared.reconcileOnLaunch(with: fresh)
+            guard isCurrent(generation) else { return }
             await LiveActivityManager.shared.syncActivities(
                 for: fresh,
                 participants: { [weak self] flight in
@@ -2817,7 +2899,8 @@ final class AppModel {
     func refreshMemories() async {
         if DemoMode.isOn { return }  // -demoMode: the sample couple, nothing fetched
         guard let backendCoupleID else { return }
-        if let fresh = try? await backend.fetchMemories(coupleID: backendCoupleID) {
+        let generation = accountGeneration
+        if let fresh = try? await backend.fetchMemories(coupleID: backendCoupleID), isCurrent(generation) {
             memories = mergingPendingMemories(fresh)
             reapplyPendingWrites()
         }
@@ -2831,7 +2914,8 @@ final class AppModel {
     func refreshTrips() async {
         if DemoMode.isOn { return }  // -demoMode: the sample couple, nothing fetched
         guard let backendCoupleID else { return }
-        if var fresh = try? await backend.fetchTrips(coupleID: backendCoupleID) {
+        let generation = accountGeneration
+        if var fresh = try? await backend.fetchTrips(coupleID: backendCoupleID), isCurrent(generation) {
             for index in fresh.indices {
                 fresh[index].flights = flights.filter { $0.tripID == fresh[index].id }
             }
