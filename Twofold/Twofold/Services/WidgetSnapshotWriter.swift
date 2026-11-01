@@ -29,9 +29,12 @@ enum WidgetSnapshotWriter {
     /// So the local payload is written and the timelines reloaded immediately; the network work
     /// then enriches it and writes again. A cancellation now costs freshness on the images and the
     /// temperature, not the entire snapshot.
-    static func refresh(appModel: AppModel) async {
+    ///
+    /// `write` is `WidgetSnapshot.write` everywhere but the tests, which read what would have been
+    /// written without touching the app group every other suite shares.
+    static func refresh(appModel: AppModel, write: (WidgetSnapshot) -> Void = WidgetSnapshot.write) async {
         guard appModel.partnerConnected else {
-            WidgetSnapshot.write(
+            write(
                 WidgetSnapshot(
                     myID: nil,
                     myName: appModel.currentUser.name,
@@ -143,7 +146,7 @@ enum WidgetSnapshotWriter {
             )
         }
 
-        WidgetSnapshot.write(
+        write(
             snapshot(
                 weather: previous?.partnerWeather,
                 mySignedDrawingPadURL: previous?.mySignedDrawingPadURL,
@@ -220,7 +223,7 @@ enum WidgetSnapshotWriter {
             )
         }
 
-        WidgetSnapshot.write(
+        write(
             snapshot(
                 weather: weatherInfo,
                 mySignedDrawingPadURL: mySignedDrawingPadURL,

@@ -509,10 +509,6 @@ struct RootView: View {
         backendSaysActive || deviceHoldsEntitlement || awaitingPartnerDecision
     }
 
-    /// Everything that has to be true before a route can be opened. `isSubscriptionActive` is
-    /// part of it deliberately: this presents over the whole app, including the non-dismissable
-    /// lapsed-subscription paywall, so an old notification left sitting in Notification Center
-    /// from before a lapse must not become a way back into premium gameplay.
     /// Handles a held link once it can be, and holds it a little longer when it cannot yet. See
     /// `.onOpenURL`.
     private func consumePendingOpenURL() {
@@ -567,8 +563,19 @@ struct RootView: View {
         pendingOpenURL = nil
     }
 
+    /// What to do with the held notification route right now, or nil when none is held. See
+    /// `NotificationRoute.handling`.
+    private var notificationRouteHandling: NotificationRoute.Handling? {
+        router.pending?.handling(
+            isLoadingSession: appModel.isLoadingSession,
+            hasCouple: appModel.hasCouple,
+            hasResolvedSubscription: appModel.hasResolvedSubscription,
+            isSubscriptionActive: appModel.isSubscriptionActive
+        )
+    }
+
     private var isReadyForNotificationRoute: Bool {
-        !appModel.isLoadingSession && appModel.hasCouple && appModel.isSubscriptionActive
+        notificationRouteHandling.map { $0 != .wait } ?? false
     }
 
     /// Shows the repair offer once for this break, then never again for it.
@@ -806,7 +813,7 @@ struct RootView: View {
     }
 
     private func consumePendingRoute() {
-        guard let route = router.pending, isReadyForNotificationRoute else { return }
+        guard let route = router.pending, notificationRouteHandling == .open else { return }
 
         switch route {
         case .game(let sessionID, let gameType):

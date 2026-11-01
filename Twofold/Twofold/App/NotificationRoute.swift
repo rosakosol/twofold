@@ -63,6 +63,22 @@ enum NotificationRoute: Hashable {
         default: return nil
         }
     }
+
+    /// What `RootView` does with a held route, given how far the session has got. Pure, so the
+    /// decision can be tested without a view — see `consumePendingRoute()` there.
+    enum Handling: Equatable {
+        /// Not yet. The route stays held, and is tried again when any of the inputs change.
+        case wait
+        case open
+    }
+
+    func handling(isLoadingSession: Bool, hasCouple: Bool, hasResolvedSubscription: Bool, isSubscriptionActive: Bool) -> Handling {
+        // `isSubscriptionActive` is part of it deliberately: this presents over the whole app,
+        // including the non-dismissable lapsed-subscription paywall, so an old notification left
+        // sitting in Notification Center from before a lapse must not become a way back into
+        // premium gameplay.
+        !isLoadingSession && hasCouple && isSubscriptionActive ? .open : .wait
+    }
 }
 
 /// Holds the route from a tapped notification until there is somewhere to put it.

@@ -8,7 +8,8 @@
 //  A generated puzzle's one result is queued here too, before it is sent (`PuzzleResult`), and
 //  `GameResponseOutbox` drains whatever is left at launch, on foreground and on reconnect, with
 //  no game screen open.
-//  Main-app only, plain UserDefaults — nothing outside this process ever touches it, so there's
+//  Main-app only, a file under Application Support at Complete protection (see
+//  `PendingGameResponseStore.fileURL`) — nothing outside this process ever touches it, so there's
 //  no need for the App Group storage the widget/share-extension hand-off structs use.
 //
 

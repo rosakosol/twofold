@@ -301,6 +301,13 @@ final class AppModel {
     /// directly, so a unit test can hand in a backend that fails or answers on cue.
     @ObservationIgnored var backend: any CoupleDataBackend = LiveCoupleDataBackend()
 
+    /// What `signOut()` and `deleteAccount()` call on the way out, so a test can check the order.
+    @ObservationIgnored var sessionTeardown: any SessionTeardown = LiveSessionTeardown()
+
+    /// The couple-state read behind `refreshCoupleStateIfNeeded()`, so a test can hold it in the
+    /// air while something else — a sign-out — happens.
+    @ObservationIgnored var fetchCoupleStateOutcome: () async -> CoupleStateOutcome = { await CoupleStateOutcome.fetch() }
+
     // MARK: - Outbox
 
     /// True while `syncPendingWrites()` is draining the outbox. A write made meanwhile is queued
@@ -1246,9 +1253,9 @@ final class AppModel {
         // pushed to until a different account signs in and reassigns the token, same as before
         // this existed — not worth blocking sign-out over.
         if let lastRegisteredPushTokenHex {
-            try? await BackendService.unregisterDeviceToken(lastRegisteredPushTokenHex)
+            try? await sessionTeardown.unregisterDeviceToken(lastRegisteredPushTokenHex)
         }
-        try? await BackendService.signOut()
+        try? await sessionTeardown.signOut()
         await clearLocalSessionState()
     }
 
@@ -1263,7 +1270,7 @@ final class AppModel {
     /// forward — see `DeleteAccountView`'s header.
     func deleteAccount() async throws {
         await stopFlightsRealtimeSubscription()
-        try await BackendService.deleteAccount()
+        try await sessionTeardown.deleteAccount()
         await clearLocalSessionState()
     }
 
@@ -1278,7 +1285,7 @@ final class AppModel {
         // account's (and their partner's) name, photos, anniversary date, and upcoming trip/
         // flight until a different account signed in and overwrote them — none of this was
         // previously cleared by sign-out at all.
-        await LiveActivityManager.shared.endAll()
+        await sessionTeardown.endLiveActivities()
         // Same reasoning as the widget snapshot below — the next account to sign in on this device
         // must not inherit this one's entitlement. (`restore(for:)` is account-scoped as a second
         // guard, but clearing on the way out is the honest place to do it.)
@@ -1763,7 +1770,7 @@ final class AppModel {
     func refreshCoupleStateIfNeeded() async {
         if DemoMode.isOn { return }  // -demoMode: the sample couple, nothing fetched
         guard hasCouple else { return }
-        switch await CoupleStateOutcome.fetch() {
+        switch await fetchCoupleStateOutcome() {
         case let .paired(state):
             await adopt(state)
         case .noCouple:
