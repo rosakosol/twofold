@@ -131,9 +131,11 @@ struct TripCountdownWidgetView: View {
                     Label(countLabel, systemImage: "heart.fill")
                         .font(.headline)
                         .widgetAccentable()
+                    // Two lines: the rectangle has room for them under the headline, and one line cut
+                    // "until you're together in Tokyo" off at the city, which is the point of it.
                     Text(caption)
                         .font(.caption)
-                        .lineLimit(1)
+                        .lineLimit(2)
                         .minimumScaleFactor(0.8)
                 }
             } else {

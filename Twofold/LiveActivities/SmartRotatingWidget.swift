@@ -19,7 +19,7 @@ import SwiftUI
 import WidgetKit
 
 enum RotatingSlide {
-    case flight(WidgetSnapshot.FlightInfo, partnerName: String)
+    case flight(WidgetSnapshot.FlightInfo, partnerName: String, myName: String)
     case question(String)
     case drawing(partnerName: String)
     /// No image bytes in the entry: the photo is read from `WidgetImageCache` at render time, so a
@@ -74,7 +74,7 @@ struct SmartRotatingProvider: TimelineProvider {
         if let flight = snapshot.nextFlight {
             let inAir = (flight.bestDeparture ?? .distantFuture) <= date && (flight.bestArrival ?? .distantPast) >= date
             let soon = [flight.bestDeparture, flight.bestArrival].compactMap { $0 }.contains { abs($0.timeIntervalSince(date)) < day && $0 >= date }
-            if inAir || soon { return .flight(flight, partnerName: snapshot.partnerName) }
+            if inAir || soon { return .flight(flight, partnerName: snapshot.partnerName, myName: snapshot.myName) }
         }
         if let question = snapshot.dailyQuestion, !question.myAnswered {
             return .question(question.question)
@@ -102,7 +102,7 @@ struct SmartRotatingWidgetView: View {
     private var deepLinkURL: URL? {
         if isLocked { return URL(string: "twofold://paywall") }
         switch entry.slide {
-        case .flight(let flight, _): return URL(string: "twofold://flight/\(flight.id.uuidString)")
+        case .flight(let flight, _, _): return URL(string: "twofold://flight/\(flight.id.uuidString)")
         case .question: return URL(string: "twofold://daily-question")
         case .drawing: return URL(string: "twofold://partner-drawing-pad")
         case .memory(_, let memoryID): return URL(string: "twofold://memory/\(memoryID.uuidString)")
@@ -114,7 +114,7 @@ struct SmartRotatingWidgetView: View {
     var body: some View {
         Group {
             switch entry.slide {
-            case .flight(let flight, let partnerName): flightSlide(flight, partnerName: partnerName)
+            case .flight(let flight, let partnerName, let myName): flightSlide(flight, partnerName: partnerName, myName: myName)
             case .question(let question): questionSlide(question)
             case .drawing(let partnerName): drawingSlide(partnerName: partnerName)
             case .memory(let title, _): memorySlide(title: title)
@@ -126,20 +126,22 @@ struct SmartRotatingWidgetView: View {
         .widgetURL(deepLinkURL)
     }
 
-    private func flightSlide(_ flight: WidgetSnapshot.FlightInfo, partnerName: String) -> some View {
+    private func flightSlide(_ flight: WidgetSnapshot.FlightInfo, partnerName: String, myName: String) -> some View {
         let departed = (flight.bestDeparture ?? .distantFuture) <= entry.date
         let target = departed ? flight.bestArrival : flight.bestDeparture
         return slide(label: departed ? "Lands in" : "Departs in", caption: "\(flight.originCode) → \(flight.destinationCode)") {
             if let target, target > entry.date {
-                Text(target, style: .relative)
+                journeyCountdownText(to: target)
             } else {
                 Text(flight.status.displayLabel)
             }
         } accessory: {
-            if flight.travelerIsMe == true {
-                Image(systemName: "airplane").font(.title3)
-            } else {
-                WidgetAvatarView(person: .partner, name: partnerName, size: 26)
+            // Same rule as FlightTrackingWidget: the traveller's own face, and a face only when
+            // somebody is set. A flight with no passenger (nil) used to get the partner's photo.
+            switch flight.travelerIsMe {
+            case false?: WidgetAvatarView(person: .partner, name: partnerName, size: 26)
+            case true?: WidgetAvatarView(person: .me, name: myName, size: 26)
+            case nil: Image(systemName: "airplane").font(.title3)
             }
         }
         .widgetSurface(Brand.flight)

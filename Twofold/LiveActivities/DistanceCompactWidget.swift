@@ -55,6 +55,9 @@ struct DistanceCompactWidgetView: View {
                             Text(distanceLabel).font(.headline)
                         }
                     }
+                    // Beside the heart pair, "We're together" ran out of room and lost its last word.
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
                     cityLine
                         .font(.caption2)
                         .lineLimit(1)

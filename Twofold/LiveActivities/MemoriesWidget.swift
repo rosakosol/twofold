@@ -38,19 +38,32 @@ struct MemoriesProvider: TimelineProvider {
 /// caption sits on. Falls back to the indigo gradient when there is no photo.
 struct MemoryPhotoBackground: View {
     let imageData: Data?
+    @Environment(\.widgetFamily) private var family
+
+    /// Longest side of the decoded photo, in pixels. WidgetKit refuses to archive a widget whose
+    /// images exceed a fixed pixel area, and when it does it keeps showing the previous render with
+    /// no error the person can see — so a full-size camera photo decoded at 400pt × 3 (1200 px)
+    /// never appeared at all. 800 px stays under that limit at 4:3 or 3:4 and is still sharper than
+    /// the medium and large widgets can show; the small one needs far less.
+    private var maxPixelSize: Int { family == .systemSmall ? 480 : 800 }
 
     var body: some View {
         ZStack {
-            if let uiImage = WidgetImageDecoding.downsampled(imageData, pointSize: 400) {
+            if let uiImage = WidgetImageDecoding.downsampled(imageData, maxPixelSize: maxPixelSize) {
                 Image(uiImage: uiImage)
                     .resizable()
                     .widgetAccentedRenderingMode(.fullColor)
                     .scaledToFill()
             } else {
                 Brand.indigoGradient
-                Image(systemName: "mappin.and.ellipse")
-                    .font(.system(size: 44, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.35))
+                // In the top half, clear of the caption: centred, it sat under the title.
+                VStack {
+                    Image(systemName: "mappin.and.ellipse")
+                        .font(.system(size: 44, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.35))
+                        .padding(.top, 20)
+                    Spacer()
+                }
             }
             LinearGradient(colors: [.clear, .clear, .black.opacity(0.7)], startPoint: .top, endPoint: .bottom)
         }
@@ -70,10 +83,13 @@ struct MemoriesWidgetView: View {
                         .font(.system(size: family == .systemSmall ? 15 : 18, weight: .bold))
                         .lineLimit(2)
                         .widgetAccentable()
-                    Text([memory.city, memory.date.formatted(date: .abbreviated, time: .omitted)].compactMap { $0 }.joined(separator: " · "))
+                    // The date on a line of its own in the small size, where "Fujikawaguchiko · 30
+                    // Oct 2026" cut the date off; one line beside the city everywhere else.
+                    Text([memory.city, memory.date.formatted(date: .abbreviated, time: .omitted)].compactMap { $0 }.joined(separator: family == .systemSmall ? "\n" : " · "))
                         .font(.system(size: 12, weight: .semibold))
                         .opacity(0.92)
-                        .lineLimit(1)
+                        .lineLimit(family == .systemSmall ? 2 : 1)
+                        .minimumScaleFactor(0.85)
                 }
                 .foregroundStyle(.white)
                 .widgetSurface { MemoryPhotoBackground(imageData: WidgetImageCache.readLatestMemoryImage()) }

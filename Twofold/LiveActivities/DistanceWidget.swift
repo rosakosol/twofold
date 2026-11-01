@@ -129,6 +129,10 @@ struct DistanceWidgetView: View {
             Label("We're together", systemImage: "heart.fill")
         } else if let distanceLabel = entry.distanceLabel {
             Label("\(distanceLabel) apart", systemImage: "arrow.left.and.right")
+        } else {
+            // Both cities set but no coordinates to measure between, which drew an empty slot.
+            // Same wording the rectangular view falls back to.
+            Label("Add your home cities", systemImage: "arrow.left.and.right")
         }
     }
 }
