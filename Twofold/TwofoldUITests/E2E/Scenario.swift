@@ -219,13 +219,24 @@ struct Scenario {
         }
     }
 
+    /// Ends a game as the partner would from their phone, through the RPC their abandon menu calls.
+    func abandonAsPartner(_ id: UUID) async throws {
+        guard let partner else { throw LocalStack.Failure(description: "abandonAsPartner needs a paired scenario") }
+        _ = try await LocalStack.rpc("abandon_game_session", ["p_session_id": id.uuidString], as: partner.caller)
+    }
+
     /// Every Sudoku session this account started, newest first.
     func sudokuSessions() async throws -> [(id: UUID, status: String)] {
+        try await sessions(gameType: "sudoku")
+    }
+
+    /// Every session of one game this account started, newest first.
+    func sessions(gameType: String) async throws -> [(id: UUID, status: String)] {
         let rows = try await LocalStack.send(
             "GET", "rest/v1/game_sessions",
             query: [
                 URLQueryItem(name: "initiator_id", value: "eq.\(me.id)"),
-                URLQueryItem(name: "game_type", value: "eq.sudoku"),
+                URLQueryItem(name: "game_type", value: "eq.\(gameType)"),
                 URLQueryItem(name: "select", value: "id,status"),
                 URLQueryItem(name: "order", value: "created_at.desc"),
             ],

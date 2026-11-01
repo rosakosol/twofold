@@ -1004,10 +1004,11 @@ waitForSignedInApp(app)
   form calls, before its launch pipeline runs. With `TWOFOLD_E2E=1` the app also wipes the device's
   session and defaults first. All of it is DEBUG only and refused unless the app is pointed at a
   loopback Supabase (see [`E2ELaunch.swift`](Twofold/Twofold/App/E2ELaunch.swift)).
-* **Offline writes:** `TWOFOLD_E2E_WRITES_FAIL=1` makes every trip, memory and profile write fail as
-  if offline while reads still work; `until-background` lifts it the first time the app goes to the
+* **Offline writes:** `TWOFOLD_E2E_WRITES_FAIL=1` makes every trip, memory and profile write, and
+  every puzzle result, fail as if offline while reads still work; `until-background` lifts it the first time the app goes to the
   background, so coming back is the reconnect. Pair it with `keepDevice: true, signIn: false` for a
-  relaunch that must send what the first launch queued (see `OfflineWritesE2ETests`).
+  relaunch that must send what the first launch queued (see `OfflineWritesE2ETests` and
+  `PuzzleResultE2ETests`).
 
 **Adding a scenario:** add a static constructor to `Scenario` that composes `makeAccount`,
 `completeOnboarding`, `pair` and `apply(tier:to:)`, and put any new seeding call beside `addTrip`.
