@@ -19,12 +19,12 @@
 // system-wide archive sweep on demand.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { isServiceRoleRequest } from "../_shared/auth.ts";
 
 const STALE_AFTER_DAYS = 3;
 
 Deno.serve(async (req) => {
-  const expected = `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`;
-  if (req.headers.get("Authorization") !== expected) {
+  if (!(await isServiceRoleRequest(req))) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 

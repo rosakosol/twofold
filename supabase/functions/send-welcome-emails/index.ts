@@ -25,6 +25,7 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { closeQuietly, dotStuff, fromAddress, singleLine, smtpClient } from "../_shared/mail.ts";
 import { welcomeHtml } from "./template.ts";
+import { isServiceRoleRequest } from "../_shared/auth.ts";
 
 /// How far back a run will look. Belt to the migration's braces: that backfill stamps every
 /// profile that existed when it ran, so the first run has nothing old to find — but a restore, a
@@ -92,8 +93,7 @@ function escapeHtml(value: string): string {
 }
 
 Deno.serve(async (req) => {
-  const expected = `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`;
-  if (req.headers.get("Authorization") !== expected) {
+  if (!(await isServiceRoleRequest(req))) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 

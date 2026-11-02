@@ -35,13 +35,13 @@
 // to the next minute. See _shared/flight-refresh-run.ts.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { isServiceRoleRequest } from "../_shared/auth.ts";
 // The run itself lives in _shared so tests can import it — this file's top-level Deno.serve makes
 // it unimportable. See _shared/flight-refresh-run.ts and _shared/flight-schedule.test.ts.
 import { runDueFlightRefresh } from "../_shared/flight-refresh-run.ts";
 
 Deno.serve(async (req) => {
-  const expected = `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`;
-  if (req.headers.get("Authorization") !== expected) {
+  if (!(await isServiceRoleRequest(req))) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 

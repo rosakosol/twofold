@@ -1,4 +1,4 @@
-// The three storage cron functions answer to the service role and nobody else.
+// The cron and trigger-invoked functions answer to the service role and nobody else.
 //
 // Each is `verify_jwt = true`, which reads like "only the cron can call this" and is not: the
 // gateway accepts any valid JWT, and every signed-in user's access token is one. Before the guard
@@ -83,5 +83,60 @@ for (const name of ["purge-r2-objects", "purge-support-attachments", "fetch-supp
     assert(res.status !== 403, `${name} refused the service role`);
     assert(outbound.length > 0, `${name} never reached the database with the service role`);
     await res.body?.cancel();
+  });
+}
+
+// Every function that answers to the service role alone, whichever form its check used to take.
+const SERVICE_ROLE_ONLY = [
+  "archive-stale-games",
+  "fetch-support-attachments",
+  "notify-game-turn",
+  "purge-dormant-accounts",
+  "purge-r2-objects",
+  "purge-support-attachments",
+  "reconcile-subscriptions",
+  "refresh-due-flights",
+  "send-birthday-reminders",
+  "send-partner-invite-reminders",
+  "send-streak-reminders",
+  "send-welcome-emails",
+];
+
+for (const name of SERVICE_ROLE_ONLY) {
+  Deno.test(`${name}: refuses a user's token, the anon key and no header, before reaching out`, async () => {
+    const handler = await load(name);
+    for (const auth of [USER_JWT, `Bearer ${ENV.SUPABASE_ANON_KEY}`, undefined, "Bearer ", SERVICE_KEY]) {
+      outbound.length = 0;
+      const res = await handler(post(auth));
+      assert(res.status === 401 || res.status === 403, `${name} accepted Authorization=${auth} (${res.status})`);
+      assertEquals(outbound, [], `${name} reached out before refusing Authorization=${auth}`);
+      await res.body?.cancel();
+    }
+  });
+
+  Deno.test(`${name}: the service-role key gets past the guard`, async () => {
+    const handler = await load(name);
+    const res = await handler(post(`Bearer ${SERVICE_KEY}`));
+    // The stubbed backend fails, or the test body is not what the function wants; either way the
+    // answer is not a refusal of the caller.
+    assert(res.status !== 401 && res.status !== 403, `${name} refused the service role (${res.status})`);
+    await res.body?.cancel();
+  });
+
+  // The inline copies built `Bearer ${Deno.env.get(...)}`, which is "Bearer undefined" when the key
+  // is missing, and then let in anybody who sent exactly that.
+  Deno.test(`${name}: with the key unset, "Bearer undefined" is refused`, async () => {
+    const handler = await load(name);
+    const saved = ENV.SUPABASE_SERVICE_ROLE_KEY;
+    delete ENV.SUPABASE_SERVICE_ROLE_KEY;
+    try {
+      outbound.length = 0;
+      const res = await handler(post("Bearer undefined"));
+      assert(res.status === 401 || res.status === 403, `${name} let "Bearer undefined" in (${res.status})`);
+      assertEquals(outbound, [], `${name} reached out for "Bearer undefined"`);
+      await res.body?.cancel();
+    } finally {
+      ENV.SUPABASE_SERVICE_ROLE_KEY = saved;
+    }
   });
 }

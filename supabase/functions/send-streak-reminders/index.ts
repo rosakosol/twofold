@@ -23,6 +23,7 @@
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { sendAPNs } from "../_shared/apns.ts";
+import { isServiceRoleRequest } from "../_shared/auth.ts";
 
 interface Input {
   final?: boolean;
@@ -50,8 +51,7 @@ interface StreakReminderTarget {
 const CRON_INTERVAL_MINUTES = 15;
 
 Deno.serve(async (req) => {
-  const expected = `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`;
-  if (req.headers.get("Authorization") !== expected) {
+  if (!(await isServiceRoleRequest(req))) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 

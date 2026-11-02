@@ -21,6 +21,7 @@
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { sendAPNs } from "../_shared/apns.ts";
+import { isServiceRoleRequest } from "../_shared/auth.ts";
 
 interface BirthdayReminderTarget {
   recipient_id: string;
@@ -50,8 +51,7 @@ function weekdayName(month: number, day: number, year: number): string | null {
 }
 
 Deno.serve(async (req) => {
-  const expected = `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`;
-  if (req.headers.get("Authorization") !== expected) {
+  if (!(await isServiceRoleRequest(req))) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 

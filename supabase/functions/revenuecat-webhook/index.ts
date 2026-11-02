@@ -43,7 +43,7 @@
 //
 // RevenueCat sends a fixed `Authorization` header value, set in its dashboard, which must match the
 // `REVENUECAT_WEBHOOK_SECRET` secret here. That is the whole of the authentication — there is no
-// signature to verify — so it is compared in constant time via `timingSafeEqual` below rather than
+// signature to verify — so it is compared in constant time via `timingSafeEqual` (_shared/auth.ts) rather than
 // with `!==`. (The sibling `aeroapi-webhook` compares its token with `!==`; that is not a pattern to
 // copy. A plain string comparison bails at the first differing byte, and the timing difference is
 // measurable across enough requests, which is how a shared secret gets recovered a byte at a time
@@ -64,6 +64,7 @@
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { type CandidateId, collectCandidateUserIds } from "./ids.ts";
+import { timingSafeEqual } from "../_shared/auth.ts";
 import {
   describeMissingStart,
   isBlankSubscriber,
@@ -138,23 +139,6 @@ interface RestSubscriberResponse {
 
 function jsonResponse(body: unknown, status = 200): Response {
   return Response.json(body, { status });
-}
-
-// Constant-time string comparison. Hashing both sides first is what lets this handle unequal
-// lengths without an early return: SHA-256 digests are always 32 bytes, so the loop below runs the
-// same number of iterations and touches the same memory no matter how wrong the candidate is, and
-// the digest of a wrong secret reveals nothing about the right one.
-async function timingSafeEqual(a: string, b: string): Promise<boolean> {
-  const encoder = new TextEncoder();
-  const [aHash, bHash] = await Promise.all([
-    crypto.subtle.digest("SHA-256", encoder.encode(a)),
-    crypto.subtle.digest("SHA-256", encoder.encode(b)),
-  ]);
-  const aBytes = new Uint8Array(aHash);
-  const bBytes = new Uint8Array(bHash);
-  let diff = 0;
-  for (let i = 0; i < aBytes.length; i++) diff |= aBytes[i] ^ bBytes[i];
-  return diff === 0;
 }
 
 interface SubscriberState {

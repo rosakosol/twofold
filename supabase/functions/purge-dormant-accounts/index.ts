@@ -35,6 +35,7 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { sendAPNs } from "../_shared/apns.ts";
 import { closeQuietly, dotStuff, fromAddress, singleLine, smtpClient } from "../_shared/mail.ts";
+import { isServiceRoleRequest } from "../_shared/auth.ts";
 
 const MAX_CLOSURES_PER_RUN = 200;
 
@@ -85,8 +86,7 @@ function warningEmail(row: CohortRow): { subject: string; body: string } {
 }
 
 Deno.serve(async (req) => {
-  const expected = `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`;
-  if (req.headers.get("Authorization") !== expected) {
+  if (!(await isServiceRoleRequest(req))) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
   if (req.method !== "POST") {

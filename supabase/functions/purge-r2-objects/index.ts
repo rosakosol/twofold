@@ -30,15 +30,17 @@
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { presign, r2ConfigFromEnv } from "../_shared/r2.ts";
-import { isServiceRoleRequest } from "./auth.ts";
+import { isServiceRoleRequest } from "../_shared/auth.ts";
 
 /// Per invocation. The queue drains over several runs rather than holding one long request open,
 /// and cron comes round again.
 const BATCH = 500;
 
 Deno.serve(async (req) => {
-  // Cron only. See auth.ts for what an ordinary signed-in caller could read here without it.
-  if (!isServiceRoleRequest(req, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"))) {
+  // Cron only. `verify_jwt` only proves the bearer is *a* valid token for this project; without this
+  // check any signed-in user could POST `{"dryRun": true}` and read back the whole deletion queue —
+  // keys naming the couple, memory and profile ids of everything recently deleted.
+  if (!(await isServiceRoleRequest(req))) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
   if (req.method !== "POST") {

@@ -24,6 +24,7 @@
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { sendAPNs } from "../_shared/apns.ts";
+import { isServiceRoleRequest } from "../_shared/auth.ts";
 import { buildMessage } from "../_shared/couple-event-copy.ts";
 
 interface Input {
@@ -42,9 +43,7 @@ Deno.serve(async (req) => {
   // Service role only. Compared against the key itself rather than by decoding a role claim: this
   // endpoint takes the recipient as a parameter, so anything less than "you already hold the
   // service key" would let a caller push arbitrary copy to an arbitrary profile.
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const presented = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
-  if (presented !== serviceKey) {
+  if (!(await isServiceRoleRequest(req))) {
     return Response.json({ error: "Not authorised" }, { status: 401 });
   }
 
@@ -68,7 +67,7 @@ Deno.serve(async (req) => {
     return Response.json({ error: "actorId and recipientId must differ" }, { status: 400 });
   }
 
-  const db = createClient(Deno.env.get("SUPABASE_URL")!, serviceKey);
+  const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
   // Best-effort from here, like every other notify path: a push that fails to send must not turn
   // an already-committed move into an error.

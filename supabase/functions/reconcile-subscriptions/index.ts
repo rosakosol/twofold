@@ -34,6 +34,7 @@
 // corrections is distinguishable from genuine deliveries when reading that ledger later.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { isServiceRoleRequest } from "../_shared/auth.ts";
 
 /// Who gets re-checked.
 ///
@@ -61,8 +62,7 @@ Deno.serve(async (req) => {
   // Same shape as every other cron entrypoint here: the service role key is the credential, and a
   // stray public request must not be able to trigger a run against the provider.
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  const presented = req.headers.get("Authorization");
-  if (!serviceKey || presented !== `Bearer ${serviceKey}`) {
+  if (!serviceKey || !(await isServiceRoleRequest(req, serviceKey))) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
