@@ -82,6 +82,32 @@ export function isDue(flight: FlightRow, now: number): boolean {
   return msSinceRefresh(flight, now) > refreshThresholdMs(flight, now);
 }
 
+// How late a due flight is against its own cadence: 1 is just due, 3 is three cadences late.
+// A run that can't reach every due flight takes the latest first, so a flight leaving in five
+// minutes and three polls behind goes before one next month that is an hour past its six-hourly
+// look — ordering by plain staleness would always put the far-out flight first. Never refreshed,
+// or with no schedule to pace against, is as late as it gets.
+export function refreshLateness(flight: FlightRow, now: number): number {
+  const threshold = refreshThresholdMs(flight, now);
+  const since = msSinceRefresh(flight, now);
+  if (since === Infinity || threshold <= 0) return Infinity;
+  return since / threshold;
+}
+
+// The due flights in the order a run should take them: latest against their cadence first, then
+// longest since refreshed.
+export function dueFlightsInOrder<T extends FlightRow>(flights: T[], now: number): T[] {
+  return flights
+    .filter((flight) => isDue(flight, now))
+    .map((flight) => ({ flight, lateness: refreshLateness(flight, now), since: msSinceRefresh(flight, now) }))
+    .sort((a, b) => {
+      if (a.lateness !== b.lateness) return a.lateness === Infinity ? -1 : b.lateness === Infinity ? 1 : b.lateness - a.lateness;
+      if (a.since !== b.since) return a.since === Infinity ? -1 : b.since === Infinity ? 1 : b.since - a.since;
+      return a.flight.id < b.flight.id ? -1 : 1;
+    })
+    .map(({ flight }) => flight);
+}
+
 // "Wish them a safe flight" nudge to the *other* partner — fires once per flight, guarded by
 // pre_departure_notified (see 20260717030000_flight_pre_departure_notified.sql), while it's
 // within 10 minutes of its best-known departure time and hasn't actually left yet. Near-departure

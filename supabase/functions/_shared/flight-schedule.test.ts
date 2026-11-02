@@ -14,9 +14,11 @@ import {
   ARRIVAL_REMINDER_1H_WINDOW_MS,
   ARRIVAL_REMINDER_30M_WINDOW_MS,
   bestKnownArrival,
+  dueFlightsInOrder,
   isDue,
   isDueForArrivalReminder,
   isDueForPreDepartureReminder,
+  refreshThresholdMs,
   shouldResetArrivalReminder,
 } from "./flight-schedule.ts";
 
@@ -264,4 +266,33 @@ Deno.test("isFlightInProgress: no arrival estimate at all falls back to time sin
     isFlightInProgress({ actual_out: "2026-08-15T06:00:00Z", actual_in: null }, AUG_17_NOON),
     false,
   );
+});
+
+// A run that can't reach every due flight takes the latest against its own cadence first
+// (DB-4). Plain staleness would always put next month's flight, looked at six-hourly, ahead of
+// one leaving in minutes that is polled every minute.
+Deno.test("dueFlightsInOrder: latest against its own cadence first, never-refreshed before all", () => {
+  const nextMonth = flight({ id: "a", scheduled_out: at(30 * 24 * HOUR), last_refreshed_at: at(-7 * HOUR) });
+  const leavingSoon = flight({ id: "b", scheduled_out: at(5 * MINUTE), last_refreshed_at: at(-3 * MINUTE) });
+  const brandNew = flight({ id: "c", scheduled_out: at(30 * 24 * HOUR), last_refreshed_at: null });
+  const fresh = flight({ id: "d", scheduled_out: at(30 * 24 * HOUR), last_refreshed_at: at(-1 * HOUR) });
+
+  assertEquals(
+    dueFlightsInOrder([nextMonth, leavingSoon, fresh, brandNew], NOW).map((f) => f.id),
+    ["c", "b", "a"],
+  );
+});
+
+Deno.test("refreshThresholdMs: isDue is exactly 'stale past the threshold'", () => {
+  for (const f of [
+    flight({ scheduled_out: at(5 * MINUTE) }),
+    flight({ scheduled_out: at(90 * MINUTE) }),
+    flight({ scheduled_out: at(10 * HOUR) }),
+    flight({ scheduled_out: at(48 * HOUR) }),
+    flight({ status: "in_air", scheduled_out: at(-3 * HOUR), actual_out: at(-3 * HOUR), scheduled_in: at(5 * HOUR) }),
+  ]) {
+    const threshold = refreshThresholdMs(f, NOW);
+    assertEquals(isDue({ ...f, last_refreshed_at: at(-threshold) }, NOW), false);
+    assertEquals(isDue({ ...f, last_refreshed_at: at(-threshold - 1) }, NOW), true);
+  }
 });

@@ -86,6 +86,15 @@ function apiKey(): string {
   return key;
 }
 
+// A non-2xx answer other than 404. Carries the status so the cron can tell "slow down" (429)
+// from a failure about one flight.
+export class AeroApiError extends Error {
+  constructor(readonly status: number, message: string) {
+    super(message);
+    this.name = "AeroApiError";
+  }
+}
+
 // Returns parsed JSON, `null` on a 404 (treated as "not found", not an error), and throws
 // (after one retry) on any other non-2xx status. Logs a truncated response body on error for
 // diagnosability — AeroAPI's own error bodies (e.g. "Invalid API key", quota/rate-limit
@@ -152,7 +161,7 @@ async function aeroRequest(
   if (!res.ok) {
     const bodyText = await res.text().catch(() => "");
     console.error(`[aeroapi] ${path} failed with status ${res.status}: ${bodyText.slice(0, 500)}`);
-    throw new Error(`AeroAPI request failed (${res.status}): ${bodyText.slice(0, 200)}`);
+    throw new AeroApiError(res.status, `AeroAPI request failed (${res.status}): ${bodyText.slice(0, 200)}`);
   }
 
   return res.json();

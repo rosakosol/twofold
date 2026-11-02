@@ -3,8 +3,10 @@
 // documented at the top of refresh-due-flights/index.ts and lives in flight-schedule.ts.
 
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
+import { AeroApiError } from "./aeroapi.ts";
 import {
   type FlightRow,
+  loadTrackedFlights,
   maybeRefreshWeather,
   reconcileOverdueArrival,
   refreshOneFlight,
@@ -15,7 +17,7 @@ import {
   ARRIVAL_REMINDER_1H_WINDOW_MS,
   ARRIVAL_REMINDER_30M_WINDOW_MS,
   bestKnownArrival,
-  isDue,
+  dueFlightsInOrder,
   isDueForArrivalReminder,
   isDueForPreDepartureReminder,
   shouldResetArrivalReminder,
@@ -23,7 +25,18 @@ import {
 
 const TERMINAL_STATUSES = ["arrived", "landed", "cancelled", "diverted"];
 
+// Spacing between flights, so a run never bursts AeroAPI faster than about five calls a second.
 const INTER_CALL_DELAY_MS = 200;
+
+// How long a run keeps starting AeroAPI refreshes, and when its live-position pass stops. Both
+// inside the one-minute cron interval, so a run is normally done before the next one starts; the
+// lease below only matters when one isn't.
+const REFRESH_BUDGET_MS = 40_000;
+const RUN_DEADLINE_MS = 50_000;
+
+// A cap on AeroAPI flight lookups per run, whatever the clock says: what one minute may spend.
+// At 200 ms apart a run reaches about this many inside REFRESH_BUDGET_MS anyway.
+const MAX_REFRESHES_PER_RUN = 150;
 
 // The run lease (20261118000100). Long enough to outlast any run, so a slow run is never joined by
 // the next; short enough that a run killed without releasing it holds up flight tracking for a
@@ -119,49 +132,17 @@ export async function maybeSendPreDepartureReminder(serviceClient: SupabaseClien
 }
 
 export type FlightRefreshResult =
-  | { ok: true; refreshed: number; skipped: number; alreadyRunning?: boolean }
+  | { ok: true; refreshed: number; skipped: number; deferred?: number; alreadyRunning?: boolean }
   | { ok: false; status: number; error: string };
-
-// Every tracked flight of an active couple, or null when they couldn't be loaded.
-async function loadTrackedFlights(serviceClient: SupabaseClient): Promise<FlightRow[] | null> {
-  // Defense in depth, not just a fix for one call site: `tracking_enabled` alone doesn't catch
-  // every way a flight can become orphaned — a couple dissolving is the confirmed case
-  // (`leave_couple` now clears it directly, see 20260723000000), but this guards against any
-  // *other* path that leaves tracking_enabled = true on a flight whose couple can no longer load
-  // it client-side (fetchCoupleState() only ever loads active couples), which would otherwise
-  // poll AeroAPI for it every 5 minutes forever with nobody able to see the result.
-  const { data: activeCouples, error: couplesErr } = await serviceClient
-    .from("couples")
-    .select("id")
-    .eq("status", "active");
-  if (couplesErr) {
-    console.error("[refresh-due-flights] failed to load active couples:", couplesErr.message);
-    return null;
-  }
-  const activeCoupleIds = (activeCouples ?? []).map((c) => c.id as string);
-  if (activeCoupleIds.length === 0) {
-    return [];
-  }
-
-  const { data: flights, error } = await serviceClient
-    .from("flights")
-    .select("*")
-    .eq("tracking_enabled", true)
-    .in("couple_id", activeCoupleIds);
-
-  if (error) {
-    console.error("[refresh-due-flights] failed to load flights:", error.message);
-    return null;
-  }
-
-  return (flights ?? []) as FlightRow[];
-}
 
 export interface FlightRefreshOptions {
   // Every tracked flight the run should consider. Tests pass their own seeded flights.
   loadTrackedFlights?: (serviceClient: SupabaseClient) => Promise<FlightRow[] | null>;
   // The flat live-position pass after the main loop.
   syncLivePositions?: (serviceClient: SupabaseClient) => Promise<void>;
+  maxRefreshesPerRun?: number;
+  interCallDelayMs?: number;
+  clock?: () => number;
 }
 
 export async function runDueFlightRefresh(
@@ -195,35 +176,39 @@ async function refreshTrackedFlights(
   serviceClient: SupabaseClient,
   options: FlightRefreshOptions,
 ): Promise<FlightRefreshResult> {
+  const clock = options.clock ?? Date.now;
+  const startedAt = clock();
+  const now = startedAt;
+  const maxRefreshes = options.maxRefreshesPerRun ?? MAX_REFRESHES_PER_RUN;
+  const interCallDelayMs = options.interCallDelayMs ?? INTER_CALL_DELAY_MS;
+
   const flights = await (options.loadTrackedFlights ?? loadTrackedFlights)(serviceClient);
   if (!flights) return { ok: false, status: 500, error: "Failed to load flights" };
 
+  // Already done (successfully or not) — no point asking AeroAPI for more; those only go through
+  // reconcileOverdueArrival below so they get archived (tracking_enabled = false) once it's been
+  // 2 hours since arrival.
+  const due = dueFlightsInOrder(flights.filter((f) => !TERMINAL_STATUSES.includes(f.status)), now);
+  const dueIds = new Set(due.map((f) => f.id));
+
   let refreshed = 0;
-  let skipped = 0;
-  const now = Date.now();
+  let deferred = 0;
+  let rateLimited = false;
 
-  for (const flight of flights) {
-    // Already done (successfully or not) — no point asking AeroAPI for more, but still run
-    // through reconcileOverdueArrival below so it gets archived (tracking_enabled = false) once
-    // it's been 2 hours since arrival.
-    if (TERMINAL_STATUSES.includes(flight.status)) {
-      skipped++;
-      try {
-        await reconcileOverdueArrival(serviceClient, flight, now);
-      } catch (err) {
-        console.error(`[refresh-due-flights] reconcileOverdueArrival failed for ${flight.id}:`, (err as Error).message);
-      }
-      continue;
-    }
-
-    if (!isDue(flight, now)) {
-      skipped++;
-      try {
-        await reconcileOverdueArrival(serviceClient, flight, now);
-      } catch (err) {
-        console.error(`[refresh-due-flights] reconcileOverdueArrival failed for ${flight.id}:`, (err as Error).message);
-      }
-      continue;
+  for (const [index, flight] of due.entries()) {
+    // Bounded, so a run never outlasts its minute however many flights are due. Whatever is left
+    // is still due next minute, and by then later against its cadence, so it moves up the order.
+    // The first flight always goes, so a run always makes progress.
+    const outOfTime = index > 0 && clock() - startedAt >= REFRESH_BUDGET_MS;
+    if (rateLimited || outOfTime || index >= maxRefreshes) {
+      deferred = due.length - index;
+      console.log(
+        `[refresh-due-flights] ${deferred} due flights left for the next run (${
+          rateLimited ? "rate limited" : outOfTime ? "out of time" : "per-run limit"
+        })`,
+      );
+      for (const rest of due.slice(index)) await reconcile(serviceClient, rest, now);
+      break;
     }
 
     let latest: FlightRow = flight;
@@ -243,25 +228,32 @@ async function refreshTrackedFlights(
       }
     } catch (err) {
       console.error(`[refresh-due-flights] refresh failed for ${flight.id}:`, (err as Error).message);
+      // AeroAPI asked us to slow down, and already refused the one retry. Asking about the
+      // remaining flights now would only be refused too, and each refusal is still billed.
+      if (err instanceof AeroApiError && err.status === 429) rateLimited = true;
     }
 
-    try {
-      await maybeRefreshWeather(serviceClient, flight, "refresh-due-flights");
-    } catch (err) {
-      console.error(`[refresh-due-flights] weather refresh failed for ${flight.id}:`, (err as Error).message);
+    if (!rateLimited) {
+      try {
+        await maybeRefreshWeather(serviceClient, flight, "refresh-due-flights");
+      } catch (err) {
+        console.error(`[refresh-due-flights] weather refresh failed for ${flight.id}:`, (err as Error).message);
+      }
     }
 
     // Catches two cases in one pass: AeroAPI just went silent on this refresh too (still
     // non-terminal well past best-known arrival — force it to "arrived"), or it just became
     // terminal this tick (actual_in freshly confirmed — too recent to archive yet, no-ops until
     // 2 hours from now).
-    try {
-      await reconcileOverdueArrival(serviceClient, latest, now);
-    } catch (err) {
-      console.error(`[refresh-due-flights] reconcileOverdueArrival failed for ${flight.id}:`, (err as Error).message);
-    }
+    await reconcile(serviceClient, latest, now);
 
-    await new Promise((resolve) => setTimeout(resolve, INTER_CALL_DELAY_MS));
+    if (interCallDelayMs > 0) await new Promise((resolve) => setTimeout(resolve, interCallDelayMs));
+  }
+
+  // Not due, or terminal: no AeroAPI call, but a flight the provider has gone silent on still needs
+  // forcing to arrived, and a landed one archiving.
+  for (const flight of flights) {
+    if (!dueIds.has(flight.id)) await reconcile(serviceClient, flight, now);
   }
 
   // A separate, flat pass — deduped by fa_flight_id across every couple tracking the same
@@ -273,12 +265,19 @@ async function refreshTrackedFlights(
     if (options.syncLivePositions) {
       await options.syncLivePositions(serviceClient);
     } else {
-      // Every airborne tracked flight belongs to one of these couples.
-      await syncLivePositions(serviceClient, [...new Set(flights.map((f) => f.couple_id))]);
+      await syncLivePositions(serviceClient, startedAt + RUN_DEADLINE_MS, clock);
     }
   } catch (err) {
     console.error("[refresh-due-flights] syncLivePositions failed:", (err as Error).message);
   }
 
-  return { ok: true, refreshed, skipped };
+  return { ok: true, refreshed, skipped: flights.length - due.length, deferred };
+}
+
+async function reconcile(serviceClient: SupabaseClient, flight: FlightRow, now: number): Promise<void> {
+  try {
+    await reconcileOverdueArrival(serviceClient, flight, now);
+  } catch (err) {
+    console.error(`[refresh-due-flights] reconcileOverdueArrival failed for ${flight.id}:`, (err as Error).message);
+  }
 }

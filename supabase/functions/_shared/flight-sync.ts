@@ -876,34 +876,67 @@ export async function syncLivePositionForFaFlightId(
   }
 }
 
+// Every tracked flight of an active couple, a page at a time through `tracked_flights_page`
+// (20261118000200), or null when a page couldn't be loaded. Loading every active couple's id and
+// filtering `couple_id=in.(…)` put every id in the URL (a proxy refuses it past a few hundred
+// couples, failing the whole run) and stopped silently at PostgREST's 1000-row cap (DB-4,
+// 7-supabase-NEW-1). `statuses` narrows it for the live-position pass.
+export const TRACKED_FLIGHTS_PAGE_SIZE = 500;
+
+export async function loadTrackedFlights(
+  serviceClient: SupabaseClient,
+  statuses?: FlightStatus[],
+): Promise<FlightRow[] | null> {
+  const flights: FlightRow[] = [];
+  let after: string | null = null;
+  for (;;) {
+    const { data, error } = await serviceClient.rpc("tracked_flights_page", {
+      p_after: after,
+      p_limit: TRACKED_FLIGHTS_PAGE_SIZE,
+      p_statuses: statuses ?? null,
+    });
+    if (error) {
+      console.error("[flight-sync] failed to load tracked flights:", error.message);
+      return null;
+    }
+    const page = (data ?? []) as FlightRow[];
+    flights.push(...page);
+    if (page.length < TRACKED_FLIGHTS_PAGE_SIZE) return flights;
+    after = page[page.length - 1].id;
+  }
+}
+
 // Called once per refresh-due-flights cron tick (every minute), independent of isDue()'s
 // AeroAPI-staleness tiering — that tiering exists to space out paid AeroAPI schedule calls, but
 // live position from free mirrors has no such cost pressure and refreshes flat, every tick, for
 // every currently-airborne flight. Deduped by fa_flight_id: two couples tracking the same
 // real-world flight collapse into a single syncLivePositionForFaFlightId call.
-export async function syncLivePositions(serviceClient: SupabaseClient, activeCoupleIds: string[]): Promise<void> {
-  if (activeCoupleIds.length === 0) return;
-
-  const { data: flights, error } = await serviceClient
-    .from("flights")
-    .select("fa_flight_id, atc_ident, flight_number_icao")
-    .eq("tracking_enabled", true)
-    .in("couple_id", activeCoupleIds)
-    .in("status", AIRBORNE_STATUSES)
-    .not("fa_flight_id", "is", null);
-
-  if (error) {
-    console.error("[adsb] failed to load airborne flights for live-position sync:", error.message);
-    return;
-  }
+//
+// Stops at `deadline` (epoch ms) so the run stays inside its minute. Where it starts in the list
+// moves every minute, so when the deadline cuts it short it isn't always the same flights left out.
+export async function syncLivePositions(
+  serviceClient: SupabaseClient,
+  deadline = Infinity,
+  clock: () => number = Date.now,
+): Promise<void> {
+  const flights = await loadTrackedFlights(serviceClient, AIRBORNE_STATUSES);
+  if (!flights) return;
 
   type Candidate = { fa_flight_id: string; atc_ident: string | null; flight_number_icao: string | null };
   const byFaFlightId = new Map<string, Candidate>();
-  for (const flight of (flights ?? []) as Candidate[]) {
-    if (!byFaFlightId.has(flight.fa_flight_id)) byFaFlightId.set(flight.fa_flight_id, flight);
+  for (const flight of flights) {
+    if (!flight.fa_flight_id) continue;
+    if (!byFaFlightId.has(flight.fa_flight_id)) byFaFlightId.set(flight.fa_flight_id, flight as Candidate);
   }
 
-  for (const [faFlightId, flight] of byFaFlightId) {
+  const entries = [...byFaFlightId];
+  const start = entries.length > 0 ? Math.floor(clock() / 60_000) % entries.length : 0;
+  const rotated = [...entries.slice(start), ...entries.slice(0, start)];
+  for (const [faFlightId, flight] of rotated) {
+    if (clock() >= deadline) {
+      console.log(`[adsb] live-position pass out of time; ${rotated.length} flights, the rest wait a minute`);
+      return;
+    }
     const candidates = [flight.atc_ident, flight.flight_number_icao].filter((v): v is string => Boolean(v));
     try {
       await syncLivePositionForFaFlightId(serviceClient, faFlightId, candidates);

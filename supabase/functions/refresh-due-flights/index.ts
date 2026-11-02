@@ -29,6 +29,10 @@
 //
 // Processes flights sequentially with a short delay between AeroAPI calls rather than in
 // parallel, to avoid bursting rate limits — this is a background job, latency doesn't matter.
+// One run at a time (a lease row, 20261118000100); flights are read a page at a time
+// (20261118000200); the latest due flights against their own cadence go first; and a run stops
+// starting refreshes after 40 s, after 150 lookups, or at AeroAPI's first 429, leaving the rest
+// to the next minute. See _shared/flight-refresh-run.ts.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 // The run itself lives in _shared so tests can import it — this file's top-level Deno.serve makes
