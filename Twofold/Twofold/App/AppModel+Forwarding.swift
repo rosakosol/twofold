@@ -148,3 +148,62 @@ extension AppModel {
     func decks(ofType gameType: GameType) -> [GameDeck] { games.decks(ofType: gameType) }
     func topicProgress(_ topic: GameTopic) -> (played: Int, total: Int)? { games.topicProgress(topic) }
 }
+
+// MARK: - TravelStore
+
+extension AppModel {
+    var trips: [Trip] {
+        get { travel.trips }
+        set { travel.trips = newValue }
+    }
+    var memories: [Memory] {
+        get { travel.memories }
+        set { travel.memories = newValue }
+    }
+    var flights: [Flight] {
+        get { travel.flights }
+        set { travel.flights = newValue }
+    }
+    var activeTrip: Trip? { travel.activeTrip }
+    var activeOrUpcomingFlights: [Flight] { travel.activeOrUpcomingFlights }
+    var activeOrUpcomingFlight: Flight? { travel.activeOrUpcomingFlight }
+    var upcomingTrips: [Trip] { travel.upcomingTrips }
+    var pastTrips: [Trip] { travel.pastTrips }
+    var completedFlights: [Flight] { travel.completedFlights }
+    var nextReunionTripID: Trip.ID? { travel.nextReunionTripID }
+    var nextReunionDaysToGo: Int { travel.nextReunionDaysToGo }
+    func memories(in place: Place) -> [Memory] { travel.memories(in: place) }
+    var citiesWithMemories: [Place] { travel.citiesWithMemories }
+    func travellerIDs(for flight: Flight) -> [UUID] { travel.travellerIDs(for: flight) }
+
+    @discardableResult
+    func addTrip(origin: Place, destination: Place, departureDate: Date, arrivalDate: Date, traveler: TripTraveler, category: TripCategory, flightCandidates: [AeroFlightCandidate] = []) async -> Trip {
+        await travel.addTrip(origin: origin, destination: destination, departureDate: departureDate, arrivalDate: arrivalDate, traveler: traveler, category: category, flightCandidates: flightCandidates)
+    }
+    func refreshFlights() async { await travel.refreshFlights() }
+    func resolveMissingAirportTimezones() async { await travel.resolveMissingAirportTimezones() }
+    func refreshMemories() async { await travel.refreshMemories() }
+    func refreshTrips() async { await travel.refreshTrips() }
+    func deleteFlight(_ flight: Flight) async { await travel.deleteFlight(flight) }
+    func deleteFlights(_ flights: [Flight]) async { await travel.deleteFlights(flights) }
+    func updateTripNotes(_ trip: Trip) async { await travel.updateTripNotes(trip) }
+    func updateTrip(_ trip: Trip, from base: Trip? = nil) async { await travel.updateTrip(trip, from: base) }
+    func deleteTrip(_ trip: Trip) async { await travel.deleteTrip(trip) }
+    func deleteTrips(_ trips: [Trip]) async { await travel.deleteTrips(trips) }
+    func linkFlight(_ flight: Flight, to trip: Trip) async { await travel.linkFlight(flight, to: trip) }
+    func unlinkFlight(_ flight: Flight) async { await travel.unlinkFlight(flight) }
+    func setFlightTravelers(_ flight: Flight, travelerIDs: [UUID]) async { await travel.setFlightTravelers(flight, travelerIDs: travelerIDs) }
+    func linkMemory(_ memory: Memory, to trip: Trip) async { await travel.linkMemory(memory, to: trip) }
+    func unlinkMemory(_ memory: Memory) async { await travel.unlinkMemory(memory) }
+
+    @discardableResult
+    func addMemory(title: String, place: Place?, date: Date, note: String, imagesData: [Data]) async -> Memory {
+        await travel.addMemory(title: title, place: place, date: date, note: note, imagesData: imagesData)
+    }
+    func updateMemory(_ memory: Memory, from base: Memory? = nil, newImagesData: [Data] = []) async {
+        await travel.updateMemory(memory, from: base, newImagesData: newImagesData)
+    }
+    func removePhoto(_ photo: MemoryPhoto, from memory: Memory) async { await travel.removePhoto(photo, from: memory) }
+    func deleteMemory(_ memory: Memory) async { await travel.deleteMemory(memory) }
+    func deleteMemories(_ memories: [Memory]) async { await travel.deleteMemories(memories) }
+}
