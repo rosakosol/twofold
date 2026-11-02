@@ -29,6 +29,10 @@ enum WidgetSnapshotWriter {
     /// then enriches it and writes again. A cancellation now costs freshness on the images and the
     /// temperature, not the entire snapshot.
     ///
+    /// Each write reloads only the widgets whose inputs it changed (`WidgetReloadPlan`), not every
+    /// widget twice: this runs after every flight refresh, and WidgetKit's daily reload budget is
+    /// per widget (FLT-23).
+    ///
     /// `write` is `WidgetSnapshot.write` everywhere but the tests, which read what would have been
     /// written without touching the app group every other suite shares; `reload` likewise.
     ///
@@ -194,28 +198,31 @@ enum WidgetSnapshotWriter {
         let dailySessionID = appModel.todaysDailySessionID
         let bothAnswered = appModel.todaysMyAnswered && appModel.todaysPartnerAnswered
 
+        // Which cached images actually changed, so only the widgets showing them reload.
+        var changedImages: Set<WidgetImage> = []
+
         if let myAvatarURL, let data = try? await URLSession.shared.data(from: myAvatarURL).0 {
             guard isStillSignedIn else { return }
-            WidgetImageCache.writeMyAvatarImage(data)
+            if WidgetImageCache.writeMyAvatarImage(data) { changedImages.insert(.myAvatar) }
         }
         guard isStillSignedIn else { return }
         if let partnerAvatarURL, let data = try? await URLSession.shared.data(from: partnerAvatarURL).0 {
             guard isStillSignedIn else { return }
-            WidgetImageCache.writePartnerAvatarImage(data)
+            if WidgetImageCache.writePartnerAvatarImage(data) { changedImages.insert(.partnerAvatar) }
         }
         guard isStillSignedIn else { return }
 
         if let logoURL, let data = try? await URLSession.shared.data(from: logoURL).0 {
             guard isStillSignedIn else { return }
-            WidgetImageCache.writeAirlineLogoImage(data)
+            if WidgetImageCache.writeAirlineLogoImage(data) { changedImages.insert(.airlineLogo) }
         }
         guard isStillSignedIn else { return }
 
         if let latestMemory, let photoURL = latestMemory.photoURL, let data = try? await URLSession.shared.data(from: photoURL).0 {
             guard isStillSignedIn else { return }
-            WidgetImageCache.writeLatestMemoryImage(data)
+            if WidgetImageCache.writeLatestMemoryImage(data) { changedImages.insert(.latestMemory) }
         } else if latestMemory == nil {
-            WidgetImageCache.clearLatestMemoryImage()
+            if WidgetImageCache.clearLatestMemoryImage() { changedImages.insert(.latestMemory) }
         }
         guard isStillSignedIn else { return }
 
@@ -268,8 +275,13 @@ enum WidgetSnapshotWriter {
             partnerSignedDrawingPadURL: partnerSignedDrawingPadURL,
             dailyQuestion: dailyQuestionWithAnswer
         )
+        // Against what is on disk now rather than `local`: another refresh may have written since.
+        // A write that brought nothing new reloads nothing. `alsoReload` again, since this write
+        // carries the freshly signed pad URLs: the first reload fetched with the previous ones,
+        // which the widget's URL cache can answer with the drawing from before.
+        let onDisk = WidgetSnapshot.read()
         write(enriched)
-        reload(WidgetReloadPlan.kinds(from: local, to: enriched))
+        reload(WidgetReloadPlan.kinds(from: onDisk, to: enriched, changedImages: changedImages, forced: alsoReload))
     }
 
     /// Who is arriving where, for the Trip countdown widget: the one person travelling by name, or

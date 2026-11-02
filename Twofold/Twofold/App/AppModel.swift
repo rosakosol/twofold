@@ -2296,7 +2296,9 @@ final class AppModel {
         myDrawingURL = uploadedURL
         Analytics.capture(Analytics.Event.doodleSave)
         Task { await BackendService.notifyPartner(event: .drawingSaved) }
-        Task { await WidgetSnapshotWriter.refresh(appModel: self) }
+        // The pad is saved over the same storage path, so nothing in the snapshot changes: name
+        // the drawing pad widget, or it shows the old drawing until its own half-hourly reload.
+        Task { await WidgetSnapshotWriter.refresh(appModel: self, alsoReload: [.drawingPad]) }
         return true
     }
 

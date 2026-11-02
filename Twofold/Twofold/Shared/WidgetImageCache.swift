@@ -43,7 +43,12 @@ enum WidgetImageCache {
     /// Excluded from backup because every one of these is re-derived by `WidgetSnapshotWriter` on
     /// the next foreground — there is nothing here that only exists here, and a backup copy of
     /// both partners' faces and the latest memory photo buys nobody anything.
-    private static func write(_ data: Data, to url: URL) {
+    ///
+    /// Returns whether the bytes on disk changed, so the app reloads only the widgets showing an
+    /// image that is actually new (`WidgetReloadPlan`). The same bytes again are not rewritten.
+    @discardableResult
+    private static func write(_ data: Data, to url: URL) -> Bool {
+        if let existing = try? Data(contentsOf: url), existing == data { return false }
         try? data.write(to: url, options: [.atomic, protection])
         // Inlined rather than calling `DataProtectionMigration.excludeFromBackup`: this file is
         // compiled into the widget extension as well as the app, and that helper is not.
@@ -51,6 +56,7 @@ enum WidgetImageCache {
         var values = URLResourceValues()
         values.isExcludedFromBackup = true
         try? backupURL.setResourceValues(values)
+        return true
     }
 
     private static var containerURL: URL? {
@@ -62,9 +68,10 @@ enum WidgetImageCache {
     }
 
     /// Overwrites in place — there's only ever one "latest memory" cached at a time.
-    static func writeLatestMemoryImage(_ data: Data) {
-        guard let url = latestMemoryImageURL else { return }
-        Self.write(data, to: url)
+    @discardableResult
+    static func writeLatestMemoryImage(_ data: Data) -> Bool {
+        guard let url = latestMemoryImageURL else { return false }
+        return Self.write(data, to: url)
     }
 
     static func readLatestMemoryImage() -> Data? {
@@ -72,9 +79,11 @@ enum WidgetImageCache {
         return try? Data(contentsOf: url)
     }
 
-    static func clearLatestMemoryImage() {
-        guard let url = latestMemoryImageURL else { return }
-        try? FileManager.default.removeItem(at: url)
+    /// Whether there was one to remove.
+    @discardableResult
+    static func clearLatestMemoryImage() -> Bool {
+        guard let url = latestMemoryImageURL else { return false }
+        return (try? FileManager.default.removeItem(at: url)) != nil
     }
 
     /// DrawingPadWidget's own last-good fetch — written by the widget extension itself (the one
@@ -133,9 +142,10 @@ enum WidgetImageCache {
     private static let myAvatarFilename = "my-avatar.jpg"
     private static let partnerAvatarFilename = "partner-avatar.jpg"
 
-    static func writeMyAvatarImage(_ data: Data) {
-        guard let url = containerURL?.appendingPathComponent(myAvatarFilename) else { return }
-        Self.write(data, to: url)
+    @discardableResult
+    static func writeMyAvatarImage(_ data: Data) -> Bool {
+        guard let url = containerURL?.appendingPathComponent(myAvatarFilename) else { return false }
+        return Self.write(data, to: url)
     }
 
     static func readMyAvatarImage() -> Data? {
@@ -143,9 +153,10 @@ enum WidgetImageCache {
         return try? Data(contentsOf: url)
     }
 
-    static func writePartnerAvatarImage(_ data: Data) {
-        guard let url = containerURL?.appendingPathComponent(partnerAvatarFilename) else { return }
-        Self.write(data, to: url)
+    @discardableResult
+    static func writePartnerAvatarImage(_ data: Data) -> Bool {
+        guard let url = containerURL?.appendingPathComponent(partnerAvatarFilename) else { return false }
+        return Self.write(data, to: url)
     }
 
     static func readPartnerAvatarImage() -> Data? {
@@ -157,9 +168,10 @@ enum WidgetImageCache {
     /// flight" at a time, same as latestMemoryImage).
     private static let airlineLogoFilename = "airline-logo.png"
 
-    static func writeAirlineLogoImage(_ data: Data) {
-        guard let url = containerURL?.appendingPathComponent(airlineLogoFilename) else { return }
-        Self.write(data, to: url)
+    @discardableResult
+    static func writeAirlineLogoImage(_ data: Data) -> Bool {
+        guard let url = containerURL?.appendingPathComponent(airlineLogoFilename) else { return false }
+        return Self.write(data, to: url)
     }
 
     static func readAirlineLogoImage() -> Data? {
