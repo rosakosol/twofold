@@ -87,7 +87,9 @@ extension BackendService {
         } catch {
             throw BackendFailure.translating(error)
         }
-        guard let row = rows.first else { throw BackendError.notAuthenticated }
+        // No row is a server that answered oddly, not a signed-out person. This used to throw
+        // `.notAuthenticated`, so the screen said "You need to be signed in" to someone who was.
+        guard let row = rows.first else { throw BackendError.requestFailed(message: nil) }
         return row
     }
 }

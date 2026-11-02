@@ -123,6 +123,20 @@ extension PendingMemoryDiskTests {
             }
         }
 
+        @Test("an RPC that answers with no row is a failed request, not a signed-out one")
+        func emptyAnswerIsNotSignedOut() async {
+            let error: Error? = await withRPCAnswer(status: 200, body: "[]") {
+                do { _ = try await BackendService.startConnectFourSession(); return nil } catch { return error }
+            }
+            // It used to throw `.notAuthenticated`, and the screen told a signed-in person
+            // "You need to be signed in."
+            guard case BackendError.requestFailed? = error else {
+                Issue.record("expected a failed request, got \(String(describing: error))")
+                return
+            }
+            #expect(!BackendService.isPermanentRefusal(error!))
+        }
+
         @Test("a started session decodes from the set of one PostgREST sends")
         func startDecodes() async throws {
             let id = UUID(), puzzle = UUID()
