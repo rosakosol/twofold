@@ -518,6 +518,25 @@ enum BackendService {
         try await supabase.rpc("block_profile", params: Params(pProfileId: profileID)).execute()
     }
 
+    /// Somebody this account has blocked, as `list_blocked_profiles` returns them.
+    struct BlockedProfile: Identifiable, Decodable, Equatable {
+        var id: UUID
+        var firstName: String
+        var blockedAt: Date
+
+        enum CodingKeys: String, CodingKey {
+            case id = "profile_id"
+            case firstName = "first_name"
+            case blockedAt = "blocked_at"
+        }
+    }
+
+    /// Everyone this account has blocked, newest first. A blocked person's profile is not readable
+    /// directly, so this is the only way to name them (20261119000100).
+    static func fetchBlockedProfiles() async throws -> [BlockedProfile] {
+        try await supabase.rpc("list_blocked_profiles").execute().value
+    }
+
     static func unblockProfile(_ profileID: UUID) async throws {
         struct Params: Encodable {
             var pProfileId: UUID

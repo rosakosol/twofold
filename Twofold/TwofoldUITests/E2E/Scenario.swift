@@ -364,6 +364,79 @@ struct Scenario {
         return id
     }
 
+    /// `create_invite_code`, as the inviter — the code their "Share my invite code" mints.
+    static func inviteCode(from inviter: TestAccount) async throws -> String {
+        let invite = try await LocalStack.rpc("create_invite_code", as: inviter.caller) as? [String: Any]
+        guard let code = invite?["code"] as? String else {
+            throw LocalStack.Failure(description: "create_invite_code returned \(String(describing: invite))")
+        }
+        return code
+    }
+
+    /// `redeem_invite_code` as the redeemer, by typed code: a request the inviter has to answer.
+    static func requestToConnect(redeemer: TestAccount, code: String) async throws {
+        let redeemed = try await LocalStack.rpc(
+            "redeem_invite_code", ["p_code": code, "p_origin": "code"], as: redeemer.caller
+        ) as? [[String: Any]]
+        guard redeemed?.first?["id"] is String else {
+            throw LocalStack.Failure(description: "redeem_invite_code refused: \(String(describing: redeemed))")
+        }
+    }
+
+    /// The partner leaves, through the RPC "Disconnect my partner" calls. The couple is archived,
+    /// not deleted, which is what lets a later accept offer to bring it back.
+    func partnerLeaves() async throws {
+        guard let partner, let coupleID else { throw LocalStack.Failure(description: "partnerLeaves needs a paired scenario") }
+        _ = try await LocalStack.rpc("leave_couple", ["p_couple_id": coupleID.uuidString], as: partner.caller)
+    }
+
+    /// The active couple between these two, if there is one — for asserting on a pairing.
+    static func activeCouple(between a: TestAccount, and b: TestAccount) async throws -> UUID? {
+        let rows = try await LocalStack.send(
+            "GET", "rest/v1/couples",
+            query: [
+                URLQueryItem(name: "status", value: "eq.active"),
+                URLQueryItem(name: "or", value: "(and(partner_a_id.eq.\(a.id),partner_b_id.eq.\(b.id)),and(partner_a_id.eq.\(b.id),partner_b_id.eq.\(a.id)))"),
+                URLQueryItem(name: "select", value: "id"),
+            ],
+            as: .service
+        ) as? [[String: Any]]
+        return (rows?.first?["id"] as? String).flatMap(UUID.init(uuidString:))
+    }
+
+    /// `block_profile`, as `blocker` — the block the request screen's menu makes.
+    static func block(_ blocked: TestAccount, by blocker: TestAccount) async throws {
+        _ = try await LocalStack.rpc("block_profile", ["p_profile_id": blocked.id.uuidString], as: blocker.caller)
+    }
+
+    /// Whether `blocker` still has `blocked` blocked, as the server has it.
+    static func isBlocked(_ blocked: TestAccount, by blocker: TestAccount) async throws -> Bool {
+        let rows = try await LocalStack.send(
+            "GET", "rest/v1/blocked_profiles",
+            query: [
+                URLQueryItem(name: "blocker_id", value: "eq.\(blocker.id)"),
+                URLQueryItem(name: "blocked_id", value: "eq.\(blocked.id)"),
+                URLQueryItem(name: "select", value: "blocked_id"),
+            ],
+            as: .service
+        ) as? [[String: Any]] ?? []
+        return !rows.isEmpty
+    }
+
+    /// The account the app made for an email, once onboarding has created it — for a test that
+    /// signs up through the screens rather than through `makeAccount`.
+    static func profile(email: String) async throws -> [String: Any]? {
+        let users = try await LocalStack.send("GET", "auth/v1/admin/users", query: [URLQueryItem(name: "per_page", value: "1000")], as: .service) as? [String: Any]
+        let list = users?["users"] as? [[String: Any]] ?? []
+        guard let raw = list.first(where: { ($0["email"] as? String) == email })?["id"] as? String else { return nil }
+        let rows = try await LocalStack.send(
+            "GET", "rest/v1/profiles",
+            query: [URLQueryItem(name: "id", value: "eq.\(raw)"), URLQueryItem(name: "select", value: "id,onboarding_account_created_at")],
+            as: .service
+        ) as? [[String: Any]]
+        return rows?.first
+    }
+
     /// What the RevenueCat webhook's `applyState` would have written for this person, and the
     /// `subscription_events` it would have logged on the way.
     static func apply(tier: TestTier, to account: TestAccount) async throws {

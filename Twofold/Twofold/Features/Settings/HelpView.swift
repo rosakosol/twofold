@@ -59,6 +59,17 @@ struct HelpView: View {
                     }
                     .buttonStyle(.plain)
 
+                    Divider()
+
+                    // Ungated, like Archived data: a block outlives every partnership, and the
+                    // person most likely to want this screen has no partner at all.
+                    NavigationLink {
+                        BlockedPeopleView()
+                    } label: {
+                        SettingsRow(title: "Blocked people", systemImage: "hand.raised")
+                    }
+                    .buttonStyle(.plain)
+
                     // Only meaningful once there's an actual partner to disconnect from —
                     // reachable pre-connection otherwise makes no sense.
                     if appModel.partnerConnected {

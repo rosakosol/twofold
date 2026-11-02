@@ -371,6 +371,7 @@ SettingsView
 │     │                                  └── Contact Support ─ SendSupportRequestView
 │     ├── Export your data ────────── ExportDataView (CoupleDataExporter zip)
 │     ├── Archived Data ───────────── ArchivedDataView
+│     ├── Blocked people ──────────── BlockedPeopleView (list_blocked_profiles → unblock_profile)
 │     ├── Disconnect my partner ───── DisconnectPartnerView
 │     │                                  └── CancelSubscriptionOfferView
 │     └── Delete Account ──────────── DeleteAccountView
