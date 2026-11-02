@@ -9,7 +9,6 @@
 //
 
 import Foundation
-import WidgetKit
 
 enum WidgetSnapshotWriter {
     /// Opportunistic — called on relevant AppModel mutations and on scenePhase becoming
@@ -31,33 +30,41 @@ enum WidgetSnapshotWriter {
     /// temperature, not the entire snapshot.
     ///
     /// `write` is `WidgetSnapshot.write` everywhere but the tests, which read what would have been
-    /// written without touching the app group every other suite shares.
-    static func refresh(appModel: AppModel, write: (WidgetSnapshot) -> Void = WidgetSnapshot.write) async {
+    /// written without touching the app group every other suite shares; `reload` likewise.
+    ///
+    /// `alsoReload` names widgets to reload even if nothing in the snapshot they read changed:
+    /// for a change that lives outside it, like a drawing saved over the same storage path.
+    static func refresh(
+        appModel: AppModel,
+        alsoReload: Set<WidgetKind> = [],
+        write: (WidgetSnapshot) -> Void = WidgetSnapshot.write,
+        reload: (Set<WidgetKind>) -> Void = WidgetReloadPlan.reload
+    ) async {
         guard appModel.partnerConnected else {
-            write(
-                WidgetSnapshot(
-                    myID: nil,
-                    myName: appModel.currentUser.name,
-                    partnerName: appModel.partner.name,
-                    myCity: nil,
-                    partnerCity: nil,
-                    partnerTimeZoneIdentifier: nil,
-                    distanceLabel: nil,
-                    anniversaryDate: nil,
-                    subscriptionTier: appModel.subscriptionTier,
-                    nextFlight: nil,
-                    nextReunion: nil,
-                    latestMemory: nil,
-                    partnerWeather: nil,
-                    relationshipStats: nil,
-                    coupleID: nil,
-                    partnerID: nil,
-                    mySignedDrawingPadURL: nil,
-                    partnerSignedDrawingPadURL: nil,
-                    writtenAt: .now
-                )
+            let unpaired = WidgetSnapshot(
+                myID: nil,
+                myName: appModel.currentUser.name,
+                partnerName: appModel.partner.name,
+                myCity: nil,
+                partnerCity: nil,
+                partnerTimeZoneIdentifier: nil,
+                distanceLabel: nil,
+                anniversaryDate: nil,
+                subscriptionTier: appModel.subscriptionTier,
+                nextFlight: nil,
+                nextReunion: nil,
+                latestMemory: nil,
+                partnerWeather: nil,
+                relationshipStats: nil,
+                coupleID: nil,
+                partnerID: nil,
+                mySignedDrawingPadURL: nil,
+                partnerSignedDrawingPadURL: nil,
+                writtenAt: .now
             )
-            WidgetCenter.shared.reloadAllTimelines()
+            let previous = WidgetSnapshot.read()
+            write(unpaired)
+            reload(WidgetReloadPlan.kinds(from: previous, to: unpaired, forced: alsoReload))
             return
         }
 
@@ -151,21 +158,20 @@ enum WidgetSnapshotWriter {
             )
         }
 
-        write(
-            snapshot(
-                weather: previous?.partnerWeather,
-                mySignedDrawingPadURL: previous?.mySignedDrawingPadURL,
-                partnerSignedDrawingPadURL: previous?.partnerSignedDrawingPadURL,
-                // The previous partner answer survives the first write only if it is still today's
-                // question; a new day's question must not show yesterday's answer.
-                dailyQuestion: dailyQuestion.map { info in
-                    var info = info
-                    if previous?.dailyQuestion?.question == info.question { info.partnerAnswer = previous?.dailyQuestion?.partnerAnswer }
-                    return info
-                }
-            )
+        let local = snapshot(
+            weather: previous?.partnerWeather,
+            mySignedDrawingPadURL: previous?.mySignedDrawingPadURL,
+            partnerSignedDrawingPadURL: previous?.partnerSignedDrawingPadURL,
+            // The previous partner answer survives the first write only if it is still today's
+            // question; a new day's question must not show yesterday's answer.
+            dailyQuestion: dailyQuestion.map { info in
+                var info = info
+                if previous?.dailyQuestion?.question == info.question { info.partnerAnswer = previous?.dailyQuestion?.partnerAnswer }
+                return info
+            }
         )
-        WidgetCenter.shared.reloadAllTimelines()
+        write(local)
+        reload(WidgetReloadPlan.kinds(from: previous, to: local, forced: alsoReload))
 
         // ---- Everything past here is network work. A cancellation from here on leaves the
         // ---- snapshot above in place, which is the whole point of writing it first.
@@ -256,15 +262,14 @@ enum WidgetSnapshotWriter {
         }
         guard isStillSignedIn else { return }
 
-        write(
-            snapshot(
-                weather: weatherInfo,
-                mySignedDrawingPadURL: mySignedDrawingPadURL,
-                partnerSignedDrawingPadURL: partnerSignedDrawingPadURL,
-                dailyQuestion: dailyQuestionWithAnswer
-            )
+        let enriched = snapshot(
+            weather: weatherInfo,
+            mySignedDrawingPadURL: mySignedDrawingPadURL,
+            partnerSignedDrawingPadURL: partnerSignedDrawingPadURL,
+            dailyQuestion: dailyQuestionWithAnswer
         )
-        WidgetCenter.shared.reloadAllTimelines()
+        write(enriched)
+        reload(WidgetReloadPlan.kinds(from: local, to: enriched))
     }
 
     /// Who is arriving where, for the Trip countdown widget: the one person travelling by name, or

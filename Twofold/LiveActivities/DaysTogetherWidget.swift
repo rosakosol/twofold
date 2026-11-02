@@ -154,7 +154,7 @@ struct DaysTogetherWidgetView: View {
 }
 
 struct DaysTogetherWidget: Widget {
-    let kind = "DaysTogetherWidget"
+    let kind = WidgetKind.daysTogether.rawValue
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: DaysTogetherProvider()) { entry in

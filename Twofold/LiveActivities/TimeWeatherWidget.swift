@@ -178,7 +178,7 @@ struct TimeWeatherWidgetView: View {
 }
 
 struct TimeWeatherWidget: Widget {
-    let kind = "TimeWeatherWidget"
+    let kind = WidgetKind.timeWeather.rawValue
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: TimeWeatherProvider()) { entry in

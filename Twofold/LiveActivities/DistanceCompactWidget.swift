@@ -76,7 +76,7 @@ struct DistanceCompactWidgetView: View {
 }
 
 struct DistanceCompactWidget: Widget {
-    let kind = "DistanceCompactWidget"
+    let kind = WidgetKind.distanceCompact.rawValue
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: DistanceProvider()) { entry in

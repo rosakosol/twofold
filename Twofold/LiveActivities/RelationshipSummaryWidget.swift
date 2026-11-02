@@ -109,7 +109,7 @@ struct RelationshipSummaryWidgetView: View {
 }
 
 struct RelationshipSummaryWidget: Widget {
-    let kind = "RelationshipSummaryWidget"
+    let kind = WidgetKind.relationshipSummary.rawValue
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: RelationshipSummaryProvider()) { entry in

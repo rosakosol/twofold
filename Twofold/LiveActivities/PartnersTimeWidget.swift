@@ -89,7 +89,7 @@ struct PartnersTimeWidgetView: View {
 }
 
 struct PartnersTimeWidget: Widget {
-    let kind = "PartnersTimeWidget"
+    let kind = WidgetKind.partnersTime.rawValue
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: PartnersTimeProvider()) { entry in

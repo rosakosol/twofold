@@ -115,6 +115,7 @@
 				Shared/FlightDelay.swift,
 				Shared/FlightLocalTime.swift,
 				Shared/FlightStatus.swift,
+				Shared/FlightWidgetTimeline.swift,
 				Shared/JourneyActivityAttributes.swift,
 				Shared/MeasurementPreference.swift,
 				Shared/TimeMath.swift,
@@ -122,6 +123,7 @@
 				Shared/TrackedTripEntity.swift,
 				Shared/WeatherSky.swift,
 				Shared/WidgetImageCache.swift,
+				Shared/WidgetKind.swift,
 				Shared/WidgetSnapshot.swift,
 				Shared/WidgetTier.swift,
 			);

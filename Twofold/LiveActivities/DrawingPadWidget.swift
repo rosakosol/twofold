@@ -208,7 +208,7 @@ struct DrawingPadWidgetView: View {
 struct DrawingPadWidget: Widget {
     // Deliberately still "DoodlePadWidget": WidgetKit keys a placed widget by its `kind`, so
     // changing it would orphan every one already on a Home Screen.
-    let kind = "DoodlePadWidget"
+    let kind = WidgetKind.drawingPad.rawValue
 
     var body: some WidgetConfiguration {
         AppIntentConfiguration(kind: kind, intent: DrawingPadSideIntent.self, provider: DrawingPadProvider()) { entry in

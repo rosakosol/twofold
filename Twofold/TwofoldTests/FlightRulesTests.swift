@@ -140,10 +140,18 @@ struct FlightRulesTests {
 
     @Test("a chosen flight with no times doesn't say there is no flight or no trip")
     func flightWithoutTimesIsStillAFlight() {
-        let caption = FlightCountdownCopy.caption(hasFlight: true, hasTarget: false, isDeparted: false, destinationCity: "Sydney")
-        #expect(!caption.localizedCaseInsensitiveContains("no upcoming"))
-        #expect(FlightCountdownCopy.headline(hasFlight: true, remaining: nil) != "No flight")
+        let now = Self.instant("2026-11-02T12:00:00+11:00")
+        let info = WidgetSnapshot.FlightInfo(
+            id: UUID(), status: .scheduled, originCity: "Melbourne", destinationCity: "Sydney",
+            originCode: "MEL", destinationCode: "SYD", bestDeparture: nil, bestArrival: nil,
+            delaySeconds: nil, flightNumber: "QF409", progress: 0, travelerIsMe: nil
+        )
+        let untimed = FlightWidgetTimeline.Moment(date: now, flight: info, status: .scheduled, isDeparted: false, target: nil, delaySeconds: nil, progress: 0)
+        let none = FlightWidgetTimeline.Moment(date: now, flight: nil, status: nil, isDeparted: false, target: nil, delaySeconds: nil, progress: 0)
+
+        #expect(!FlightCountdownCopy.caption(untimed).localizedCaseInsensitiveContains("no upcoming"))
+        #expect(FlightCountdownCopy.headline(untimed) != "No flight")
         // And with no flight at all it still says so.
-        #expect(FlightCountdownCopy.headline(hasFlight: false, remaining: nil) == "No flight")
+        #expect(FlightCountdownCopy.headline(none) == "No flight")
     }
 }

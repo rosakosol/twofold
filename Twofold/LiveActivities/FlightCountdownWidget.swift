@@ -24,81 +24,56 @@ import WidgetKit
 struct FlightCountdownEntry: TimelineEntry {
     let date: Date
     let subscriptionTier: String?
-    let targetDate: Date?
-    let isDeparted: Bool
-    let originCity: String?
-    let destinationCity: String?
-    let flightNumber: String?
-    let flightID: UUID?
-    let travelerIsMe: Bool?
+    /// The flight as it stands at `date` — see `FlightWidgetTimeline`.
+    let moment: FlightWidgetTimeline.Moment
     let myName: String
     let partnerName: String
 }
 
 struct FlightCountdownProvider: AppIntentTimelineProvider {
     func placeholder(in context: Context) -> FlightCountdownEntry {
-        FlightCountdownEntry(date: .now, subscriptionTier: WidgetTier.plus, targetDate: .now.addingTimeInterval(3600 * 5), isDeparted: true, originCity: "Melbourne", destinationCity: "Singapore", flightNumber: "QF31", flightID: nil, travelerIsMe: true, myName: "You", partnerName: "Partner")
+        FlightCountdownEntry.preview
     }
 
     func snapshot(for configuration: SelectFlightIntent, in context: Context) async -> FlightCountdownEntry {
-        entries(for: configuration, from: WidgetSnapshot.read()).first ?? placeholder(in: context)
+        Self.timeline(for: configuration, from: WidgetSnapshot.read(), at: .now).entries.first ?? placeholder(in: context)
     }
 
     func timeline(for configuration: SelectFlightIntent, in context: Context) async -> Timeline<FlightCountdownEntry> {
-        let all = entries(for: configuration, from: WidgetSnapshot.read())
-        // .atEnd re-invokes timeline(for:in:) once the tiered run is exhausted, which naturally
-        // re-reads whatever the main app has written to the snapshot by then.
-        return Timeline(entries: all, policy: .atEnd)
+        Self.timeline(for: configuration, from: WidgetSnapshot.read(), at: .now)
     }
 
-    /// Resolves which flight this instance counts down to: the user's picked flight if it's
-    /// still among the couple's currently-tracked ones, otherwise the soonest tracked flight
-    /// (an unconfigured widget, or one whose picked flight has since landed/been removed,
-    /// degrades to the same "always the nearest flight" behavior this widget always had).
-    private func selectedFlight(for configuration: SelectFlightIntent, snapshot: WidgetSnapshot?) -> WidgetSnapshot.FlightInfo? {
-        let tracked = snapshot?.trackedFlights ?? []
-        if let selectedID = configuration.flight?.id, let match = tracked.first(where: { $0.id == selectedID }) {
-            return match
+    /// The user's picked flight if it's still among the couple's tracked ones, otherwise the
+    /// soonest — see `FlightWidgetTimeline.countdownPlan`.
+    private static func timeline(for configuration: SelectFlightIntent, from snapshot: WidgetSnapshot?, at now: Date) -> Timeline<FlightCountdownEntry> {
+        let plan = FlightWidgetTimeline.countdownPlan(snapshot, preferring: configuration.flight?.id, from: now)
+        let entries = plan.moments.map {
+            FlightCountdownEntry(
+                date: $0.date, subscriptionTier: snapshot?.subscriptionTier, moment: $0,
+                myName: snapshot?.myName ?? "You", partnerName: snapshot?.partnerName ?? "Partner"
+            )
         }
-        return tracked.first ?? snapshot?.nextFlight
+        // .atEnd re-invokes timeline(for:in:) once the run is exhausted, which re-reads whatever
+        // the main app has written to the snapshot by then.
+        return Timeline(entries: entries, policy: plan.reloadAt.map { .after($0) } ?? .atEnd)
     }
+}
 
-    private func entries(for configuration: SelectFlightIntent, from snapshot: WidgetSnapshot?) -> [FlightCountdownEntry] {
-        let subscriptionTier = snapshot?.subscriptionTier
-        let myName = snapshot?.myName ?? "You"
-        let partnerName = snapshot?.partnerName ?? "Partner"
-        guard let flight = selectedFlight(for: configuration, snapshot: snapshot) else {
-            return [FlightCountdownEntry(date: .now, subscriptionTier: subscriptionTier, targetDate: nil, isDeparted: false, originCity: nil, destinationCity: nil, flightNumber: nil, flightID: nil, travelerIsMe: nil, myName: myName, partnerName: partnerName)]
-        }
-
+extension FlightCountdownEntry {
+    /// QF31, in the air to Singapore with two hours ten to go.
+    static var preview: FlightCountdownEntry {
         let now = Date.now
-        let isDeparted = (flight.bestDeparture ?? .distantFuture) <= now
-        let target = isDeparted ? flight.bestArrival : flight.bestDeparture
-
-        guard let target else {
-            return [FlightCountdownEntry(date: now, subscriptionTier: subscriptionTier, targetDate: nil, isDeparted: isDeparted, originCity: flight.originCity, destinationCity: flight.destinationCity, flightNumber: flight.flightNumber, flightID: flight.id, travelerIsMe: flight.travelerIsMe, myName: myName, partnerName: partnerName)]
-        }
-
-        return Self.tieredDates(from: now, to: target).map { date in
-            FlightCountdownEntry(date: date, subscriptionTier: subscriptionTier, targetDate: target, isDeparted: isDeparted, originCity: flight.originCity, destinationCity: flight.destinationCity, flightNumber: flight.flightNumber, flightID: flight.id, travelerIsMe: flight.travelerIsMe, myName: myName, partnerName: partnerName)
-        }
-    }
-
-    /// Dense near the target, sparse further out — 60s apart inside the final 10 minutes, 5
-    /// minutes apart inside the final hour, 30 minutes apart beyond that. Capped well under
-    /// WidgetKit's practical per-timeline entry budget.
-    static func tieredDates(from now: Date, to target: Date, cap: Int = 200) -> [Date] {
-        guard target > now else { return [now] }
-        var dates: [Date] = []
-        var cursor = now
-        while cursor < target, dates.count < cap {
-            dates.append(cursor)
-            let remaining = target.timeIntervalSince(cursor)
-            let step: TimeInterval = remaining <= 600 ? 60 : (remaining <= 3600 ? 300 : 1800)
-            cursor = cursor.addingTimeInterval(step)
-        }
-        dates.append(target)
-        return dates
+        let flight = WidgetSnapshot.FlightInfo(
+            id: UUID(), status: .inAir, originCity: "Melbourne", destinationCity: "Singapore",
+            originCode: "MEL", destinationCode: "SIN",
+            bestDeparture: now.addingTimeInterval(-3600 * 5), bestArrival: now.addingTimeInterval(3600 * 2 + 600),
+            delaySeconds: nil, flightNumber: "QF31", progress: 0.7, travelerIsMe: true
+        )
+        let moment = FlightWidgetTimeline.Moment(
+            date: now, flight: flight, status: .inAir, isDeparted: true, target: flight.bestArrival,
+            delaySeconds: nil, progress: 0.7
+        )
+        return FlightCountdownEntry(date: now, subscriptionTier: WidgetTier.plus, moment: moment, myName: "You", partnerName: "Partner")
     }
 }
 
@@ -109,42 +84,13 @@ struct FlightCountdownWidgetView: View {
 
     private var isLocked: Bool { WidgetTier.isLocked(required: WidgetTier.plus, current: entry.subscriptionTier) }
 
-    /// Days once there are any, then hours, then minutes — via the same `TimeMath.compactDuration`
-    /// the flight screen's own countdown uses, so the widget and the app never disagree about how
-    /// long is left.
-    ///
-    /// This counted only in hours and minutes, which is fine on the day and absurd before it: a
-    /// flight a week out read "196h 20m". Nobody plans around a number like that.
-    private var remainingLabel: String {
-        guard let targetDate = entry.targetDate else { return "—" }
-        return TimeMath.compactDuration(targetDate.timeIntervalSince(entry.date))
-    }
-
-    /// Single-unit form for the small Lock Screen circle — "8d"/"2h"/"45m" rather than the combined
-    /// form the rectangular and Home Screen views have room for. Rounds down deliberately: "1d"
-    /// through the whole of the last day before departure is a truer thing to glance at than a
-    /// figure that flickers to "2d" because 47 hours rounded up.
-    private var compactRemainingLabel: String {
-        guard let targetDate = entry.targetDate else { return "—" }
-        let remaining = max(0, Int(targetDate.timeIntervalSince(entry.date)))
-        if remaining >= 86_400 { return "\(remaining / 86_400)d" }
-        if remaining >= 3600 { return "\(remaining / 3600)h" }
-        return "\(remaining / 60)m"
-    }
-
-    /// A chosen flight with no times yet still names itself — see `FlightCountdownCopy`.
-    private var caption: String {
-        FlightCountdownCopy.caption(
-            hasFlight: entry.flightID != nil, hasTarget: entry.targetDate != nil,
-            isDeparted: entry.isDeparted, destinationCity: entry.destinationCity
-        )
-    }
+    private var moment: FlightWidgetTimeline.Moment { entry.moment }
 
     /// Locked → paywall (existing convention). Unlocked → this exact flight's tracking screen
     /// when there is one, otherwise Passport (where trips/flights are viewed/added).
     private var deepLinkURL: URL? {
         if isLocked { return URL(string: "twofold://paywall") }
-        if let flightID = entry.flightID { return URL(string: "twofold://flight/\(flightID.uuidString)") }
+        if let flightID = moment.flight?.id { return URL(string: "twofold://flight/\(flightID.uuidString)") }
         // No flight to show: Travel, where one is added, rather than the Stats tab it used to open.
         return URL(string: "twofold://travel")
     }
@@ -164,23 +110,23 @@ struct FlightCountdownWidgetView: View {
     private var homeScreenBody: some View {
         VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 6) {
-                if let travelerIsMe = entry.travelerIsMe {
+                if let travelerIsMe = moment.flight?.travelerIsMe {
                     WidgetAvatarView(person: travelerIsMe ? .me : .partner, name: travelerIsMe ? entry.myName : entry.partnerName, size: 26)
                 } else {
                     Image(systemName: "airplane.departure").font(.title3)
                 }
-                if let flightNumber = entry.flightNumber {
+                if let flightNumber = moment.flight?.flightNumber {
                     Text(flightNumber).font(.system(size: 13, weight: .bold))
                 }
             }
             Spacer(minLength: 0)
-            Text(FlightCountdownCopy.headline(hasFlight: entry.flightID != nil, remaining: entry.targetDate != nil ? remainingLabel : nil))
+            Text(FlightCountdownCopy.headline(moment))
                 .font(.system(size: 30, weight: .bold))
                 .tracking(-0.7)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
                 .widgetAccentable()
-            Text(caption)
+            Text(FlightCountdownCopy.caption(moment))
                 .font(.system(size: 12, weight: .semibold))
                 .opacity(0.92)
                 .lineLimit(1)
@@ -196,24 +142,22 @@ struct FlightCountdownWidgetView: View {
     /// Lock Screen widget here (Distance, Days Together, Trip Countdown).
     private var accessoryRectangular: some View {
         Group {
-            if entry.targetDate != nil {
+            if moment.target != nil {
                 VStack(alignment: .leading, spacing: 1) {
                     // Explicit icon + text (not a single `Label`) so the airplane glyph can be sized
                     // up on its own — matches `DistanceWidget`'s bigger, more prominent icon treatment
                     // instead of the smaller glyph a `Label`'s default icon sizing gave this row.
                     HStack(spacing: 4) {
                         Image(systemName: "airplane").font(.system(size: 15, weight: .semibold))
-                        Text("\(entry.flightNumber ?? "Flight") · \(remainingLabel)").font(.headline)
+                        Text(FlightCountdownCopy.accessoryLine(moment, joiner: " · ")).font(.headline)
                     }
-                    Text(caption)
+                    Text(FlightCountdownCopy.caption(moment))
                         .font(.caption)
                         .lineLimit(1)
                         .minimumScaleFactor(0.8)
                 }
-            } else if let line = FlightCountdownCopy.accessoryLine(flightNumber: entry.flightNumber, remaining: nil, joiner: " · ") {
-                Label(line, systemImage: "airplane")
             } else {
-                Label("No tracked flight", systemImage: "airplane")
+                Label(FlightCountdownCopy.accessoryLine(moment, joiner: " · "), systemImage: "airplane")
             }
         }
         // Neither branch expanded to fill the widget's own slot on its own — see
@@ -225,34 +169,27 @@ struct FlightCountdownWidgetView: View {
     private var accessoryCircular: some View {
         ZStack {
             AccessoryWidgetBackground()
-            if entry.targetDate != nil {
+            if let label = FlightCountdownCopy.circularLabel(moment) {
                 VStack(spacing: 0) {
-                    Text(compactRemainingLabel).font(.system(.title3).bold())
+                    Text(label).font(.system(.title3).bold())
                     Text("to go").font(.caption2)
                 }
             } else {
-                Image(systemName: "airplane")
+                Image(systemName: FlightCountdownCopy.circularSymbol(moment))
             }
         }
     }
 
     /// The Lock Screen's single text-line slot — flight number + remaining time only, no room
     /// for the departure/arrival caption the other families have.
-    @ViewBuilder
     private var accessoryInline: some View {
-        if entry.targetDate != nil {
-            Label("\(entry.flightNumber ?? "Flight") in \(remainingLabel)", systemImage: "airplane")
-        } else if let line = FlightCountdownCopy.accessoryLine(flightNumber: entry.flightNumber, remaining: nil, joiner: " in ") {
-            Label(line, systemImage: "airplane")
-        } else {
-            Label("No tracked flight", systemImage: "airplane")
-        }
+        Label(FlightCountdownCopy.accessoryLine(moment, joiner: " in "), systemImage: "airplane")
     }
 }
 
 struct FlightCountdownWidget: Widget {
     // Deliberately unchanged from before this file's own rename — see the file header.
-    let kind = "FlightCountdownWidget"
+    let kind = WidgetKind.flightCountdown.rawValue
 
     var body: some WidgetConfiguration {
         AppIntentConfiguration(kind: kind, intent: SelectFlightIntent.self, provider: FlightCountdownProvider()) { entry in
@@ -268,23 +205,23 @@ struct FlightCountdownWidget: Widget {
 #Preview(as: .systemSmall) {
     FlightCountdownWidget()
 } timeline: {
-    FlightCountdownEntry(date: .now, subscriptionTier: WidgetTier.plus, targetDate: .now.addingTimeInterval(3600 * 2 + 600), isDeparted: true, originCity: "Melbourne", destinationCity: "Singapore", flightNumber: "QF31", flightID: nil, travelerIsMe: true, myName: "You", partnerName: "Partner")
+    FlightCountdownEntry.preview
 }
 
 #Preview(as: .accessoryRectangular) {
     FlightCountdownWidget()
 } timeline: {
-    FlightCountdownEntry(date: .now, subscriptionTier: WidgetTier.plus, targetDate: .now.addingTimeInterval(3600 * 2 + 600), isDeparted: true, originCity: "Melbourne", destinationCity: "Singapore", flightNumber: "QF31", flightID: nil, travelerIsMe: true, myName: "You", partnerName: "Partner")
+    FlightCountdownEntry.preview
 }
 
 #Preview(as: .accessoryCircular) {
     FlightCountdownWidget()
 } timeline: {
-    FlightCountdownEntry(date: .now, subscriptionTier: WidgetTier.plus, targetDate: .now.addingTimeInterval(3600 * 2 + 600), isDeparted: true, originCity: "Melbourne", destinationCity: "Singapore", flightNumber: "QF31", flightID: nil, travelerIsMe: true, myName: "You", partnerName: "Partner")
+    FlightCountdownEntry.preview
 }
 
 #Preview(as: .accessoryInline) {
     FlightCountdownWidget()
 } timeline: {
-    FlightCountdownEntry(date: .now, subscriptionTier: WidgetTier.plus, targetDate: .now.addingTimeInterval(3600 * 2 + 600), isDeparted: true, originCity: "Melbourne", destinationCity: "Singapore", flightNumber: "QF31", flightID: nil, travelerIsMe: true, myName: "You", partnerName: "Partner")
+    FlightCountdownEntry.preview
 }

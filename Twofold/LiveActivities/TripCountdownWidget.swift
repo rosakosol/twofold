@@ -183,7 +183,7 @@ struct TripCountdownWidgetView: View {
 
 struct TripCountdownWidget: Widget {
     // Deliberately unchanged from before this file's own rename — see the file header.
-    let kind = "NextReunionWidget"
+    let kind = WidgetKind.tripCountdown.rawValue
 
     var body: some WidgetConfiguration {
         AppIntentConfiguration(kind: kind, intent: SelectTripIntent.self, provider: TripCountdownProvider()) { entry in

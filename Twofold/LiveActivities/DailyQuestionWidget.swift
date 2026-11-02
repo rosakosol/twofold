@@ -105,7 +105,7 @@ struct DailyQuestionWidgetView: View {
 }
 
 struct DailyQuestionWidget: Widget {
-    let kind = "DailyQuestionWidget"
+    let kind = WidgetKind.dailyQuestion.rawValue
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: DailyQuestionProvider()) { entry in

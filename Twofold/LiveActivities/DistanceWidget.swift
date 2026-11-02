@@ -138,7 +138,7 @@ struct DistanceWidgetView: View {
 }
 
 struct DistanceWidget: Widget {
-    let kind = "DistanceWidget"
+    let kind = WidgetKind.distance.rawValue
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: DistanceProvider()) { entry in

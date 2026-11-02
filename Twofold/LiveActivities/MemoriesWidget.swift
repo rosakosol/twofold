@@ -103,7 +103,7 @@ struct MemoriesWidgetView: View {
 }
 
 struct MemoriesWidget: Widget {
-    let kind = "MemoriesWidget"
+    let kind = WidgetKind.memories.rawValue
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: MemoriesProvider()) { entry in

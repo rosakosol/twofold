@@ -240,7 +240,7 @@ struct SmartRotatingWidgetView: View {
 }
 
 struct SmartRotatingWidget: Widget {
-    let kind = "SmartRotatingWidget"
+    let kind = WidgetKind.smartRotating.rawValue
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: SmartRotatingProvider()) { entry in

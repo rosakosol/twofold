@@ -69,41 +69,33 @@ struct FlightTrackingProvider: TimelineProvider {
     /// them at those instants without the app running at all.
     func getTimeline(in context: Context, completion: @escaping (Timeline<FlightTrackingEntry>) -> Void) {
         let snapshot = WidgetSnapshot.read()
-        let flight = snapshot?.nextFlight
-        let now = Date.now
-
-        // On the minute marks before take-off and touchdown, so the big "55m" is right to the
-        // minute (see `TimeMath.countdownMoments`), with take-off and touchdown themselves among
-        // them. The rail moves on the same entries. WidgetKit's daily budget counts reloads, not
-        // entries, so a dense timeline costs one reload like a sparse one; the cap only bounds the
-        // work of rendering it ahead.
-        let targets = [flight?.bestDeparture, flight?.bestArrival].compactMap { $0 }
-        let dates = TimeMath.countdownMoments(to: targets, from: now).prefix(150)
-
-        let entries = dates.map { entry(from: snapshot, at: $0) }
-        // Nothing to count down to: look again in fifteen minutes, as before.
-        let nextRefresh = dates.count > 1 ? dates.last! : now.addingTimeInterval(900)
-        completion(Timeline(entries: entries, policy: .after(nextRefresh)))
+        let plan = FlightWidgetTimeline.trackingPlan(snapshot, from: .now)
+        let entries = plan.moments.map { entry(from: snapshot, moment: $0) }
+        completion(Timeline(entries: entries, policy: plan.reloadAt.map { .after($0) } ?? .atEnd))
     }
 
     private func entry(from snapshot: WidgetSnapshot?, at date: Date) -> FlightTrackingEntry {
-        let flight = snapshot?.nextFlight
+        entry(from: snapshot, moment: FlightWidgetTimeline.trackingMoment(snapshot, at: date))
+    }
+
+    /// One entry per moment of `FlightWidgetTimeline.trackingPlan`: status, phase, delay and the
+    /// rail's progress each re-derived for the entry's own moment.
+    private func entry(from snapshot: WidgetSnapshot?, moment: FlightWidgetTimeline.Moment) -> FlightTrackingEntry {
+        let flight = moment.flight
         return FlightTrackingEntry(
-            date: date,
+            date: moment.date,
             subscriptionTier: snapshot?.subscriptionTier,
-            status: flight?.status.projected(departure: flight?.bestDeparture, arrival: flight?.bestArrival, now: date),
+            status: moment.status,
             originCity: flight?.originCity,
             destinationCity: flight?.destinationCity,
             originCode: flight?.originCode,
             destinationCode: flight?.destinationCode,
             flightNumber: flight?.flightNumber,
             flightID: flight?.id,
-            delaySeconds: flight?.delaySeconds,
+            delaySeconds: moment.delaySeconds,
             bestDeparture: flight?.bestDeparture,
             bestArrival: flight?.bestArrival,
-            // Recomputed for this entry's own moment. The stored value was correct when the app
-            // last ran and has been frozen ever since, so the rail never moved between openings.
-            progress: Self.progress(for: flight, at: date),
+            progress: moment.progress,
             travelerIsMe: flight?.travelerIsMe,
             myName: snapshot?.myName ?? "You",
             partnerName: snapshot?.partnerName ?? "Partner",
@@ -111,16 +103,6 @@ struct FlightTrackingProvider: TimelineProvider {
             originTerminal: flight?.originTerminal,
             originTimeZoneID: flight?.originTimeZoneID
         )
-    }
-
-    /// Mirrors `Flight.progress`, evaluated at an arbitrary moment rather than "now" — same
-    /// guard, so an arrival that isn't after its departure can't produce a NaN.
-    private static func progress(for flight: WidgetSnapshot.FlightInfo?, at date: Date) -> Double {
-        guard let flight else { return 0 }
-        guard let departure = flight.bestDeparture, let arrival = flight.bestArrival, arrival > departure else {
-            return flight.progress
-        }
-        return min(1, max(0, date.timeIntervalSince(departure) / arrival.timeIntervalSince(departure)))
     }
 }
 
@@ -240,9 +222,11 @@ struct FlightTrackingWidgetView: View {
     /// every minute mark of the last hour, so it is still right to the minute.
     @ViewBuilder
     private func countdown(status: FlightStatus) -> some View {
-        Text(isDeparted ? "Lands in" : "Departs in")
-            .font(.system(size: 15, weight: .semibold))
-            .opacity(0.92)
+        if let label = FlightWidgetTimeline.countdownLabel(isDeparted: isDeparted, target: target, at: entry.date) {
+            Text(label)
+                .font(.system(size: 15, weight: .semibold))
+                .opacity(0.92)
+        }
         if let target, target > entry.date {
             Text(TimeMath.compactDuration(target.timeIntervalSince(entry.date)))
                 .font(.system(size: 44, weight: .bold))
@@ -368,7 +352,7 @@ struct FlightTrackingWidgetView: View {
 }
 
 struct FlightTrackingWidget: Widget {
-    let kind = "FlightTrackingWidget"
+    let kind = WidgetKind.flightTracking.rawValue
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: FlightTrackingProvider()) { entry in
