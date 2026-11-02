@@ -97,9 +97,18 @@ nonisolated enum FlightWidgetTimeline {
             status: flight?.status.projected(departure: flight?.bestDeparture, arrival: flight?.bestArrival, now: date),
             isDeparted: isDeparted,
             target: isDeparted ? flight?.bestArrival : flight?.bestDeparture,
-            delaySeconds: flight?.delaySeconds,
+            delaySeconds: delaySeconds(of: flight, isDeparted: isDeparted),
             progress: progress(for: flight, at: date)
         )
+    }
+
+    /// The delay of the leg still to come: departure's before take-off, arrival's after (FLT-24).
+    /// The one figure an older snapshot stored was chosen when it was written, and kept showing
+    /// the departure delay for the rest of the flight; it is still read when it is all there is.
+    static func delaySeconds(of flight: WidgetSnapshot.FlightInfo?, isDeparted: Bool) -> Int? {
+        guard let flight else { return nil }
+        guard flight.departureDelaySeconds != nil || flight.arrivalDelaySeconds != nil else { return flight.delaySeconds }
+        return isDeparted ? flight.arrivalDelaySeconds : flight.departureDelaySeconds
     }
 
     /// Entries on the minute marks before every take-off and touchdown in the snapshot (see

@@ -302,7 +302,9 @@ enum WidgetSnapshotWriter {
             originGate: flight.gateOrigin,
             originTerminal: flight.terminalOrigin,
             originTimeZoneID: (flight.origin.timeZone ?? homeTimeZone).identifier,
-            destinationTimeZoneID: (flight.destination.timeZone ?? homeTimeZone).identifier
+            destinationTimeZoneID: (flight.destination.timeZone ?? homeTimeZone).identifier,
+            departureDelaySeconds: flight.departureDelaySeconds,
+            arrivalDelaySeconds: flight.arrivalDelaySeconds
         )
     }
 }

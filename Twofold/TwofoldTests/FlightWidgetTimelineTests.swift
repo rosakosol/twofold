@@ -5,7 +5,7 @@
 //  The two flight widgets render from a timeline worked out once, when WidgetKit asks for it, and
 //  then walked through with nobody running the app. So every entry has to be right for its own
 //  date, not for the moment the timeline was built: take-off, touchdown, and the flight after this
-//  one all happen inside a single timeline (FLT-20, FLT-21).
+//  one all happen inside a single timeline (FLT-20, FLT-21, FLT-24).
 //
 //  What the widget shows at a time is the last entry at or before it, which is how WidgetKit
 //  picks one; `shown(at:)` asks exactly that.
@@ -194,5 +194,37 @@ struct FlightWidgetTimelineTests {
             #expect(first.flatMap(FlightCountdownCopy.circularLabel) == nil)
             #expect(first.map(FlightCountdownCopy.circularSymbol) == status.icon)
         }
+    }
+
+    // MARK: - FLT-24: the delay is the leg still to come, per entry
+
+    @Test("before take-off the badge shows the departure delay, after it the arrival delay")
+    func delayFollowsThePhase() {
+        // Written before departure, which is when the old single figure was fixed to the
+        // departure delay for the rest of the flight.
+        let scheduledOut = Self.instant("2036-03-01T18:00:00+11:00")
+        let flight = Flight(
+            faFlightID: "QFA409-2036",
+            flightNumberIATA: "QF409", airlineCode: "QF",
+            origin: FlightAirport(iata: "MEL", city: "Melbourne", timezone: "Australia/Melbourne"),
+            destination: FlightAirport(iata: "SYD", city: "Sydney", timezone: "Australia/Sydney"),
+            scheduledOut: scheduledOut, scheduledIn: scheduledOut.addingTimeInterval(85 * 60),
+            departureDelaySeconds: 20 * 60, arrivalDelaySeconds: 8 * 60,
+            status: .delayed,
+            trackingEnabled: true
+        )
+        let info = WidgetSnapshotWriter.flightInfo(for: flight, currentUserID: UUID(), travellerIDs: [], homeTimeZone: TimeZone(identifier: "Australia/Melbourne")!)
+        let snapshot = Self.snapshot([info])
+
+        let before = FlightWidgetTimeline.trackingMoment(snapshot, at: scheduledOut.addingTimeInterval(-3600))
+        let after = FlightWidgetTimeline.trackingMoment(snapshot, at: scheduledOut.addingTimeInterval(30 * 60))
+        #expect(before.delaySeconds == 20 * 60)
+        #expect(after.delaySeconds == 8 * 60)
+    }
+
+    @Test("a snapshot written before both delays were stored still shows its one figure")
+    func legacyDelayStillReads() {
+        let snapshot = Self.snapshot([Self.flight(delaySeconds: 900)])
+        #expect(FlightWidgetTimeline.trackingMoment(snapshot, at: Self.departure.addingTimeInterval(-600)).delaySeconds == 900)
     }
 }

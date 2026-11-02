@@ -36,8 +36,9 @@ nonisolated struct WidgetSnapshot: Codable {
         var destinationCode: String
         var bestDeparture: Date?
         var bestArrival: Date?
-        /// Whichever leg is currently relevant (departure delay pre-takeoff, arrival delay once
-        /// airborne) — used by FlightTrackingWidget's delay badge, nil when on time/unknown.
+        /// Whichever leg was relevant when the snapshot was written. Superseded by the two below,
+        /// which the widget picks between for each entry's own moment (FLT-24); still written, and
+        /// read when they are absent, for a snapshot from before they existed.
         var delaySeconds: Int?
         var flightNumber: String
         /// 0...1, same as Flight.progress — reused directly rather than recomputed in the
@@ -57,6 +58,10 @@ nonisolated struct WidgetSnapshot: Codable {
         /// Optional so an older snapshot still decodes.
         var originTimeZoneID: String?
         var destinationTimeZoneID: String?
+        /// Each leg's delay, nil when on time or unknown. Optional so an older snapshot still
+        /// decodes.
+        var departureDelaySeconds: Int?
+        var arrivalDelaySeconds: Int?
     }
 
     struct MemoryInfo: Codable {
