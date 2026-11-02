@@ -207,3 +207,48 @@ extension AppModel {
     func deleteMemory(_ memory: Memory) async { await travel.deleteMemory(memory) }
     func deleteMemories(_ memories: [Memory]) async { await travel.deleteMemories(memories) }
 }
+
+// MARK: - CoupleSession
+
+extension AppModel {
+    var hasCouple: Bool {
+        get { session.hasCouple }
+        set { session.hasCouple = newValue }
+    }
+    var needsOnboarding: Bool {
+        get { session.needsOnboarding }
+        set { session.needsOnboarding = newValue }
+    }
+    var hasSavedOnboardingProgress: Bool {
+        get { session.hasSavedOnboardingProgress }
+        set { session.hasSavedOnboardingProgress = newValue }
+    }
+    var couple: Couple {
+        get { session.couple }
+        set { session.couple = newValue }
+    }
+    var partnerConnected: Bool {
+        get { session.partnerConnected }
+        set { session.partnerConnected = newValue }
+    }
+    var inviteCode: String? {
+        get { session.inviteCode }
+        set { session.inviteCode = newValue }
+    }
+    var pendingConnectionRequests: [BackendService.PendingConnectionRequest] {
+        get { session.pendingConnectionRequests }
+        set { session.pendingConnectionRequests = newValue }
+    }
+    var pendingOutgoingConnectionRequest: BackendService.OutgoingConnectionRequest? {
+        get { session.pendingOutgoingConnectionRequest }
+        set { session.pendingOutgoingConnectionRequest = newValue }
+    }
+    var hasResolvedOutgoingConnectionRequest: Bool { session.hasResolvedOutgoingConnectionRequest }
+    var hasLoadedCoupleState: Bool { session.hasLoadedCoupleState }
+    var backendCoupleID: UUID? { session.backendCoupleID }
+
+    func refreshPendingConnectionRequests() async { await session.refreshPendingConnectionRequests() }
+    func refreshPendingOutgoingConnectionRequest() async { await session.refreshPendingOutgoingConnectionRequest() }
+    @discardableResult
+    func sendConnectionRequestReminder() async -> String? { await session.sendConnectionRequestReminder() }
+}
