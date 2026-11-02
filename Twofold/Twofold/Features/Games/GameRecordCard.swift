@@ -18,7 +18,7 @@ import SwiftUI
 /// `myBest` is deliberately unitless: guesses for Word Guess, seconds for Word Search, absent for
 /// the board games. The screen asking always knows which game it asked about, and a column per unit
 /// would be three columns null in every row but one.
-struct GameRecord: Decodable, Identifiable, Equatable {
+nonisolated struct GameRecord: Decodable, Identifiable, Equatable {
     let gameType: GameType
     /// The theme or difficulty, where the game keeps its record per variant.
     let variant: String?

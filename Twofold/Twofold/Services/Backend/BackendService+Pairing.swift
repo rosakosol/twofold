@@ -12,7 +12,7 @@ extension BackendService {
 
     // MARK: - Couple pairing
 
-    struct CoupleRow: Decodable {
+    nonisolated struct CoupleRow: Decodable {
         var id: UUID
         var partnerAId: UUID
         var partnerBId: UUID
@@ -43,12 +43,12 @@ extension BackendService {
             case scheduledPurgeAt = "scheduled_purge_at"
         }
 
-        var startedDatingOn: Date? {
+        @MainActor var startedDatingOn: Date? {
             startedDatingOnRaw.flatMap { BackendService.dateOnlyFormatter.date(from: $0) }
         }
     }
 
-    private struct InviteCodeRow: Decodable {
+    private nonisolated struct InviteCodeRow: Decodable {
         var code: String
     }
 
@@ -101,7 +101,7 @@ extension BackendService {
     /// rather than raising: a rejected attempt comes back as a 200 with `errorMessage` set and the
     /// other two null. It has to work that way — raising aborted the RPC's transaction, which rolled
     /// back the rate limiter's own attempt-log write along with it, so the limiter never tripped.
-    private struct RedeemInviteCodeResult: Decodable {
+    private nonisolated struct RedeemInviteCodeResult: Decodable {
         var id: UUID?
         var inviterId: UUID?
         var errorMessage: String?
@@ -355,7 +355,7 @@ extension BackendService {
         _ = try? await URLSession.shared.data(for: request)
     }
 
-    private struct ConnectionRequestRow: Decodable {
+    private nonisolated struct ConnectionRequestRow: Decodable {
         var inviterId: UUID
         enum CodingKeys: String, CodingKey { case inviterId = "inviter_id" }
     }

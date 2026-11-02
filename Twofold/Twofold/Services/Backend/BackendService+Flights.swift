@@ -12,7 +12,7 @@ import Supabase
 extension BackendService {
 
     /// A couple's shared monthly flight allowance and how much of it is spent.
-    struct FlightAllowance: Decodable {
+    nonisolated struct FlightAllowance: Decodable {
         var tier: String?
         var limit: Int
         var used: Int
@@ -74,7 +74,7 @@ extension BackendService {
         }
     }
 
-    struct FlightTrackingResult: Decodable {
+    nonisolated struct FlightTrackingResult: Decodable {
         var enabled: Bool
         /// Only ever set when `enabled` is false. See `FlightTrackingRefusal`.
         var reason: String?

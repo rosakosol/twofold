@@ -19,7 +19,7 @@ import Foundation
 #if canImport(ActivityKit)
 import ActivityKit
 
-struct JourneyActivityAttributes: ActivityAttributes {
+nonisolated struct JourneyActivityAttributes: ActivityAttributes {
     public struct ContentState: Codable, Hashable {
         var status: FlightStatus.RawValue
         var progress: Double

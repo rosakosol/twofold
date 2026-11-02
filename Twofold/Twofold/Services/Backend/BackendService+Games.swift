@@ -200,7 +200,7 @@ extension BackendService {
 
     // MARK: - Games
 
-    private struct GameSessionRow: Decodable {
+    private nonisolated struct GameSessionRow: Decodable {
         var id: UUID
         var coupleId: UUID?
         var gameType: GameType
@@ -426,7 +426,7 @@ extension BackendService {
         }
     }
 
-    struct GameDeckRow: Decodable {
+    nonisolated struct GameDeckRow: Decodable {
         var id: UUID
         var topic: String
         var gameType: GameType
@@ -445,7 +445,7 @@ extension BackendService {
             case questionCount = "question_count"
         }
 
-        func toModel() -> GameDeck {
+        @MainActor func toModel() -> GameDeck {
             GameDeck(id: id, topic: topic, gameType: gameType, title: title, emoji: emoji, tier: tier, sortOrder: sortOrder, questionCount: questionCount, isAdult: adult ?? false)
         }
     }
@@ -480,7 +480,7 @@ extension BackendService {
         //
         // `scripts/export-game-content.py` already pages for the same reason; this is the half that
         // was missed.
-        func rows(_ table: String, _ columns: String) async throws -> [[String: AnyJSON]] {
+        @Sendable func rows(_ table: String, _ columns: String) async throws -> [[String: AnyJSON]] {
             let pageSize = 1000
             var all: [[String: AnyJSON]] = []
             while true {
@@ -569,7 +569,7 @@ extension BackendService {
     /// `isMyTurn` means two different things depending on the game, and both are the actionable
     /// reading: on a board it is whose move it is, and on a puzzle it is whether *you* have still
     /// to play it. See `list_open_puzzle_games`.
-    struct OpenGame: Identifiable, Decodable {
+    nonisolated struct OpenGame: Identifiable, Decodable {
         let id: UUID
         let gameType: GameType
         /// The difficulty or theme, where the game has one.

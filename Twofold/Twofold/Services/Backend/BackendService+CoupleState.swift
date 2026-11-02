@@ -150,7 +150,8 @@ extension BackendService {
         var placeIDs = Set([partnerAProfile.homePlaceId, partnerBProfile.homePlaceId].compactMap { $0 })
         for row in tripRows { placeIDs.insert(row.originId); placeIDs.insert(row.destinationId) }
         for row in memoryRows { if let placeId = row.placeId { placeIDs.insert(placeId) } }
-        async let placesTask = fetchPlaces(ids: Array(placeIDs))
+        let placeIDList = Array(placeIDs)
+        async let placesTask = fetchPlaces(ids: placeIDList)
 
         let memoryPhotoRows = try await memoryPhotoRowsTask
         let places = try await placesTask
