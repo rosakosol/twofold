@@ -616,6 +616,25 @@ function computeProgress(row: FlightRow): number {
   return Math.min(1, Math.max(0, elapsed / (arr - dep)));
 }
 
+// When the card stops presenting its content as current — the same rule as the app's
+// `LiveActivityManager.staleDate`: the best-known arrival, else a day past departure, else twelve
+// hours from now. Plain Unix seconds, like every other `aps` date.
+//
+// Sent on every update because an APNs Live Activity update without `stale-date` replaces the
+// content with content that has none. The app's stale date is the only thing that re-renders the
+// card at landing, so after the first push a landed flight could sit at "Arrives in 12 min",
+// counting up, with no sign it was out of date (FLT-2).
+export function liveActivityStaleDateUnix(
+  row: Pick<FlightRow, "estimated_in" | "scheduled_in" | "estimated_out" | "scheduled_out">,
+  nowMs: number = Date.now(),
+): number {
+  const arrival = row.estimated_in ?? row.scheduled_in;
+  if (arrival) return Math.round(new Date(arrival).getTime() / 1000);
+  const departure = row.estimated_out ?? row.scheduled_out;
+  if (departure) return Math.round(new Date(departure).getTime() / 1000) + 24 * 3600;
+  return Math.round(nowMs / 1000) + 12 * 3600;
+}
+
 // Must match JourneyActivityAttributes.ContentState's Swift property names verbatim (default
 // Codable camelCase, no CodingKeys) — every Date field goes through toCocoaTimestamp, since
 // that's what Swift's default JSONDecoder expects, NOT Unix epoch.
@@ -708,7 +727,9 @@ async function notifyLiveActivity(serviceClient: SupabaseClient, oldRow: FlightR
         await sendLiveActivityUpdate(token.push_token, token.environment, contentState, "end", { dismissalDateUnix });
         await serviceClient.from("live_activity_push_tokens").delete().eq("id", token.id);
       } else {
-        await sendLiveActivityUpdate(token.push_token, token.environment, contentState, "update");
+        await sendLiveActivityUpdate(token.push_token, token.environment, contentState, "update", {
+          staleDateUnix: liveActivityStaleDateUnix(newRow),
+        });
       }
     } catch (err) {
       console.error(`[flight-sync] notifyLiveActivity threw for token ${token.id}:`, (err as Error).message);
