@@ -160,10 +160,22 @@ final class InviteFlowE2ETests: E2ETestCase {
         require(app.textFields["First name"], timeout: 10, "Never reached Create account")
         type("Rae", into: app.textFields["First name"], in: app)
         type(email, into: app.textFields["Email"], in: app)
-        type(password, into: app.secureTextFields["Password"], in: app)
-        type(password, into: app.secureTextFields["Confirm password"], in: app)
+        // Secure fields once each: a secure field that loses focus and gets it back clears itself
+        // on the next keystroke, so the retrying `type` would empty it.
+        for name in ["Password", "Confirm password"] {
+            let field = app.secureTextFields[name]
+            field.tap()
+            _ = app.keyboards.firstMatch.waitForExistence(timeout: 3)
+            field.typeText(password)
+        }
+        // The keyboard covers the consent box.
+        app.staticTexts["Create your Twofold account"].tap()
+        _ = app.keyboards.firstMatch.waitForNonExistence(timeout: 3)
         app.switches["I'm 16 or over, and I agree to the Terms of Use and Privacy Policy"].tap()
-        app.buttons["Continue"].tap()
+        let continueButton = app.buttons["Continue"]
+        let enabled = expectation(for: NSPredicate(format: "isEnabled == true"), evaluatedWith: continueButton)
+        wait(for: [enabled], timeout: 5)
+        continueButton.tap()
 
         require(app.staticTexts["Where are you based?"], timeout: 30, "Creating the account did not move on to Home City")
         dismissSystemAlerts()
