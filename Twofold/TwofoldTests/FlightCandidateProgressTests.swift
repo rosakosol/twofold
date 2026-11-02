@@ -14,6 +14,7 @@ import Testing
 import Foundation
 @testable import Twofold
 
+@MainActor
 struct FlightCandidateProgressTests {
 
     /// A candidate departing/arriving at fixed offsets from `now`, so every case below reads as

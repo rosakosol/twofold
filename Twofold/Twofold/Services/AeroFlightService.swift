@@ -13,7 +13,7 @@ import Foundation
 
 /// A candidate returned by a flight search — lightweight, not yet persisted. Confirming one
 /// (via `AeroFlightService.addFlight`) is what actually creates a tracked `Flight` row.
-struct AeroFlightCandidate: Identifiable, Decodable, Hashable {
+nonisolated struct AeroFlightCandidate: Identifiable, Decodable, Hashable {
     struct Airport: Decodable, Hashable {
         var iata: String?
         var icao: String?
@@ -87,7 +87,7 @@ struct AeroFlightCandidate: Identifiable, Decodable, Hashable {
         guard marketingIdent != nil else { return nil }
         return flightNumberIata ?? identIata ?? identIcao
     }
-    var logoURL: URL? { AirlineLogo.url(forIATACode: operatorIata) }
+    @MainActor var logoURL: URL? { AirlineLogo.url(forIATACode: operatorIata) }
 
     /// What the leading column of a search result says about where this flight is up to.
     ///
@@ -110,7 +110,7 @@ struct AeroFlightCandidate: Identifiable, Decodable, Hashable {
         var isPast: Bool
     }
 
-    func progressSummary(now: Date = .now) -> ProgressSummary? {
+    @MainActor func progressSummary(now: Date = .now) -> ProgressSummary? {
         let parsed = status.flatMap(FlightStatus.init(rawValue:))
 
         if cancelled == true || parsed == .cancelled {
@@ -149,14 +149,14 @@ struct AeroFlightCandidate: Identifiable, Decodable, Hashable {
         return ProgressSummary(label: "Departed", detail: nil, symbol: "airplane.departure", isPast: true)
     }
 
-    private func landedSummary(now: Date) -> ProgressSummary {
+    @MainActor private func landedSummary(now: Date) -> ProgressSummary {
         // Scheduled arrival, since a candidate carries no actual-on timestamp — close enough to
         // say "about three hours ago", which is all this line is claiming.
         let detail = scheduledIn.map { "\(TimeMath.compactDuration(now.timeIntervalSince($0))) ago" }
         return ProgressSummary(label: "Landed", detail: detail, symbol: "airplane.arrival", isPast: true)
     }
 
-    private func countdownDetail(now: Date) -> String? {
+    @MainActor private func countdownDetail(now: Date) -> String? {
         guard let scheduledOut, scheduledOut > now else { return nil }
         return "in \(TimeMath.compactDuration(scheduledOut.timeIntervalSince(now)))"
     }
