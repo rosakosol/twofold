@@ -27,6 +27,9 @@
 //                                    place of the ones StoreKit returned — the test copies them
 //                                    out of Twofold.storekit. `id=free:P2W:1`, comma-separated;
 //                                    empty means no product has one. See `introductoryOffers`.
+//    TWOFOLD_E2E_HOLD_LAUNCH=<sec>   hold on the loading screen this long before restoring the
+//                                    session, so a link the test opens arrives as it would on a
+//                                    cold launch. See `launchHold`.
 //    TWOFOLD_E2E_KEEP_DEVICE=1       skip the clean-device reset, for a second launch that must see
 //                                    what the first one left behind (the offline tests).
 //    TWOFOLD_E2E_WRITES_FAIL=1       every trip, memory and profile write, and every puzzle
@@ -92,6 +95,18 @@ enum E2ELaunch {
               let password = environment["TWOFOLD_E2E_PASSWORD"], !password.isEmpty
         else { return nil }
         return (email, password)
+    }
+
+    /// How long to hold the launch on its loading screen before the session is restored, from
+    /// `TWOFOLD_E2E_HOLD_LAUNCH` in seconds. Nil when not set.
+    ///
+    /// A UI test cannot cold-launch the app from a link: the system would launch it without the
+    /// test's environment, pointed at production. So the test launches it held here, opens the
+    /// link while it is still loading, and the link meets exactly the state a cold launch from
+    /// Messages leaves it in — `RootView` up, the session not yet restored, nothing behind it.
+    static var launchHold: Duration? {
+        guard isOn, let raw = environment["TWOFOLD_E2E_HOLD_LAUNCH"], let seconds = Double(raw), seconds > 0 else { return nil }
+        return .milliseconds(Int(seconds * 1000))
     }
 
     /// Nil outside a test run, which is what keeps every caller on its real RevenueCat path.
@@ -201,6 +216,7 @@ enum E2ELaunch {
     static let isOn = false
     static var credentials: (email: String, password: String)? { nil }
     static var tier: Tier? { nil }
+    static var launchHold: Duration? { nil }
     static var configuresRevenueCat: Bool { true }
     static var introductoryOffers: [String: IntroductoryOfferTerms]? { nil }
     static var writesFail: Bool { false }

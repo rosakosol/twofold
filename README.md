@@ -398,11 +398,11 @@ SettingsView
 
 **URLs**, parsed by [`WidgetDeepLink.swift`](Twofold/Twofold/Features/Onboarding/WidgetDeepLink.swift)
 and [`InviteCode.swift`](Twofold/Twofold/Features/Onboarding/InviteCode.swift), and handled in
-`RootView.onOpenURL`:
+`RootView.onOpenURL` through [`OpenURLRoute`](Twofold/Twofold/Navigation/OpenURLRoute.swift):
 
 | URL | Goes to |
 |---|---|
-| `https://www.twofoldapp.com.au/invite/CODE` (Universal Link) or legacy `twofold://invite/CODE` | Redeem sheet when signed in; `JoinInviteView` when onboarding |
+| `https://www.twofoldapp.com.au/invite/CODE` (Universal Link) or legacy `twofold://invite/CODE` | Redeem sheet when signed in (onboarding or not); `JoinInviteView` when signed out |
 | `twofold://paywall` | `PaywallView` (every locked widget points here) |
 | `twofold://flight/<uuid>` | `FlightTrackingView` * |
 | `twofold://trip/<uuid>` | `TripDetailsView` * |
@@ -410,7 +410,7 @@ and [`InviteCode.swift`](Twofold/Twofold/Features/Onboarding/InviteCode.swift), 
 | `twofold://drawing-pad` / `twofold://partner-drawing-pad` | Your drawing editor / your partner's drawing * |
 | `twofold://home`, `twofold://memories` | That tab |
 | `twofold://passport[/relationship\|trips\|flights]` | Stats tab, optionally on a section |
-| `twofold://reset-password`, `https://…/auth/reset-password` | `ResetPasswordView` (onboarding only) |
+| `twofold://reset-password`, `https://…/auth/reset-password` | `ResetPasswordView` (signed out or onboarding) |
 
 \* Only opens with an active subscription.
 
@@ -1010,6 +1010,10 @@ waitForSignedInApp(app)
   background, so coming back is the reconnect. Pair it with `keepDevice: true, signIn: false` for a
   relaunch that must send what the first launch queued (see `OfflineWritesE2ETests` and
   `PuzzleResultE2ETests`).
+* **Links during launch:** `TWOFOLD_E2E_HOLD_LAUNCH=<seconds>` holds the app on its loading screen
+  before the session is restored, so a link the test opens with `app.open(_:)` arrives as one would
+  on a cold launch. A real cold launch from a link cannot be driven from a UI test: the system
+  launches the app without the test's environment, pointed at production (see `InviteFlowE2ETests`).
 
 **Adding a scenario:** add a static constructor to `Scenario` that composes `makeAccount`,
 `completeOnboarding`, `pair` and `apply(tier:to:)`, and put any new seeding call beside `addTrip`.

@@ -7,8 +7,16 @@ import SwiftUI
 import GoogleSignIn
 import PostHog
 
+/// A link `RootView` has decided is onboarding's to act on.
+enum OnboardingLink: Equatable {
+    case invite(code: String)
+    case passwordRecovery(URL)
+}
+
 struct OnboardingCoordinatorView: View {
     @Environment(AppModel.self) private var appModel
+    /// Set by `RootView`, which hears every link; cleared here once acted on.
+    @Binding var link: OnboardingLink?
     @State private var onboarding = OnboardingModel()
     @State private var showingPasswordReset = false
     @State private var showingExitConfirmation = false
@@ -134,14 +142,20 @@ struct OnboardingCoordinatorView: View {
             syncFromAppModel()
         }
         .onOpenURL { url in
-            // Google's sign-in flow redirects back into the app via its own URL scheme.
-            if GIDSignIn.sharedInstance.handle(url) { return }
-            if Self.isPasswordRecoveryLink(url) {
+            // Google's sign-in flow redirects back into the app via its own URL scheme. Every other
+            // link is `RootView`'s to route, and arrives through `link`.
+            _ = GIDSignIn.sharedInstance.handle(url)
+        }
+        // `initial`, because on a cold launch the link was set before this view existed.
+        .onChange(of: link, initial: true) {
+            guard let link else { return }
+            self.link = nil
+            switch link {
+            case .invite(let code):
+                onboarding.resetForNewInvite(code: code)
+            case .passwordRecovery(let url):
                 Task { await handlePasswordRecovery(url) }
-                return
             }
-            guard let code = InviteCode.code(from: url) else { return }
-            onboarding.resetForNewInvite(code: code)
         }
         .fullScreenCover(isPresented: $showingPasswordReset) {
             ResetPasswordView()
@@ -370,6 +384,6 @@ struct OnboardingCoordinatorView: View {
 }
 
 #Preview {
-    OnboardingCoordinatorView()
+    OnboardingCoordinatorView(link: .constant(nil))
         .environment(AppModel())
 }

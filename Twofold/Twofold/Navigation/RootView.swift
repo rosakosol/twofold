@@ -89,6 +89,8 @@ struct RootView: View {
     @State private var recordDeepLink: WidgetDeepLink.Destination?
     /// A link that arrived before the app could act on it — see `.onOpenURL`.
     @State private var pendingOpenURL: URL?
+    /// A link for onboarding to act on, held until it does. See `consumePendingOpenURL`.
+    @State private var onboardingLink: OnboardingLink?
     /// A Stats card a deep link asked for, consumed by `PassportView` once it appears. Without it
     /// the Days Together widget landed on whichever card happened to be open from last time.
     @State private var pendingStatsSection: StatsSection?
@@ -148,11 +150,12 @@ struct RootView: View {
                 // should not nudge anyone towards destroying their own data to get past a paywall.
                 MainTabView(selection: $selectedTab, statsSection: $pendingStatsSection)
             } else {
-                OnboardingCoordinatorView()
+                OnboardingCoordinatorView(link: $onboardingLink)
             }
         }
         .task {
             KeyboardDismissal.installOnce()
+            if let hold = E2ELaunch.launchHold { try? await Task.sleep(for: hold) }
             await appModel.restoreSession()
             #if DEBUG
             // After `restoreSession`, so the real app is behind the sheet rather than the loading
@@ -323,10 +326,8 @@ struct RootView: View {
                 Task { await appModel.updateCurrentCityIfChanged(place) }
             }
         }
-        // Only meaningful once signed in — `OnboardingCoordinatorView` has its own `onOpenURL`
-        // for the pre-account case (that branch isn't mounted here, so there's no double
-        // handling). This is what makes an invite link work for anyone who already has an
-        // account, paired or not — previously it was a silent no-op for them.
+        // The one handler for every link, signed in or not — see `OpenURLRoute.route`. Onboarding
+        // keeps an `.onOpenURL` only for Google's sign-in redirect.
         //
         // Held, then handled once the app can act on it — the same shape as notification taps
         // below. Handled on arrival, a link that launched the app cold met `isLoadingSession`
@@ -512,20 +513,35 @@ struct RootView: View {
     /// Handles a held link once it can be, and holds it a little longer when it cannot yet. See
     /// `.onOpenURL`.
     private func consumePendingOpenURL() {
-        guard let url = pendingOpenURL, !appModel.isLoadingSession else { return }
-        // Signed out: onboarding's own handler deals with the links that mean anything there.
-        guard appModel.hasCouple else {
+        guard let url = pendingOpenURL else { return }
+        let destination: WidgetDeepLink.Destination
+        switch OpenURLRoute.route(
+            for: url,
+            isLoadingSession: appModel.isLoadingSession,
+            hasCouple: appModel.hasCouple,
+            isSignedIn: BackendService.currentUserID != nil
+        ) {
+        case .wait:
+            return
+        case .ignore:
             pendingOpenURL = nil
             return
-        }
-        if let code = InviteCode.code(from: url) {
+        case .redeemInvite(let code):
             pendingInviteCode = code
             pendingOpenURL = nil
             return
-        }
-        guard let destination = WidgetDeepLink.destination(for: url) else {
+        // Onboarding's to act on, and handed to it rather than heard by it: on a cold launch it
+        // was not on screen when the link arrived.
+        case .startInvite(let code):
+            onboardingLink = .invite(code: code)
             pendingOpenURL = nil
             return
+        case .passwordRecovery(let recoveryURL):
+            onboardingLink = .passwordRecovery(recoveryURL)
+            pendingOpenURL = nil
+            return
+        case .widget(let widget):
+            destination = widget
         }
         switch destination {
         case .paywall:
