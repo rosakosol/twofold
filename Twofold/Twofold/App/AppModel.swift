@@ -1029,7 +1029,7 @@ final class AppModel {
             try await BackendService.updateBirthday(birthday)
             couple.partnerA.birthday = birthday
         } catch {
-            writeRefusedMessage = error.localizedDescription
+            writeRefusedMessage = BackendFailure.message(for: error)
         }
     }
 
@@ -1056,7 +1056,7 @@ final class AppModel {
             }
             return nil
         } catch {
-            return error.localizedDescription
+            return BackendFailure.message(for: error)
         }
     }
 
@@ -1075,7 +1075,7 @@ final class AppModel {
         do {
             try await BackendService.leaveCouple(coupleID: backendCoupleID)
         } catch {
-            return error.localizedDescription
+            return BackendFailure.message(for: error)
         }
         Analytics.capture(Analytics.Event.partnerRemove)
         await settleAfterLeavingCouple()

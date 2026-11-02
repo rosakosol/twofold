@@ -180,7 +180,7 @@ final class CoupleSession: AccountScopedStore {
             try await BackendService.sendConnectionRequestReminder(requestID: request.id)
             return nil
         } catch {
-            return error.localizedDescription
+            return BackendFailure.message(for: error)
         }
     }
 }
