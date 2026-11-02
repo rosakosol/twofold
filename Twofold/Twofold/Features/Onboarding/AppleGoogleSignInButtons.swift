@@ -93,6 +93,10 @@ struct AppleGoogleSignInButtons: View {
         isSubmitting = true
         Task {
             do {
+                if case .failure(let error) = result, Self.isUserCancellation(error) {
+                    isSubmitting = false
+                    return
+                }
                 guard case .success(let authorization) = result,
                       let credential = authorization.credential as? ASAuthorizationAppleIDCredential,
                       let tokenData = credential.identityToken,
@@ -112,6 +116,17 @@ struct AppleGoogleSignInButtons: View {
             }
             isSubmitting = false
         }
+    }
+
+    /// The person closed the Apple or Google sheet. Not an error, and not shown as one.
+    ///
+    /// Apple's cancel used to be swallowed by the `guard case .success` below and rethrown as
+    /// `notAuthenticated` — "You need to be signed in." in red, for closing a sheet. Google's was
+    /// passed through as its own description.
+    static func isUserCancellation(_ error: Error) -> Bool {
+        if let apple = error as? ASAuthorizationError, apple.code == .canceled { return true }
+        let nsError = error as NSError
+        return nsError.domain == kGIDSignInErrorDomain && nsError.code == GIDSignInError.canceled.rawValue
     }
 
     private static func randomNonceString(length: Int = 32) -> String {
@@ -137,7 +152,9 @@ struct AppleGoogleSignInButtons: View {
                 let userID = try await BackendService.signInWithGoogle()
                 await onSuccess(userID, nil)
             } catch {
-                if case BackendError.accountDeleted = error {
+                if Self.isUserCancellation(error) {
+                    // Closed the sheet. Nothing to say.
+                } else if case BackendError.accountDeleted = error {
                     onAccountDeleted()
                 } else {
                     onError(error.localizedDescription)

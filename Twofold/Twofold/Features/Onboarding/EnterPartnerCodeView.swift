@@ -35,18 +35,18 @@ struct EnterPartnerCodeView: View {
             },
             primaryTitle: "Continue",
             primaryAction: continueTapped,
-            primaryDisabled: code.trimmingCharacters(in: .whitespaces).isEmpty || isSubmitting
+            primaryDisabled: code.trimmingCharacters(in: .whitespaces).isEmpty || isSubmitting,
+            primaryLoading: isSubmitting
         )
     }
 
     private func continueTapped() {
         let trimmed = code.trimmingCharacters(in: .whitespaces).uppercased()
-        onboarding.inviteCode = trimmed
-        // Typed by hand, so it stays a request the inviter approves — whichever of the two
-        // branches below ends up doing the redeeming.
-        onboarding.inviteOrigin = .code
 
         if onboarding.hasAccount {
+            onboarding.inviteCode = trimmed
+            // Typed by hand, so it stays a request the inviter approves.
+            onboarding.inviteOrigin = .code
             // Already mid-way through the inviter flow ("I have a partner code") — account
             // and home city already exist, so redeem right now.
             isSubmitting = true
@@ -69,8 +69,14 @@ struct EnterPartnerCodeView: View {
             }
         } else {
             // Arrived fresh from "I have an invite" without an account yet — the actual
-            // redeem call happens in HomeCityView once one exists.
-            onboarding.path.append(.joinInvite)
+            // redeem call happens in HomeCityView once one exists. Checked first, so a code that
+            // will not redeem is turned away here rather than after an account is made for it.
+            isSubmitting = true
+            errorMessage = nil
+            Task {
+                errorMessage = await onboarding.enterTypedCode(trimmed)
+                isSubmitting = false
+            }
         }
     }
 }

@@ -75,13 +75,16 @@ struct OnboardingRevealView: View {
             Spacer()
 
             Button {
+                guard !isFinishing else { return }
                 isFinishing = true
                 Task {
                     // This preserved deep-link/manual-invite path has no paywall step of its
                     // own, so account creation and finishing onboarding happen together here
                     // (unlike the default flow, where a paywall sits in between).
                     await appModel.applyOnboardingAccount(onboarding)
-                    Task { await appModel.finishOnboarding() }
+                    // Awaited, not fired off in a nested Task: that let `isFinishing` go false
+                    // while the finish was still running, and the button came back mid-flight.
+                    await appModel.finishOnboarding()
                     isFinishing = false
                 }
             } label: {

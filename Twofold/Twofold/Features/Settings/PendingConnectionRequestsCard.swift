@@ -13,29 +13,38 @@ import SwiftUI
 
 struct PendingConnectionRequestsCard: View {
     @Environment(AppModel.self) private var appModel
-    @State private var respondingID: UUID?
-    @State private var errorMessage: String?
+    /// The request being answered, on the same review screen Home opens.
+    @State private var reviewing: BackendService.PendingConnectionRequest?
 
     var body: some View {
-        if !appModel.pendingConnectionRequests.isEmpty {
-            SectionCard {
-                Text("Connection requests")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Theme.textSecondary)
+        Group {
+            if !appModel.pendingConnectionRequests.isEmpty {
+                SectionCard {
+                    Text("Connection requests")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Theme.textSecondary)
 
-                ForEach(appModel.pendingConnectionRequests) { request in
-                    requestRow(request)
-                }
-
-                if let errorMessage {
-                    Text(errorMessage)
-                        .font(.caption)
-                        .foregroundStyle(Theme.error)
+                    ForEach(appModel.pendingConnectionRequests) { request in
+                        requestRow(request)
+                    }
                 }
             }
         }
+        // Outside the `if`: answering empties the list, and the sheet must not lose its host
+        // while it is still closing.
+        .sheet(item: $reviewing) { request in
+            ConnectionRequestReviewView(request: request)
+        }
     }
 
+    /// One way to answer a request, wherever it is shown.
+    ///
+    /// This card used to carry its own Accept and Decline, and its Accept was not the same
+    /// decision as the review screen's. The review screen looks for history with this person and
+    /// asks "Bring it back, or start fresh?"; the card accepted at once with `restoreArchive:
+    /// false`, so a returning couple who answered from Settings started fresh without being told
+    /// their archive existed. It also had no Report or Block, and Decline asked nothing. The card
+    /// now opens the review screen, which has all of that.
     private func requestRow(_ request: BackendService.PendingConnectionRequest) -> some View {
         let person = Person(
             id: request.requesterId,
@@ -51,36 +60,19 @@ struct PendingConnectionRequestsCard: View {
                 .minimumScaleFactor(0.85)
             Spacer(minLength: 0)
 
-            if respondingID == request.id {
-                ProgressView()
-            } else {
-                Button("Decline") { respond(request, accept: false) }
-                    .buttonStyle(.bordered)
-                    .tint(Theme.textSecondary)
-
-                // The same gradient capsule the full-screen accept uses
-                // (`ConnectionRequestReviewView`), rather than `.borderedProminent` tinted with a
-                // flat accent, so it reads as the same decision rather than a lesser control. The
-                // label is `onPrimaryButton`, which clears AA on the gradient in both appearances.
-                Button { respond(request, accept: true) } label: {
-                    Text("Accept")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Theme.onPrimaryButton)
-                        .padding(.horizontal, Theme.Spacing.md)
-                        .padding(.vertical, 8)
-                        .background(Theme.primaryButtonGradient, in: Capsule())
-                }
-                .buttonStyle(.plain)
+            // The same gradient capsule the full-screen accept uses, so it reads as the way into
+            // that decision rather than a lesser control. The label is `onPrimaryButton`, which
+            // clears AA on the gradient in both appearances.
+            Button { reviewing = request } label: {
+                Text("Review")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Theme.onPrimaryButton)
+                    .padding(.horizontal, Theme.Spacing.md)
+                    .padding(.vertical, 8)
+                    .background(Theme.primaryButtonGradient, in: Capsule())
             }
-        }
-    }
-
-    private func respond(_ request: BackendService.PendingConnectionRequest, accept: Bool) {
-        respondingID = request.id
-        errorMessage = nil
-        Task {
-            errorMessage = await appModel.respondToConnectionRequest(request, accept: accept)
-            respondingID = nil
+            .buttonStyle(.plain)
+            .accessibilityLabel("Review \(request.requesterFirstName)'s request")
         }
     }
 }

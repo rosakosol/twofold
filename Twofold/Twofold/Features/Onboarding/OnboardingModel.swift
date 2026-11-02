@@ -205,6 +205,8 @@ final class OnboardingModel {
         inviterAvatarURL = nil
         hasResolvedInviterName = false
         hasAccount = false
+        redeemedInviteCode = nil
+        inviteOrigin = .code
 
         draftedTrip = nil
 
@@ -229,6 +231,12 @@ final class OnboardingModel {
         cachedIllustrativeOriginCity = nil
     }
 
+    /// Who an invite code belongs to. `BackendService.inviterInfo` in the app; a test hands in its
+    /// own, to hold an answer in the air or say "no such code".
+    @ObservationIgnored var inviterLookup: (String) async throws -> BackendService.InviterInfo? = {
+        try await BackendService.inviterInfo(forCode: $0)
+    }
+
     func resetForNewInvite(code: String) {
         role = .invitee
         inviteCode = code
@@ -239,13 +247,113 @@ final class OnboardingModel {
         // (see its migration's own comment) specifically so this — a cold deep-link tap, before
         // any account exists — can show the real inviter on JoinInviteView. Fired async rather
         // than blocking the navigation above; JoinInviteView just updates once this resolves.
-        Task {
-            let info = try? await BackendService.inviterInfo(forCode: code)
-            inviterName = info?.name
-            inviterAvatarURL = info?.avatarURL
-            // Set on the failure path too — a lookup that came back empty is still a lookup that
-            // finished, and the screen has to stop waiting and show its fallback.
-            hasResolvedInviterName = true
+        //
+        // The previous inviter is cleared here, before the Task, so not even one frame of the new
+        // invite shows the last one's name.
+        let generation = beginInviterLookup()
+        Task { await finishInviterLookup(code: code, generation: generation) }
+    }
+
+    enum InviterLookupResult: Equatable {
+        case found
+        /// The server answered, and the code is not a pending, unexpired invite.
+        case notFound
+        /// No answer at all — offline, most likely. Not evidence the code is wrong.
+        case failed
+    }
+
+    /// Bumped by every lookup, so only the newest one may write its answer.
+    @ObservationIgnored private var inviterLookupGeneration = 0
+
+    /// Looks up who `code` belongs to and puts them on the model for the invite screens.
+    ///
+    /// Clears the previous inviter first. A second link tapped in the same session used to show
+    /// the first inviter's name, unredacted, until its own lookup came back — and two quick taps
+    /// could resolve out of order, so the older code's name could win for good. Each lookup now
+    /// writes only if no newer one has started since.
+    @discardableResult
+    func resolveInviter(code: String) async -> InviterLookupResult {
+        await finishInviterLookup(code: code, generation: beginInviterLookup())
+    }
+
+    private func beginInviterLookup() -> Int {
+        inviterLookupGeneration += 1
+        inviterName = nil
+        inviterAvatarURL = nil
+        hasResolvedInviterName = false
+        return inviterLookupGeneration
+    }
+
+    private func finishInviterLookup(code: String, generation: Int) async -> InviterLookupResult {
+        let result: InviterLookupResult
+        let info: BackendService.InviterInfo?
+        do {
+            info = try await inviterLookup(code)
+            result = info == nil ? .notFound : .found
+        } catch {
+            info = nil
+            result = .failed
         }
+        guard generation == inviterLookupGeneration else { return result }
+        inviterName = info?.name
+        inviterAvatarURL = info?.avatarURL
+        // Set on the failure path too — a lookup that came back empty is still a lookup that
+        // finished, and the screen has to stop waiting and show its fallback.
+        hasResolvedInviterName = true
+        return result
+    }
+
+    /// "Have an invite code instead?", for somebody with no account yet. Returns the message to
+    /// show under the field, or nil once the flow has moved on.
+    ///
+    /// The code is checked here, before anything else. It used to be pushed straight on to
+    /// `.joinInvite` without a lookup, which left that screen's headline redacted for good (only a
+    /// tapped link ever resolved the inviter), and a mistyped or expired code was only refused at
+    /// Home City — after an account had been made for it, with "email already exists" waiting one
+    /// screen back.
+    func enterTypedCode(_ raw: String) async -> String? {
+        let code = raw.trimmingCharacters(in: .whitespaces).uppercased()
+        switch await resolveInviter(code: code) {
+        case .found:
+            inviteCode = code
+            // Typed by hand, so it stays a request the inviter approves.
+            inviteOrigin = .code
+            push(.joinInvite)
+            return nil
+        case .notFound:
+            return "We couldn't find that code — check it with your partner."
+        case .failed:
+            return "We couldn't check that code. Check your connection and try again."
+        }
+    }
+
+    /// Pushes `step`, unless it is already on top.
+    ///
+    /// The question screens advance on a tap of the answer, and a quick double tap used to push
+    /// the next question twice, so Back showed the same question again.
+    func push(_ step: OnboardingStep) {
+        guard path.last != step else { return }
+        path.append(step)
+    }
+
+    /// Moves on from the screen that has just created the account, leaving nothing behind it.
+    ///
+    /// Appending kept the sign-up screens one swipe back. Swiping there offered a signed-in person
+    /// a form to sign up again: by email, "already exists"; by Apple or Google with another ID, a
+    /// second account that the questionnaire was then written to. The screen this lands on hides
+    /// its back button too, because the root under it is Welcome.
+    func continueAfterAccountCreated(to step: OnboardingStep) {
+        path = [step]
+    }
+
+    /// The invite code this account redeemed, once it has.
+    var redeemedInviteCode: String?
+
+    /// The code `HomeCityView` should redeem on Continue, if any. Nil once redeemed: swiping back
+    /// from the photo screen and pressing Continue again redeemed a code that was already used,
+    /// and the server's refusal left the person stuck on Home City.
+    var codeToRedeem: String? {
+        guard role == .invitee, let inviteCode, inviteCode != redeemedInviteCode else { return nil }
+        return inviteCode
     }
 }

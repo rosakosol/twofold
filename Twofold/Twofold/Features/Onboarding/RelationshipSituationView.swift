@@ -23,7 +23,7 @@ struct RelationshipSituationView: View {
                             onboarding.situation = situation
                             // "How often do you see each other?" doesn't make sense for a
                             // couple that hasn't met yet — skip straight past it.
-                            onboarding.path.append(situation == .haventMetYet ? .attribution : .frequency)
+                            onboarding.push(situation == .haventMetYet ? .attribution : .frequency)
                         }
                     }
                 }

@@ -196,6 +196,19 @@ struct RedeemPartnerCodeView: View {
         hasResolvedLinkInviter = true
     }
 
+    /// Whether redeeming `code` connects at once or asks the inviter first.
+    ///
+    /// Decided by the code being redeemed, not by how the sheet was opened. The field stays
+    /// editable, and the old rule — any prefill at all meant `.link` — let someone who had opened
+    /// any invite link clear it, type a different code they had seen, and be paired with that
+    /// inviter with no approval: the one thing a typed code is supposed to require
+    /// (20261008000000). Only the link's own code, however it is formatted, is a link.
+    static func origin(forCode code: String, prefilledCode: String?) -> BackendService.InviteOrigin {
+        guard let prefilledCode, !prefilledCode.isEmpty else { return .code }
+        let normalized = { (raw: String) in raw.uppercased().filter(\.isLetter) }
+        return normalized(code) == normalized(prefilledCode) ? .link : .code
+    }
+
     private func redeem() {
         isRedeeming = true
         errorMessage = nil
@@ -212,7 +225,7 @@ struct RedeemPartnerCodeView: View {
                 // Emptiness, not nil-ness: a prefilled value of "" is not a link anyone followed,
                 // and treating it as one would auto-pair someone who typed into a blank field.
                 let outcome = try await BackendService.redeemInviteCode(
-                    trimmed, origin: (prefilledCode?.isEmpty == false) ? .link : .code
+                    trimmed, origin: Self.origin(forCode: trimmed, prefilledCode: prefilledCode)
                 )
                 isRedeeming = false
 

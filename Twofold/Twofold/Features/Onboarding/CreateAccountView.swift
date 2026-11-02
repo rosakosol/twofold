@@ -215,10 +215,19 @@ struct CreateAccountView: View {
             try? await BackendService.updateFirstName(providedFirstName)
         }
         appModel.adoptSignedInIdentity(id: userID, firstName: resolvedName)
+        // Recorded now, at the moment the account exists, rather than at the end of the invitee
+        // flow. It used to wait for `applyOnboardingAccount` on the reveal screen, so killing the
+        // app at Home City, the photo or the trip relaunched into question one of the *inviter's*
+        // questionnaire — which then minted this person their own invite code and showed them a
+        // paywall. The code is kept as well, until Home City has redeemed it.
+        if let code = onboarding.inviteCode {
+            OnboardingResume.save(SavedInvite(code: code, origin: onboarding.inviteOrigin.rawValue), for: userID)
+        }
+        await appModel.recordOnboardingAccountCreated()
 
         onboarding.firstName = resolvedName
         onboarding.hasAccount = true
-        onboarding.path.append(.homeCity)
+        onboarding.continueAfterAccountCreated(to: .homeCity)
     }
 }
 

@@ -2586,8 +2586,43 @@ final class AppModel {
     /// nothing left to onboard, so this does finish immediately — a narrow edge case where a
     /// returning user skips straight past the paywall.
     func applyOnboardingAccount(_ onboarding: OnboardingModel) async {
+        // One at a time. Each screen that calls this is a button, and a second tap used to run all
+        // of it again — the photos uploaded twice, every answer written twice. A tap while it is
+        // running waits for that run instead of starting its own.
+        if let inFlightApply {
+            await inFlightApply.value
+            return
+        }
+        let task = Task { await performApplyOnboardingAccount(onboarding) }
+        inFlightApply = task
+        await task.value
+        inFlightApply = nil
+    }
+
+    /// The run `applyOnboardingAccount` and `finishOnboarding` wait on, if one is going.
+    private var inFlightApply: Task<Void, Never>?
+    private var inFlightFinish: Task<Void, Never>?
+
+    /// Records that onboarding has made this account, so a relaunch offers to resume rather than
+    /// starting again at question one. See `hasSavedOnboardingProgress`.
+    func recordOnboardingAccountCreated() async {
+        // Set locally as well as remotely, and not only as an optimisation: nothing re-reads
+        // the profile between here and the end of the flow, so without this the flag would be
+        // false for the rest of this session.
+        hasSavedOnboardingProgress = true
+        do {
+            try await BackendService.markOnboardingAccountCreated()
+        } catch {
+            // Nothing to undo and nothing worth interrupting a signup for. The cost is that a
+            // dropout is restarted rather than resumed, which is where they were before this
+            // column existed.
+            print("[AppModel] could not record onboarding account creation: \(error.localizedDescription)")
+        }
+    }
+
+    private func performApplyOnboardingAccount(_ onboarding: OnboardingModel) async {
         let generation = accountGeneration
-        if let state = try? await BackendService.fetchCoupleState() {
+        if case let .paired(state) = await fetchCoupleStateOutcome() {
             guard isCurrent(generation) else { return }
             await adopt(state, startedIn: generation)
             guard isCurrent(generation) else { return }
@@ -2617,19 +2652,7 @@ final class AppModel {
             // stops between this point and `finishOnboarding()` is the person the resume screen is
             // for — which is a likely place to stop, since the paywall three screens later cannot
             // be dismissed.
-            //
-            // Set locally as well as remotely, and not only as an optimisation: nothing re-reads
-            // the profile between here and the end of the flow, so without this the flag would be
-            // false for the rest of this session.
-            hasSavedOnboardingProgress = true
-            do {
-                try await BackendService.markOnboardingAccountCreated()
-            } catch {
-                // Nothing to undo and nothing worth interrupting a signup for. The cost is that a
-                // dropout is restarted rather than resumed, which is where they were before this
-                // column existed.
-                print("[AppModel] could not record onboarding account creation: \(error.localizedDescription)")
-            }
+            await recordOnboardingAccountCreated()
             // The device's push token typically arrives at launch, well before this signup
             // completes and `currentUserID` becomes valid — `registerPushToken` would have
             // silently cached it rather than dropped it (see `pendingPushTokenData`'s own doc
@@ -2714,8 +2737,22 @@ final class AppModel {
     /// a freshly created account: not a slow lookup, a lookup nobody had asked for yet.
     ///
     /// Awaited before the flip rather than after, so Home's first render already knows. Somebody
-    /// finishing onboarding has no partner and no outgoing request, so this is one quick round trip.
+    /// finishing onboarding usually has no partner and no outgoing request, so this is one quick
+    /// round trip — plus the couple fetch below, for the inviter whose partner did not wait.
     func finishOnboarding() async {
+        // One at a time, for the reason `applyOnboardingAccount` gives.
+        if let inFlightFinish {
+            await inFlightFinish.value
+            return
+        }
+        let task = Task { await performFinishOnboarding() }
+        inFlightFinish = task
+        await task.value
+        inFlightFinish = nil
+    }
+
+    private func performFinishOnboarding() async {
+        let generation = accountGeneration
         // Recorded server-side, because this is the write that stops the next launch routing
         // straight back into onboarding.
         //
@@ -2736,9 +2773,24 @@ final class AppModel {
         } catch {
             Self.rememberOnboardingCompletedLocally()
         }
+        // Asked, not assumed. This used to say "nothing to fetch: this account was just built, so
+        // its state is known and empty" — but an inviter shares their link at "Invite your
+        // partner" and then spends three screens on the trial and the paywall, and a tapped link
+        // connects the moment the partner redeems it. Nothing polls while onboarding is up, so
+        // Home opened as an unpaired account with a "Set up your partner" card, beside a partner
+        // who was already connected, until the next foreground refresh.
+        //
+        // Only a couple that really exists is adopted. `.noCouple` and `.unknown` both leave the
+        // fresh account as it is, which is what it almost always is.
+        if case let .paired(state) = await fetchCoupleStateOutcome() {
+            guard isCurrent(generation) else { return }
+            await adopt(state, startedIn: generation)
+        }
+        guard isCurrent(generation) else { return }
+        if let userID = BackendService.currentUserID { OnboardingResume.clear(for: userID) }
         needsOnboarding = false
-        // Nothing to fetch: this account was just built, so its state is known and empty. Saying so
-        // is what lets Home show the setup checklist immediately rather than a round trip later.
+        // Known either way now: adopted above, or asked and found empty. Saying so is what lets
+        // Home show the setup checklist immediately rather than a round trip later.
         hasLoadedCoupleState = true
         await refreshPendingOutgoingConnectionRequest()
         hasCouple = true

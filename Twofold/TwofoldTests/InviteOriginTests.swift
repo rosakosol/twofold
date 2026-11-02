@@ -16,9 +16,10 @@ import Foundation
 struct InviteOriginTests {
 
     /// `RedeemPartnerCodeView`'s rule, which is the only ambiguous one: that screen serves both a
-    /// person typing a code and a tapped link that RootView stashed and prefilled.
+    /// person typing a code and a tapped link that RootView stashed and prefilled. The screen's own
+    /// function, with the field left as it was prefilled — this used to be a copy of the rule.
     private func origin(prefilledCode: String?) -> BackendService.InviteOrigin {
-        (prefilledCode?.isEmpty == false) ? .link : .code
+        RedeemPartnerCodeView.origin(forCode: prefilledCode ?? "", prefilledCode: prefilledCode)
     }
 
     @Test("a prefilled code came from a link; an empty field was typed")

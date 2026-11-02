@@ -35,8 +35,13 @@ struct InvitePartnerView: View {
             primaryTitle: nil,
             primaryAction: nil,
             secondaryTitle: "Not now",
-            secondaryAction: { onboarding.path.append(Self.afterInvite(onboarding)) }
+            secondaryAction: { onboarding.push(Self.afterInvite(onboarding)) }
         )
+        // Straight after "Save your progress" there is nothing behind this screen but Welcome —
+        // the account screens are gone (`continueAfterAccountCreated`) — and Welcome is for
+        // people with no account. Someone resuming has `ResumeSetupView` behind it instead, which
+        // is worth going back to.
+        .navigationBarBackButtonHidden(onboarding.path.count == 1 && !appModel.needsOnboarding)
     }
 }
 
@@ -75,7 +80,7 @@ extension InvitePartnerView {
                 // still has to redeem it — so the inviter carries on through onboarding exactly as
                 // they would have, having just been told they will hear the moment their partner
                 // joins.
-                onboarding.path.append(afterInvite(onboarding))
+                onboarding.push(afterInvite(onboarding))
             },
             onRedeemSuccess: {
                 Task {
@@ -93,7 +98,7 @@ extension InvitePartnerView {
                     // path already uses for exactly this pending state, and skips the paywall
                     // entirely — a couple only needs one subscription between them anyway,
                     // decided once someone's actually confirmed connected.
-                    onboarding.path.append(.reveal)
+                    onboarding.push(.reveal)
                 }
             }
         )

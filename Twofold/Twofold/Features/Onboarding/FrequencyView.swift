@@ -45,7 +45,7 @@ struct FrequencyView: View {
                     ForEach(options) { frequency in
                         OnboardingOptionRow(title: frequency.rawValue, isSelected: onboarding.frequency == frequency) {
                             onboarding.frequency = frequency
-                            onboarding.path.append(.attribution)
+                            onboarding.push(.attribution)
                         }
                     }
                 }

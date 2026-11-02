@@ -214,18 +214,34 @@ struct SignInView: View {
             // They are still routed into onboarding either way; `RootView` does that off
             // `needsOnboarding` the moment this sheet closes. The only thing that changes here is
             // whether they are handed an explanation that does not apply to them.
-            if viaProvider {
+            if Self.shouldExplainNewProviderAccount(viaProvider: viaProvider, hasSavedOnboardingProgress: appModel.hasSavedOnboardingProgress) {
                 // Somebody on a screen titled "Welcome back" did not mean to create an account, so
                 // say that one has been created. Overwhelmingly this is Hide My Email: the relay
                 // address is a new email, so it is a new user, and their real account is still
                 // sitting there holding the couple and the history.
-                appModel.signedInToNewAccountMessage = "This Apple ID or Google account wasn't linked to a Twofold account, so we've started a new one for you.\n\nIf you already have an account it was made with a different email address — especially likely if you chose \"Hide My Email\". Sign out from Settings and sign in with that email to get back to it."
+                appModel.signedInToNewAccountMessage = Self.newProviderAccountMessage
             }
             dismiss()
             return
         }
         isSubmitting = false
     }
+
+    /// Whether signing in just made a new account that the person did not ask for.
+    ///
+    /// Not every provider sign-in that lands in onboarding made one. Somebody who created their
+    /// account with Apple at "Save your progress", quit before the paywall and signed back in with
+    /// Apple has `needsOnboarding` too — but onboarding made that account and recorded it, and they
+    /// were told their Apple ID "wasn't linked" and a new account had been started. The email path
+    /// above already had this false message taken away; the provider path kept it.
+    static func shouldExplainNewProviderAccount(viaProvider: Bool, hasSavedOnboardingProgress: Bool) -> Bool {
+        viaProvider && !hasSavedOnboardingProgress
+    }
+
+    /// Points at Back, because that is where the way out is. It used to say "Sign out from
+    /// Settings", and Settings cannot be reached from onboarding: the question this lands on has a
+    /// Back button that signs out, and nothing else does.
+    static let newProviderAccountMessage = "This Apple ID or Google account wasn't linked to a Twofold account, so we've started a new one for you.\n\nIf you already have an account it was made with a different email address — especially likely if you chose \"Hide My Email\". Tap Back to sign out, then sign in with that email to get back to it."
 
     /// Supabase answers a wrong password and an address that has no password at all with the same
     /// `invalid_credentials`, deliberately — telling them apart would be an oracle for which

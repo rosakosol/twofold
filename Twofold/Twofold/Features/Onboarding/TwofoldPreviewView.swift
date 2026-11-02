@@ -18,6 +18,9 @@ struct TwofoldPreviewView: View {
     @Environment(AppModel.self) private var appModel
     @State private var didCelebrate = false
     @State private var heartScale: CGFloat = 0.6
+    /// Saving the answers to an existing account, for somebody resuming. One run per tap was one
+    /// upload of every photo per tap, and one more `.invitePartner` on the stack.
+    @State private var isApplying = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var trip: Trip? { appModel.upcomingTrips.first }
@@ -165,11 +168,16 @@ struct TwofoldPreviewView: View {
                 // everything sitting in `OnboardingModel` gets written to the profile that the
                 // website already created. Doing it here rather than later keeps the rule that
                 // nothing persists until this point in the flow, whichever way the account arrived.
+                guard !isApplying else { return }
+                isApplying = true
                 Task {
                     await appModel.applyOnboardingAccount(onboarding)
-                    if !appModel.hasCouple { onboarding.path.append(.invitePartner) }
+                    if !appModel.hasCouple { onboarding.push(.invitePartner) }
+                    isApplying = false
                 }
-            }
+            },
+            primaryDisabled: isApplying,
+            primaryLoading: isApplying
         )
         // Over the whole screen, not pinned to the emoji.
         //

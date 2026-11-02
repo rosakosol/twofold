@@ -42,13 +42,23 @@ struct PartnerSetupView: View {
         return Calendar.current.date(byAdding: DateComponents(day: 1, second: -1), to: startOfToday) ?? .now
     }
 
+    /// The anniversary as this screen opened with it, to tell an edit from a Save that left it alone.
+    @State private var originalAnniversaryDate: Date = .now
+
+    /// Whether Save should mark the anniversary.
+    ///
     /// Month and day against today, deliberately not `Calendar.isDateInToday`, which also wants
     /// the year to match and so is essentially never true of a real anniversary.
-    private var isAnniversaryToday: Bool {
-        let calendar = Calendar.current
-        let picked = calendar.dateComponents([.month, .day], from: anniversaryDate)
-        let today = calendar.dateComponents([.month, .day], from: .now)
-        return picked.month == today.month && picked.day == today.day
+    ///
+    /// Only when the date was changed here. It used to be any Save on that day of the year — editing
+    /// the partner's name on your anniversary got the full-screen moment — and, worse, a couple
+    /// with no anniversary stored shows today's date (the unpaired placeholder is `.now`), so every
+    /// Save by an unpaired person was "Happy anniversary", for zero years.
+    static func shouldCelebrate(original: Date, picked: Date, now: Date = .now, calendar: Calendar = .current) -> Bool {
+        guard !calendar.isDate(original, inSameDayAs: picked) else { return false }
+        let pickedDay = calendar.dateComponents([.month, .day], from: picked)
+        let today = calendar.dateComponents([.month, .day], from: now)
+        return pickedDay.month == today.month && pickedDay.day == today.day
     }
 
     var body: some View {
@@ -166,6 +176,7 @@ struct PartnerSetupView: View {
                 partnerName = appModel.partner.name == "Partner" ? "" : appModel.partner.name
                 partnerCity = appModel.partner.homeCity
                 anniversaryDate = appModel.couple.startedDatingOn
+                originalAnniversaryDate = anniversaryDate
             }
             .task {
                 await appModel.refreshPendingConnectionRequests()
@@ -196,7 +207,7 @@ struct PartnerSetupView: View {
             // Setting the date to today is worth marking rather than silently closing. Carried
             // over from the screen this absorbed; without it the merge would have quietly deleted
             // the one moment of delight in Settings.
-            if isAnniversaryToday {
+            if Self.shouldCelebrate(original: originalAnniversaryDate, picked: anniversaryDate) {
                 showingHappyAnniversary = true
             } else {
                 dismiss()

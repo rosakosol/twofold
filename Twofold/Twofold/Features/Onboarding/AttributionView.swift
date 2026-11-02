@@ -16,7 +16,7 @@ struct AttributionView: View {
                     ForEach(AttributionSource.allCases) { source in
                         OnboardingOptionRow(title: source.rawValue, isSelected: onboarding.attribution == source) {
                             onboarding.attribution = source
-                            onboarding.path.append(.goals)
+                            onboarding.push(.goals)
                         }
                     }
                 }

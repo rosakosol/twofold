@@ -13,6 +13,8 @@ struct PurchaseSuccessView: View {
     @Environment(AppModel.self) private var appModel
     @State private var didCelebrate = false
     @State private var heartScale: CGFloat = 0.6
+    /// Continue runs once. It used to finish onboarding again on every tap.
+    @State private var isFinishing = false
 
     // PartnerNameView requires a non-empty name before you can advance, so by the time any
     // later onboarding screen runs, this is always the real name — no fallback needed.
@@ -46,7 +48,16 @@ struct PurchaseSuccessView: View {
                 }
             },
             primaryTitle: "Continue",
-            primaryAction: { Task { await appModel.finishOnboarding() } }
+            primaryAction: {
+                guard !isFinishing else { return }
+                isFinishing = true
+                Task {
+                    await appModel.finishOnboarding()
+                    isFinishing = false
+                }
+            },
+            primaryDisabled: isFinishing,
+            primaryLoading: isFinishing
         )
         .sensoryFeedback(.success, trigger: didCelebrate)
     }

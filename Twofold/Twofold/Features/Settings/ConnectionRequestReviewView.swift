@@ -25,6 +25,8 @@ struct ConnectionRequestReviewView: View {
     /// has created a new one there is nothing left to reuse, so there is no later screen that
     /// could offer this.
     @State private var showingRestoreChoice = false
+    /// The archive lookup has come back, either way.
+    @State private var hasCheckedForArchive = false
     /// A request is the one place a stranger's chosen name and photo reach someone who has agreed
     /// to nothing, so this is where reporting has to be available — before accepting, not after.
     @State private var showingReport = false
@@ -81,15 +83,16 @@ struct ConnectionRequestReviewView: View {
                         .buttonStyle(.twofoldSecondary)
 
                         Button {
-                            if restorable != nil {
-                                showingRestoreChoice = true
-                            } else {
-                                respond(accept: true)
+                            switch Self.acceptAction(hasCheckedForArchive: hasCheckedForArchive, hasRestorableArchive: restorable != nil) {
+                            case .wait: break
+                            case .askAboutArchive: showingRestoreChoice = true
+                            case .accept: respond(accept: true)
                             }
                         } label: {
                             Text("Accept")
                         }
                         .buttonStyle(.twofoldPrimary)
+                        .disabled(!hasCheckedForArchive)
                     }
                     .padding(.horizontal, Theme.Spacing.lg)
                     .padding(.bottom, Theme.Spacing.xl)
@@ -140,6 +143,7 @@ struct ConnectionRequestReviewView: View {
                 restorable = try? await BackendService.restorableArchive(withPartner: request.requesterId)
                 // An archive with nothing in it is not worth asking about.
                 if restorable?.isEmpty == true { restorable = nil }
+                hasCheckedForArchive = true
             }
             // Neither option is destructive, which is why this is a plain choice rather than a
             // warning. Starting fresh leaves the archive exactly where it is, still in Archived
@@ -156,6 +160,22 @@ struct ConnectionRequestReviewView: View {
                 Text(restoreMessage)
             }
         }
+    }
+
+    enum AcceptAction: Equatable {
+        case wait
+        case askAboutArchive
+        case accept
+    }
+
+    /// What tapping Accept does.
+    ///
+    /// Nothing until the archive lookup has answered. Restoring reuses the old couple's id, and
+    /// accepting creates a new one, so a tap that beat the lookup started a returning couple fresh
+    /// and they were never asked — the same thing the Settings card's Accept always did.
+    static func acceptAction(hasCheckedForArchive: Bool, hasRestorableArchive: Bool) -> AcceptAction {
+        guard hasCheckedForArchive else { return .wait }
+        return hasRestorableArchive ? .askAboutArchive : .accept
     }
 
     private var restoreMessage: String {

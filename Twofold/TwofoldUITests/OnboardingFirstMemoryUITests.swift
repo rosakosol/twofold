@@ -158,4 +158,22 @@ final class OnboardingFirstMemoryUITests: E2ETestCase {
         XCTAssertTrue(app.buttons["Keep me updated"].waitForExistence(timeout: 15), "Skipping did not move onboarding on to the next screen")
         capture(app, "After skipping")
     }
+
+    /// ONB-19. Back from the next screen used to reopen the form — this step is only a background
+    /// behind it — and closing the form again pushed the next screen again, so there was no way
+    /// back past here. Back now steps past the form.
+    @MainActor
+    func testGoingBackDoesNotReopenTheForm() throws {
+        let app = launchSignedOut(arguments: ["-onboardingStep", "firstMemory"])
+
+        XCTAssertTrue(app.textFields["Memory title"].waitForExistence(timeout: 60), "Never reached the first-memory form")
+        app.buttons["Skip"].tap()
+        XCTAssertTrue(app.buttons["Keep me updated"].waitForExistence(timeout: 15), "Skipping did not move onboarding on")
+
+        app.navigationBars.buttons.firstMatch.tap()
+
+        XCTAssertFalse(app.textFields["Memory title"].waitForExistence(timeout: 4), "Going back reopened the memory form")
+        XCTAssertFalse(app.buttons["Keep me updated"].exists, "Still on the next screen, or pushed back to it")
+        capture(app, "After going back")
+    }
 }

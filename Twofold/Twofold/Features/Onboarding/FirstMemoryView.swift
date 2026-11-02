@@ -22,9 +22,35 @@ struct FirstMemoryView: View {
     @Environment(OnboardingModel.self) private var onboarding
     @State private var showingForm = false
 
+    enum AppearAction: Equatable {
+        case presentForm
+        case stepBack
+    }
+
+    /// The form has been shown once already.
+    @State private var hasPresentedForm = false
+
+    /// What appearing should do.
+    ///
+    /// The form opens once. This screen is nothing but a background behind it, so coming back to
+    /// it — Back from the notifications screen — used to open the form again, and closing it
+    /// pushed the notifications screen again: there was no way back past this step, and saving a
+    /// second time made a second memory. Now coming back steps back once more, to the intro.
+    static func appearAction(hasPresentedForm: Bool) -> AppearAction {
+        hasPresentedForm ? .stepBack : .presentForm
+    }
+
     var body: some View {
         ScreenBackground()
-            .onAppear { showingForm = true }
+            .onAppear {
+                switch Self.appearAction(hasPresentedForm: hasPresentedForm) {
+                case .presentForm:
+                    hasPresentedForm = true
+                    showingForm = true
+                case .stepBack:
+                    if onboarding.path.last == .firstMemory { onboarding.path.removeLast() }
+                }
+            }
             .sheet(isPresented: $showingForm, onDismiss: {
                 // Notification/Live Activity sell screens now follow the memory screens —
                 // fires identically whether the sheet closed via a real save or the new

@@ -67,6 +67,9 @@ struct HomeCityView: View {
                 locationService.requestCurrentLocation()
             }
         }
+        // Reached straight from making the account, with only Welcome behind it. See
+        // `InvitePartnerView`.
+        .navigationBarBackButtonHidden(onboarding.path.count == 1 && !appModel.needsOnboarding)
     }
 
     private func advance() {
@@ -79,7 +82,7 @@ struct HomeCityView: View {
                     try await BackendService.updateHomeCity(selected)
                     appModel.couple.partnerA.homeCity = selected
                 }
-                if onboarding.role == .invitee, let code = onboarding.inviteCode {
+                if let code = onboarding.codeToRedeem {
                     // Looked up before redeeming — the code has to still be genuinely pending
                     // for this to resolve, which it no longer is the instant redeem succeeds.
                     // Populates `onboarding.inviterName`/`inviterAvatarURL` for
@@ -97,8 +100,11 @@ struct HomeCityView: View {
                     // which is the whole distinction the two origins exist to draw.
                     let outcome = try await BackendService.redeemInviteCode(code, origin: onboarding.inviteOrigin)
                     onboarding.connectedOnRedeem = outcome.connected
+                    onboarding.redeemedInviteCode = code
+                    // Redeemed, so the request itself is what a relaunch resumes from now.
+                    if let userID = BackendService.currentUserID { OnboardingResume.clear(for: userID) }
                 }
-                onboarding.path.append(.addPhoto)
+                onboarding.push(.addPhoto)
             } catch {
                 errorMessage = error.localizedDescription
             }

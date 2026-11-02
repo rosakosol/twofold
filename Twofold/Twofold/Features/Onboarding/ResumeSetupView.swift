@@ -43,6 +43,16 @@ struct ResumeSetupView: View {
         return name.isEmpty || name == "You" ? "Welcome back" : "Welcome back, \(name)"
     }
 
+    /// Which flow this account was part-way through. An invitee's account is made at "Create
+    /// account", early in their own short flow, and resuming them into the inviter's tail minted
+    /// them a code of their own and showed them a paywall — see `OnboardingResume`.
+    private var plan: OnboardingResume.Plan {
+        OnboardingResume.plan(
+            pendingRequestInviterName: appModel.pendingOutgoingConnectionRequest?.inviterFirstName,
+            savedInvite: BackendService.currentUserID.flatMap(OnboardingResume.savedInvite(for:))
+        )
+    }
+
     var body: some View {
         OnboardingScaffold(
             title: greeting,
@@ -50,16 +60,25 @@ struct ResumeSetupView: View {
             centered: true,
             content: {
                 VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-                    savedRow("person.fill", "Your name and \(partnerDescription)")
-                    savedRow("mappin.and.ellipse", "Where you both are")
-                    savedRow("heart.fill", "Your anniversary")
+                    switch plan {
+                    case .inviter:
+                        savedRow("person.fill", "Your name and \(partnerDescription)")
+                        savedRow("mappin.and.ellipse", "Where you both are")
+                        savedRow("heart.fill", "Your anniversary")
+                    case .inviteeAwaitingReply(let inviterName):
+                        savedRow("person.fill", "Your account")
+                        savedRow("heart.fill", "Your request to connect with \(inviterName)")
+                    case .inviteeToRedeem:
+                        savedRow("person.fill", "Your account")
+                        savedRow("envelope.fill", "Your invite code")
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(Theme.Spacing.md)
                 .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.Radius.card))
             },
             primaryTitle: "Pick up where you left off",
-            primaryAction: { onboarding.path.append(.invitePartner) },
+            primaryAction: { OnboardingResume.apply(plan, to: onboarding) },
             secondaryTitle: "Start a new signup",
             secondaryAction: { showingStartFreshConfirmation = true }
         )

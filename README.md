@@ -224,8 +224,13 @@ Notes:
   local state in [`OnboardingModel`](Twofold/Twofold/Features/Onboarding/OnboardingModel.swift).
   `AppModel.applyOnboardingAccount` writes it all at once; `AppModel.finishOnboarding()` flips the
   app into `MainTabView`.
-* An invite **link** tapped while onboarding (`https://www.twofoldapp.com.au/invite/CODE`) calls
-  `OnboardingModel.resetForNewInvite(code:)`, which jumps straight to `JoinInviteView`.
+* An invite **link** (`https://www.twofoldapp.com.au/invite/CODE`) tapped by somebody with no
+  account calls `OnboardingModel.resetForNewInvite(code:)`, which jumps straight to
+  `JoinInviteView`. `RootView` decides (`OpenURLRoute`) and hands it over, so a link that
+  cold-launched the app reaches onboarding too. Somebody signed in but still onboarding gets the
+  redeem sheet instead, never the sign-up screens.
+* A **typed** code ("Have an invite code instead?") is looked up first; one that does not exist is
+  refused on the code screen, before an account is made for it.
 * A password-reset link (`twofold://reset-password` or `https://…/auth/reset-password`) opens
   `ResetPasswordView` as a full-screen cover.
 * `AddTripDetailsView` is shared. Onboarding uses `mode: .onboarding`, and Home and Travel use
