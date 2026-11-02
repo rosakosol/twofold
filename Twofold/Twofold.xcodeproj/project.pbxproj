@@ -111,6 +111,9 @@
 			membershipExceptions = (
 				Shared/AppleWeatherMark.swift,
 				Shared/BrandPalette.swift,
+				Shared/FlightCountdownCopy.swift,
+				Shared/FlightDelay.swift,
+				Shared/FlightLocalTime.swift,
 				Shared/FlightStatus.swift,
 				Shared/JourneyActivityAttributes.swift,
 				Shared/MeasurementPreference.swift,

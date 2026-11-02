@@ -85,8 +85,13 @@ enum WidgetSnapshotWriter {
         }
         let reunionInfo = upcomingTrips.first
 
-        let flightInfo = appModel.activeOrUpcomingFlight.map { Self.flightInfo(for: $0, currentUserID: appModel.currentUser.id) }
-        let trackedFlights = appModel.activeOrUpcomingFlights.map { Self.flightInfo(for: $0, currentUserID: appModel.currentUser.id) }
+        let homeTimeZone = appModel.currentUser.homeCity?.timeZone ?? .current
+        let flightInfo = appModel.activeOrUpcomingFlight.map {
+            Self.flightInfo(for: $0, currentUserID: appModel.currentUser.id, travellerIDs: appModel.travellerIDs(for: $0), homeTimeZone: homeTimeZone)
+        }
+        let trackedFlights = appModel.activeOrUpcomingFlights.map {
+            Self.flightInfo(for: $0, currentUserID: appModel.currentUser.id, travellerIDs: appModel.travellerIDs(for: $0), homeTimeZone: homeTimeZone)
+        }
 
         let latestMemory = appModel.memories.max(by: { $0.date < $1.date })
         let memoryInfo = latestMemory.map { WidgetSnapshot.MemoryInfo(id: $0.id, title: $0.title, date: $0.date, city: $0.place?.displayCity) }
@@ -272,7 +277,9 @@ enum WidgetSnapshotWriter {
         return "until you're together in \(city)"
     }
 
-    private static func flightInfo(for flight: Flight, currentUserID: UUID) -> WidgetSnapshot.FlightInfo {
+    /// `travellerIDs` is `AppModel.travellerIDs(for:)`, the one rule the Live Activity uses too
+    /// (FLT-14). The zones are each airport's own, or home's when that isn't known (FLT-5).
+    static func flightInfo(for flight: Flight, currentUserID: UUID, travellerIDs: [UUID], homeTimeZone: TimeZone) -> WidgetSnapshot.FlightInfo {
         let hasDeparted = (flight.bestDeparture ?? .distantFuture) <= .now
         return WidgetSnapshot.FlightInfo(
             id: flight.id,
@@ -286,9 +293,11 @@ enum WidgetSnapshotWriter {
             delaySeconds: hasDeparted ? flight.arrivalDelaySeconds : flight.departureDelaySeconds,
             flightNumber: flight.displayNumber,
             progress: flight.progress,
-            travelerIsMe: flight.travelerIDs.isEmpty ? nil : flight.travelerIDs.contains(currentUserID),
+            travelerIsMe: travellerIDs.isEmpty ? nil : travellerIDs.contains(currentUserID),
             originGate: flight.gateOrigin,
-            originTerminal: flight.terminalOrigin
+            originTerminal: flight.terminalOrigin,
+            originTimeZoneID: (flight.origin.timeZone ?? homeTimeZone).identifier,
+            destinationTimeZoneID: (flight.destination.timeZone ?? homeTimeZone).identifier
         )
     }
 }

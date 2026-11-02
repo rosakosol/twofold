@@ -95,7 +95,7 @@ struct FlightStickerData {
         case delayed(minutes: Int)
     }
 
-    init(flight: Flight, me: Person, partner: Person) {
+    init(flight: Flight, me: Person, partner: Person, travellerIDs: [UUID]? = nil) {
         flightNumber = flight.displayNumber
         origin = Self.airport(flight.origin)
         destination = Self.airport(flight.destination)
@@ -126,13 +126,17 @@ struct FlightStickerData {
         timeRemaining = minutes >= 60 ? "\(minutes / 60)h \(minutes % 60)m" : "\(minutes)m"
         remainingForVoiceOver = Duration.seconds(minutes * 60).formatted(.units(allowed: [.hours, .minutes], width: .wide))
 
-        travellerIsMe = flight.travelerIDs.contains(me.id)
-        traveller = travellerIsMe && !flight.travelerIDs.contains(partner.id) ? me : partner
+        // `AppModel.travellerIDs(for:)` from the share screen, so the sticker names whoever the
+        // Live Activity and the widget do (FLT-14).
+        let travellers = travellerIDs ?? flight.travelerIDs
+        travellerIsMe = travellers.contains(me.id)
+        traveller = travellerIsMe && !travellers.contains(partner.id) ? me : partner
 
         if moment == .landed {
             arrivalStatus = .landed
-        } else if let delay = flight.arrivalDelaySeconds, delay >= 15 * 60 {
-            arrivalStatus = .delayed(minutes: delay / 60)
+        } else if let minutes = FlightDelay.delayedMinutes(seconds: flight.arrivalDelaySeconds) {
+            // The same threshold as the status pill beside it (FLT-13).
+            arrivalStatus = .delayed(minutes: minutes)
         } else {
             arrivalStatus = .onTime
         }

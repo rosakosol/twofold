@@ -132,9 +132,12 @@ struct FlightCountdownWidgetView: View {
         return "\(remaining / 60)m"
     }
 
+    /// A chosen flight with no times yet still names itself — see `FlightCountdownCopy`.
     private var caption: String {
-        guard entry.targetDate != nil else { return "No upcoming trip" }
-        return entry.isDeparted ? "until \(entry.destinationCity ?? "arrival")" : "until departure"
+        FlightCountdownCopy.caption(
+            hasFlight: entry.flightID != nil, hasTarget: entry.targetDate != nil,
+            isDeparted: entry.isDeparted, destinationCity: entry.destinationCity
+        )
     }
 
     /// Locked → paywall (existing convention). Unlocked → this exact flight's tracking screen
@@ -171,7 +174,7 @@ struct FlightCountdownWidgetView: View {
                 }
             }
             Spacer(minLength: 0)
-            Text(entry.targetDate != nil ? remainingLabel : "No flight")
+            Text(FlightCountdownCopy.headline(hasFlight: entry.flightID != nil, remaining: entry.targetDate != nil ? remainingLabel : nil))
                 .font(.system(size: 30, weight: .bold))
                 .tracking(-0.7)
                 .lineLimit(1)
@@ -207,6 +210,8 @@ struct FlightCountdownWidgetView: View {
                         .lineLimit(1)
                         .minimumScaleFactor(0.8)
                 }
+            } else if let line = FlightCountdownCopy.accessoryLine(flightNumber: entry.flightNumber, remaining: nil, joiner: " · ") {
+                Label(line, systemImage: "airplane")
             } else {
                 Label("No tracked flight", systemImage: "airplane")
             }
@@ -237,6 +242,8 @@ struct FlightCountdownWidgetView: View {
     private var accessoryInline: some View {
         if entry.targetDate != nil {
             Label("\(entry.flightNumber ?? "Flight") in \(remainingLabel)", systemImage: "airplane")
+        } else if let line = FlightCountdownCopy.accessoryLine(flightNumber: entry.flightNumber, remaining: nil, joiner: " in ") {
+            Label(line, systemImage: "airplane")
         } else {
             Label("No tracked flight", systemImage: "airplane")
         }

@@ -52,6 +52,11 @@ nonisolated struct WidgetSnapshot: Codable {
         /// an older snapshot still decodes.
         var originGate: String?
         var originTerminal: String?
+        /// The zones the departure and arrival are shown in: each airport's own, or the viewer's
+        /// home zone when that airport's isn't known, decided app-side (see `FlightLocalTime`).
+        /// Optional so an older snapshot still decodes.
+        var originTimeZoneID: String?
+        var destinationTimeZoneID: String?
     }
 
     struct MemoryInfo: Codable {

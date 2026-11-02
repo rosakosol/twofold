@@ -34,6 +34,9 @@ struct FlightTrackingEntry: TimelineEntry {
     let partnerName: String
     var originGate: String? = nil
     var originTerminal: String? = nil
+    /// The departure airport's zone (or the viewer's home zone), for the travel-day details — see
+    /// `FlightLocalTime`.
+    var originTimeZoneID: String? = nil
 }
 
 struct FlightTrackingProvider: TimelineProvider {
@@ -105,7 +108,8 @@ struct FlightTrackingProvider: TimelineProvider {
             myName: snapshot?.myName ?? "You",
             partnerName: snapshot?.partnerName ?? "Partner",
             originGate: flight?.originGate,
-            originTerminal: flight?.originTerminal
+            originTerminal: flight?.originTerminal,
+            originTimeZoneID: flight?.originTimeZoneID
         )
     }
 
@@ -138,16 +142,15 @@ struct FlightTrackingWidgetView: View {
     private var isDeparted: Bool { (entry.bestDeparture ?? .distantFuture) <= entry.date }
     private var target: Date? { isDeparted ? entry.bestArrival : entry.bestDeparture }
 
-    /// Today, not yet gone: when the gate matters more than the countdown.
+    /// Today at the departure airport, not yet gone: when the gate matters more than the countdown.
+    /// The airport's day, not the phone's — across the date line they differ.
     private var isTravelDay: Bool {
         guard let departure = entry.bestDeparture, !isDeparted else { return false }
-        return Calendar.current.isDate(departure, inSameDayAs: entry.date)
+        return FlightLocalTime.isSameDay(departure, entry.date, timeZoneID: entry.originTimeZoneID)
     }
 
-    private var delayMinutes: Int? {
-        guard let delaySeconds = entry.delaySeconds, delaySeconds > 300 else { return nil }
-        return delaySeconds / 60
-    }
+    /// `FlightDelay`'s threshold, the same one the app's status pill uses.
+    private var delayMinutes: Int? { FlightDelay.delayedMinutes(seconds: entry.delaySeconds) }
 
     private var deepLinkURL: URL? {
         if isLocked { return URL(string: "twofold://paywall") }
@@ -265,7 +268,7 @@ struct FlightTrackingWidgetView: View {
     private var travelDayDetails: some View {
         let gate = detail("Gate", entry.originGate ?? "—")
         let terminal = detail("Terminal", entry.originTerminal ?? "—")
-        let departs = detail("Departs", entry.bestDeparture.map { $0.formatted(date: .omitted, time: .shortened) } ?? "—")
+        let departs = detail("Departs", entry.bestDeparture.map { $0.formatted(FlightLocalTime.timeStyle(entry.originTimeZoneID)) } ?? "—")
         if family == .systemSmall {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(alignment: .top, spacing: 16) { gate; terminal }

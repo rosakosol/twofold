@@ -39,13 +39,17 @@ final class LiveActivityManager {
     private init() {}
 
     /// Called at the end of every `AppModel.refreshFlights()` — starts activities for newly
-    /// trackable flights, updates ones already running, ends ones that became inactive or
-    /// disappeared from the list entirely.
-    func syncActivities(for flights: [Flight], participants: (Flight) -> JourneyParticipants, isReunion: (Flight) -> Bool) async {
+    /// trackable flights (`Flight.startsLiveActivity`), updates ones already running, ends ones that
+    /// stopped being worth keeping (`Flight.keepsLiveActivity`) or disappeared from the list.
+    func syncActivities(
+        for flights: [Flight],
+        homeTimeZone: TimeZone,
+        participants: (Flight) -> JourneyParticipants,
+        isReunion: (Flight) -> Bool
+    ) async {
         for flight in flights {
-            let shouldTrack = flight.trackingEnabled && flight.status.isActivelyTracked
             if let activity = runningActivities[flight.id] {
-                if !shouldTrack {
+                if !flight.keepsLiveActivity() {
                     await endActivity(activity, flightID: flight.id)
                 } else if Self.needsRestart(activity.attributes, for: participants(flight)) {
                     // Attributes are fixed for the life of an Activity — only its content state can
@@ -54,12 +58,12 @@ final class LiveActivityManager {
                     // than left to linger, or the wrong wording sits on the Lock Screen beside the
                     // right one.
                     await endActivity(activity, flightID: flight.id, dismissalPolicy: .immediate)
-                    await startActivity(for: flight, participants: participants(flight), isReunion: isReunion(flight))
+                    await startActivity(for: flight, homeTimeZone: homeTimeZone, participants: participants(flight), isReunion: isReunion(flight))
                 } else {
                     await updateActivity(activity, for: flight, isReunion: isReunion(flight))
                 }
-            } else if shouldTrack {
-                await startActivity(for: flight, participants: participants(flight), isReunion: isReunion(flight))
+            } else if flight.startsLiveActivity() {
+                await startActivity(for: flight, homeTimeZone: homeTimeZone, participants: participants(flight), isReunion: isReunion(flight))
             }
         }
 
@@ -89,7 +93,7 @@ final class LiveActivityManager {
             }
             runningActivities[flight.id] = activity
             observePushToken(activity, flightID: flight.id)
-            if !(flight.trackingEnabled && flight.status.isActivelyTracked) {
+            if !flight.keepsLiveActivity() {
                 await endActivity(activity, flightID: flight.id)
             }
         }
@@ -133,9 +137,9 @@ final class LiveActivityManager {
             || attributes.partnerName != participants.partnerName
     }
 
-    private func startActivity(for flight: Flight, participants: JourneyParticipants, isReunion: Bool) async {
+    private func startActivity(for flight: Flight, homeTimeZone: TimeZone, participants: JourneyParticipants, isReunion: Bool) async {
         guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
-        let attributes = flight.makeJourneyActivityAttributes(participants: participants)
+        let attributes = flight.makeJourneyActivityAttributes(participants: participants, homeTimeZone: homeTimeZone)
         let content = ActivityContent(
             state: flight.makeJourneyActivityContentState(isReunion: isReunion),
             staleDate: staleDate(for: flight)

@@ -303,16 +303,104 @@ struct Flight: Identifiable, Hashable, Codable {
     var bestDeparture: Date? { actualOut ?? estimatedOut ?? scheduledOut ?? actualOff ?? estimatedOff ?? scheduledOff }
     var bestArrival: Date? { actualIn ?? estimatedIn ?? scheduledIn ?? actualOn ?? estimatedOn ?? scheduledOn }
 
-    /// True while actively in progress, or within a 15-minute grace window after actual/
-    /// estimated/scheduled arrival — long enough that a flight doesn't vanish out of "active/
-    /// upcoming" (Home's carousel, `AppModel.activeOrUpcomingFlights`, `Trip.isActive`) the
-    /// instant its status flips to arrived/landed, giving a moment to still see "Landed"/baggage
-    /// info before it's archived into past flights. One shared definition so every "is this
-    /// still current" call site agrees, rather than each hand-rolling its own cutoff.
-    var isCurrentlyRelevant: Bool {
-        if status.isActivelyTracked { return true }
+    /// Worth showing as current: under way, not yet departed, or landed within the last 15 minutes
+    /// — long enough that a flight doesn't vanish out of "active/upcoming" (Home's carousel,
+    /// `AppModel.activeOrUpcomingFlights`) the instant it lands, giving a moment to still see
+    /// "Landed"/baggage info before it's archived into past flights.
+    ///
+    /// Not the same question as `isInProgress`, which is what a trip asks: a flight next month is
+    /// currently relevant (it belongs in "upcoming") but is not in progress.
+    var isCurrentlyRelevant: Bool { isCurrentlyRelevant(at: .now) }
+
+    func isCurrentlyRelevant(at now: Date) -> Bool {
+        if displayStatus(at: now).isActivelyTracked { return true }
         guard let arrival = bestArrival else { return false }
-        return arrival.addingTimeInterval(15 * 60) > .now
+        return arrival.addingTimeInterval(15 * 60) > now
+    }
+
+    /// Actually under way: in the air or at the gate by the provider's word, or past its departure
+    /// by the clock and not yet 15 minutes past its arrival. What `Trip.isActive` asks.
+    ///
+    /// `Trip.isActive` used to ask `isCurrentlyRelevant`, which is true for any flight that hasn't
+    /// landed — so a reunion next month with its flight attached was "active" today, and Home said
+    /// "You're together now" and drew the trip on the globe a month early (CORE-1).
+    func isInProgress(at now: Date = .now) -> Bool {
+        guard !cancelled else { return false }
+        if displayStatus(at: now).isActivelyTracked { return true }
+        guard let departure = bestDeparture, departure <= now, let arrival = bestArrival else { return false }
+        return arrival.addingTimeInterval(15 * 60) > now
+    }
+
+    /// How long a tracked flight's stored status is taken at its word. The server re-checks a
+    /// flight every few minutes around departure and while airborne, so a status older than this
+    /// means the polling has stopped, not that nothing has happened.
+    static let statusFreshness: TimeInterval = 60 * 60
+
+    /// The status to show: the stored one while tracking is live and recent, otherwise moved along
+    /// the clock with `FlightStatus.projected`.
+    ///
+    /// A flight nobody is tracking never hears from the provider again, so its stored status is
+    /// whatever it was when it was saved. "Past flights" said "Departing shortly" ten days after it
+    /// flew, and a flight whose tracking stopped mid-air stayed "En route" forever (FLT-8). The
+    /// widget already projected; the app now does the same, with the same conservative rules.
+    func displayStatus(at now: Date = .now) -> FlightStatus {
+        if trackingEnabled, let refreshed = lastRefreshedAt, now.timeIntervalSince(refreshed) < Self.statusFreshness {
+            return status
+        }
+        return status.projected(departure: bestDeparture, arrival: bestArrival, now: now)
+    }
+
+    /// Done: cancelled, diverted, landed, or past its arrival by the clock (its departure, when no
+    /// arrival is known). The clock counts because an untracked flight stays `.scheduled` after it
+    /// has flown — and the tracking screen offered to spend one of the month's live-tracked slots
+    /// on it (FLT-10). `enable_flight_tracking` applies the same rule server-side (20261117000400).
+    func isOver(at now: Date = .now) -> Bool {
+        if status.isTerminal || cancelled || diverted { return true }
+        guard let reference = bestArrival ?? bestDeparture else { return false }
+        return reference <= now
+    }
+
+    /// This row, with any airport zone it lacks taken from `previous` — the same flight as the app
+    /// already had it, zones resolved (`AppModel.resolveMissingAirportTimezones`).
+    ///
+    /// The tracking screen refetches its flight on open and on every realtime change, and the raw
+    /// row has no zone for a schedule-only flight. Replacing the screen's copy with it moved every
+    /// time on the screen into the home-zone fallback a second after opening (FLT-6). Only copied for
+    /// the same airport, and never over a zone the row does carry.
+    func keepingTimeZones(from previous: Flight) -> Flight {
+        var merged = self
+        if merged.origin.timezone == nil, merged.origin.iata == previous.origin.iata {
+            merged.origin.timezone = previous.origin.timezone
+        }
+        if merged.destination.timezone == nil, merged.destination.iata == previous.destination.iata {
+            merged.destination.timezone = previous.destination.timezone
+        }
+        return merged
+    }
+
+    /// Who is on this plane, decided once for every surface (FLT-14): the flight's own
+    /// `travelerIDs` when set, else its linked trip's, else whoever added it.
+    ///
+    /// The Live Activity, the widget, the tracking screen's title, the map and the share sticker
+    /// each used to work this out their own way, so an older flight with no travellers set read as
+    /// "You're on the way" on the Lock Screen beside the partner's photo on the widget.
+    /// `AppModel.travellerIDs(for:)` looks the trip up.
+    func travellerIDs(linkedTrip: Trip?) -> [UUID] {
+        if !travelerIDs.isEmpty { return travelerIDs }
+        if let linkedTrip, !linkedTrip.travelerIDs.isEmpty { return linkedTrip.travelerIDs }
+        return createdBy.map { [$0] } ?? []
+    }
+
+    /// The moment the countdown is about: the departure until the plane has left the gate, the
+    /// arrival after. `countdownSummary` counts to it and the tracking screen's home-time line
+    /// anchors it, so the two lines under the header always describe the same instant — they
+    /// disagreed for a boarding flight, which counted to departure above the arrival time (FLT-7).
+    func countdownMilestone(at now: Date = .now) -> Date? {
+        switch displayStatus(at: now) {
+        case .cancelled, .diverted: return nil
+        case .scheduled, .delayed, .boarding: return bestDeparture
+        case .departed, .inAir, .landingSoon, .landed, .arrived: return bestArrival
+        }
     }
 
     /// The freshest of the two independent refresh cadences this flight has: schedule/status
@@ -334,8 +422,9 @@ struct Flight: Identifiable, Hashable, Codable {
     var scheduledDeparture: Date { scheduledOut ?? .now }
     var scheduledArrival: Date { scheduledIn ?? scheduledOut?.addingTimeInterval(3600 * 4) ?? .now }
 
+    /// Past `FlightDelay`'s threshold at either end — the one every surface uses.
     var isDelayed: Bool {
-        (departureDelaySeconds ?? 0) > 300 || (arrivalDelaySeconds ?? 0) > 300
+        FlightDelay.isDelayed(seconds: departureDelaySeconds) || FlightDelay.isDelayed(seconds: arrivalDelaySeconds)
     }
 
     /// 0...1 progress along the route, for placing the aircraft on the map/progress rail.
@@ -411,15 +500,25 @@ struct Flight: Identifiable, Hashable, Codable {
 
     /// Human "Departs in 2h 10m" / "Landing in 1h 33m" / "Arrived 18m ago" summary — the
     /// contextual line under the status badge everywhere this flight is shown.
-    var countdownSummary: String {
-        let now = Date.now
+    var countdownSummary: String { countdownSummary(at: .now) }
+
+    /// How long ago a flight has to have finished before it reads as a date rather than a
+    /// duration. "Arrived 30m ago" is a glance; "Arrived 10d 2h ago" is arithmetic.
+    static let flewDateThreshold: TimeInterval = 6 * 60 * 60
+
+    func countdownSummary(at now: Date) -> String {
+        let status = displayStatus(at: now)
         switch status {
         case .cancelled: return "Cancelled"
         case .diverted: return "Diverted"
         case .arrived, .landed:
             if let arrival = bestArrival {
+                if now.timeIntervalSince(arrival) > Self.flewDateThreshold, let flew = flewDate {
+                    return "Flew \(flew)"
+                }
                 return "Arrived \(Self.relative(from: arrival, to: now)) ago"
             }
+            if let flew = flewDate { return "Flew \(flew)" }
             return "Arrived"
         case .boarding:
             // Boarding means still at the gate, not yet departed — this was previously grouped
@@ -436,6 +535,8 @@ struct Flight: Identifiable, Hashable, Codable {
             }
             return status.emotionalHeadline
         case .scheduled, .delayed:
+            // Past its departure only while the provider still says so recently (see
+            // `displayStatus`) — a stale one has been projected on by now.
             if let departure = bestDeparture {
                 if departure > now {
                     return "Departs in \(Self.relative(from: now, to: departure))"
@@ -445,6 +546,13 @@ struct Flight: Identifiable, Hashable, Codable {
             }
             return status.displayLabel
         }
+    }
+
+    /// "11 Aug": the day it left, in the zone it left from — the date on the boarding pass, which
+    /// across the date line is not the one the phone shows.
+    private var flewDate: String? {
+        guard let departure = bestDeparture else { return nil }
+        return departure.formatted(Date.FormatStyle(timeZone: origin.timeZone ?? .current).day().month(.abbreviated))
     }
 
     private static func relative(from: Date, to: Date) -> String {

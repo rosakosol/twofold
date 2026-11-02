@@ -24,7 +24,7 @@ struct FlightShareView: View {
     @State private var previewWidth: CGFloat = 361
 
     private var data: FlightStickerData {
-        FlightStickerData(flight: flight, me: appModel.currentUser, partner: appModel.partner)
+        FlightStickerData(flight: flight, me: appModel.currentUser, partner: appModel.partner, travellerIDs: appModel.travellerIDs(for: flight))
     }
 
     private var kinds: [FlightStickerKind] { FlightStickerKind.ordered(for: FlightMoment(flight.status)) }

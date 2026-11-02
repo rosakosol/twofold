@@ -15,7 +15,8 @@ struct JourneyExpandedOriginView: View {
             Text(context.attributes.originCode)
                 .font(.title3.weight(.bold))
             if let departure = context.state.actualDeparture ?? context.state.estimatedDeparture ?? context.state.scheduledDeparture {
-                Text(departure, style: .time)
+                // The airport's own time, like the boarding pass — see `FlightLocalTime`.
+                Text(departure, format: FlightLocalTime.timeStyle(context.attributes.originTimeZoneID))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

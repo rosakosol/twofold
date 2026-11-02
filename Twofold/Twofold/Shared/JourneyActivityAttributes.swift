@@ -65,6 +65,12 @@ struct JourneyActivityAttributes: ActivityAttributes {
     var originCity: String?
     var destinationCode: String
     var destinationCity: String?
+    /// The zones each airport's times are shown in. That airport's own zone when the app knows it,
+    /// otherwise the viewer's home zone — the same rule the tracking screen uses, decided app-side
+    /// so the extension never has to guess. Nil on a card started before these existed, which then
+    /// reads in the phone's zone as it always did.
+    var originTimeZoneID: String? = nil
+    var destinationTimeZoneID: String? = nil
 
     // Decoded leniently, so an Activity already running when this shipped still loads.
     //
@@ -74,7 +80,7 @@ struct JourneyActivityAttributes: ActivityAttributes {
     // app would think nothing was running and start a second one, and the orphan would sit on the
     // Lock Screen beside it. These default instead: an older card keeps the wording it launched
     // with, and `LiveActivityManager` replaces it on the next sync.
-    init(flightID: UUID, travelerName: String, partnerName: String, viewerIsTraveler: Bool, flightNumber: String, airlineName: String?, originCode: String, originCity: String?, destinationCode: String, destinationCity: String?) {
+    init(flightID: UUID, travelerName: String, partnerName: String, viewerIsTraveler: Bool, flightNumber: String, airlineName: String?, originCode: String, originCity: String?, destinationCode: String, destinationCity: String?, originTimeZoneID: String? = nil, destinationTimeZoneID: String? = nil) {
         self.flightID = flightID
         self.travelerName = travelerName
         self.partnerName = partnerName
@@ -85,6 +91,8 @@ struct JourneyActivityAttributes: ActivityAttributes {
         self.originCity = originCity
         self.destinationCode = destinationCode
         self.destinationCity = destinationCity
+        self.originTimeZoneID = originTimeZoneID
+        self.destinationTimeZoneID = destinationTimeZoneID
     }
 
     init(from decoder: Decoder) throws {
@@ -99,6 +107,8 @@ struct JourneyActivityAttributes: ActivityAttributes {
         originCity = try container.decodeIfPresent(String.self, forKey: .originCity)
         destinationCode = try container.decode(String.self, forKey: .destinationCode)
         destinationCity = try container.decodeIfPresent(String.self, forKey: .destinationCity)
+        originTimeZoneID = try container.decodeIfPresent(String.self, forKey: .originTimeZoneID)
+        destinationTimeZoneID = try container.decodeIfPresent(String.self, forKey: .destinationTimeZoneID)
     }
 }
 #endif

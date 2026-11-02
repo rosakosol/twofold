@@ -41,11 +41,10 @@ struct FlightMapView: View {
     /// rather than being a button that silently changes how the map behaves.
     var followsAircraft: Binding<Bool>? = nil
 
-    /// Resolved directly from the flight (set explicitly when adding it) rather than a linked
-    /// trip — flights don't require one, so this is the only reliable source now. Can hold both
+    /// `AppModel.travellerIDs(for:)`, the rule every flight surface uses (FLT-14). Can hold both
     /// partners when they're travelling together.
     private var travelers: [Person] {
-        flight.travelerIDs.compactMap { appModel.couple.partner($0) }
+        appModel.travellerIDs(for: flight).compactMap { appModel.couple.partner($0) }
     }
 
     var body: some View {

@@ -85,24 +85,27 @@ extension StatusPill {
     /// "Scheduled" like any other, which would read as tracking having started, so it says so
     /// plainly instead. A delay outranks an in-progress state, because it is the thing the person
     /// waiting needs to know.
-    init(flight: Flight) {
+    init(flight: Flight, now: Date = .now) {
         if flight.faFlightID == nil {
             self.init(kind: .pending, text: "Not live yet")
             return
         }
-        switch flight.status {
+        // The clock's reading for a flight nobody is tracking any more, not a status frozen at
+        // whatever it was when saved — see `Flight.displayStatus` (FLT-8).
+        let status = flight.displayStatus(at: now)
+        switch status {
         case .cancelled, .diverted:
-            self.init(kind: .failure, text: flight.status.displayLabel, systemImage: "xmark")
+            self.init(kind: .failure, text: status.displayLabel, systemImage: "xmark")
         case .landed, .arrived:
-            self.init(kind: .success, text: flight.status.displayLabel, systemImage: "checkmark")
-        case _ where flight.isDelayed || flight.status == .delayed:
+            self.init(kind: .success, text: status.displayLabel, systemImage: "checkmark")
+        case _ where flight.isDelayed || status == .delayed:
             let seconds = max(flight.departureDelaySeconds ?? 0, flight.arrivalDelaySeconds ?? 0)
             let minutes = seconds / 60
             self.init(kind: .delayed, text: minutes > 0 ? "Delayed \(minutes) min" : "Delayed")
         case .scheduled:
-            self.init(kind: .pending, text: flight.status.displayLabel)
+            self.init(kind: .pending, text: status.displayLabel)
         case .boarding, .departed, .inAir, .landingSoon, .delayed:
-            self.init(kind: .active, text: flight.status.displayLabel, systemImage: flight.status.icon)
+            self.init(kind: .active, text: status.displayLabel, systemImage: status.icon)
         }
     }
 }

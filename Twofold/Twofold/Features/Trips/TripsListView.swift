@@ -561,11 +561,11 @@ struct TripsListView: View {
     private let peekItemLimit = 2
 
     /// True when peek is showing an empty-state hint rather than cards. Mirrors `peekContent`'s
-    /// own two branches exactly — Trips on "any trip at all", Flights on *tracked* flights, since
-    /// a couple with only completed ones still gets the hint.
+    /// own two branches exactly — Trips on *upcoming* trips (`tripsPeekHint`), Flights on *tracked*
+    /// flights, since a couple with only past ones still gets the hint on either tab.
     private var peekShowsEmptyHint: Bool {
         switch tab {
-        case .trips: appModel.trips.isEmpty
+        case .trips: tripsPeekHint != nil
         case .flights: appModel.activeOrUpcomingFlights.isEmpty
         }
     }
@@ -588,7 +588,7 @@ struct TripsListView: View {
     private var peekContent: some View {
         switch tab {
         case .trips:
-            if appModel.trips.isEmpty {
+            if tripsPeekHint != nil {
                 // The cards below carry this; the hint needs it for the same reason — the
                 // floating tab bar sits outside this panel, so nothing here is inset from it.
                 emptyTripsHint
@@ -865,6 +865,22 @@ struct TripsListView: View {
         }
     }
 
+    /// What the Trips peek shows in place of cards, if anything.
+    enum TripsPeekHint: Equatable { case firstTrip, noneUpcoming }
+
+    /// The peek's cards are the *upcoming* trips, so that is what decides the hint. It used to be
+    /// gated on having any trip at all, which left a couple whose trips were all behind them with
+    /// a blank panel — no cards, no hint (FLT-28). "First" would be wrong for them, so they get
+    /// their own words; the Flights tab does the same for a couple with only past flights.
+    static func tripsPeekHint(hasAnyTrip: Bool, hasUpcomingTrip: Bool) -> TripsPeekHint? {
+        guard !hasUpcomingTrip else { return nil }
+        return hasAnyTrip ? .noneUpcoming : .firstTrip
+    }
+
+    private var tripsPeekHint: TripsPeekHint? {
+        Self.tripsPeekHint(hasAnyTrip: !appModel.trips.isEmpty, hasUpcomingTrip: !appModel.upcomingTrips.isEmpty)
+    }
+
     @ViewBuilder
     private var emptyTripsHint: some View {
         // Unlike `emptyFlightsHint` below, Trips no longer needs a partner to add one — see the
@@ -872,7 +888,11 @@ struct TripsListView: View {
         Button {
             showingAddTrip = true
         } label: {
-            emptyHintCard(icon: "airplane.circle.fill", title: "Add your first trip", subtitle: "Tap to plan a reunion or a trip of your own.")
+            if tripsPeekHint == .noneUpcoming {
+                emptyHintCard(icon: "airplane.circle.fill", title: "No upcoming trips", subtitle: "Tap to plan the next one.")
+            } else {
+                emptyHintCard(icon: "airplane.circle.fill", title: "Add your first trip", subtitle: "Tap to plan a reunion or a trip of your own.")
+            }
         }
         .buttonStyle(.plain)
         // Horizontal inset lives here (not at each call site) so both the peek carousel's and the

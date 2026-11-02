@@ -80,9 +80,9 @@ struct JourneyLockScreenView: View {
             progressBar
 
             HStack {
-                airport(code: attributes.originCode, time: departure)
+                airport(code: attributes.originCode, time: departure, timeZoneID: attributes.originTimeZoneID)
                 Spacer(minLength: 8)
-                airport(code: attributes.destinationCode, time: arrival)
+                airport(code: attributes.destinationCode, time: arrival, timeZoneID: attributes.destinationTimeZoneID)
             }
         }
         .padding(18)
@@ -130,7 +130,7 @@ struct JourneyLockScreenView: View {
                 EmptyView()
             case .landed:
                 bigValue(Text("Landed"))
-                if let arrival { caption(Text(arrival, style: .time)) }
+                if let arrival { caption(Text(arrival, format: FlightLocalTime.timeStyle(attributes.destinationTimeZoneID))) }
             case .inAir:
                 if let arrival, arrival > .now {
                     bigValue(journeyCountdownText(to: arrival))
@@ -191,14 +191,14 @@ struct JourneyLockScreenView: View {
     }
 
     /// `time` is nil when the provider hasn't supplied any schedule for this leg yet: "—", never a
-    /// made-up "now".
-    private func airport(code: String, time: Date?) -> some View {
+    /// made-up "now". Shown in that airport's own zone, like the boarding pass (`FlightLocalTime`).
+    private func airport(code: String, time: Date?, timeZoneID: String?) -> some View {
         HStack(spacing: 5) {
             Text(code)
                 .font(.system(size: 17, weight: .semibold))
             Group {
                 if let time {
-                    Text(time, style: .time)
+                    Text(time, format: FlightLocalTime.timeStyle(timeZoneID))
                 } else {
                     Text("—")
                 }

@@ -2836,10 +2836,13 @@ final class AppModel {
             await resolveMissingAirportTimezones()
             guard isCurrent(generation) else { return }
             reapplyPendingWrites()
-            await LiveActivityManager.shared.reconcileOnLaunch(with: fresh)
+            // `flights`, not `fresh`: by now it carries the airport zones resolved above and any
+            // pending edits, and those zones go onto a new card's attributes for life (FLT-5).
+            await LiveActivityManager.shared.reconcileOnLaunch(with: flights)
             guard isCurrent(generation) else { return }
             await LiveActivityManager.shared.syncActivities(
-                for: fresh,
+                for: flights,
+                homeTimeZone: currentUser.homeCity?.timeZone ?? .current,
                 participants: { [weak self] flight in
                     guard let self else { return JourneyParticipants(travelerName: "", partnerName: "", viewerIsTraveler: false) }
                     // Who's flying — not whether it's a reunion. These were the same call until
@@ -2964,23 +2967,22 @@ final class AppModel {
         }
     }
 
-    /// Whose flight this is — the partner's whenever the signed-in user isn't the one who
-    /// added/is tracking it. Defaults to true when `createdBy` is unset (e.g. an older row) since
-    /// most tracked flights are the partner's. Only decides *whose name* the Live Activity shows;
-    /// deliberately separate from `isReunion` below, which the same check used to do double duty
-    /// for.
-    /// Who is actually on the plane, which is not the same question as who typed it in.
-    ///
-    /// `travelerIDs` is the answer whenever it has one — it is set explicitly on the confirmation
-    /// step, and it is the only field that knows a person added a flight *for* their partner.
-    /// `createdBy` is the fallback for flights saved before that was asked, and for a flight where
-    /// both of them are travelling the viewer counts as travelling too.
+    /// Who is on this flight — `Flight.travellerIDs(linkedTrip:)` with its trip looked up. The one
+    /// answer the Live Activity, the widget, the tracking screen, the map and the share sticker all
+    /// use (FLT-14).
+    func travellerIDs(for flight: Flight) -> [UUID] {
+        flight.travellerIDs(linkedTrip: flight.tripID.flatMap { id in trips.first { $0.id == id } })
+    }
+
+    /// Whether the partner, not the viewer, is the one on the plane — from `travellerIDs(for:)`.
+    /// Only decides *whose name* the Live Activity shows; deliberately separate from `isReunion`
+    /// below, which the same check used to do double duty for. For a flight where both of them are
+    /// travelling the viewer counts as travelling too.
     private func isPartnerTravelling(_ flight: Flight) -> Bool {
-        if !flight.travelerIDs.isEmpty {
-            return !flight.travelerIDs.contains(currentUser.id)
-        }
-        guard let createdBy = flight.createdBy else { return true }
-        return createdBy != currentUser.id
+        let travellers = travellerIDs(for: flight)
+        // Nobody recorded at all: most tracked flights are the partner's.
+        guard !travellers.isEmpty else { return true }
+        return !travellers.contains(currentUser.id)
     }
 
     /// Whether this flight is actually closing the distance — true only when it belongs to a trip

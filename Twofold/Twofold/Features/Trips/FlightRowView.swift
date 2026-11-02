@@ -22,6 +22,12 @@ struct FlightRowView: View {
     /// Still to arrive: departing, in the air, or landing.
     private var isAhead: Bool { (flight.bestArrival ?? flight.scheduledArrival) > .now }
 
+    /// The day it leaves, in the zone it leaves from — the date on the boarding pass, which across
+    /// the date line is not the phone's (FLT-5).
+    private var departureDayStyle: Date.FormatStyle {
+        Date.FormatStyle(timeZone: flight.origin.timeZone ?? .current).day().month(.abbreviated)
+    }
+
     var body: some View {
         HStack(spacing: Theme.Spacing.md) {
             AirlineLogoView(url: flight.displayLogoURL, size: logoSize, fallbackCode: flight.airlineCode)
@@ -41,7 +47,7 @@ struct FlightRowView: View {
                 .font(.system(size: 17, weight: .bold))
                 .foregroundStyle(Theme.textPrimary)
 
-                Text("\([flight.airlineName, flight.displayNumber].compactMap { $0 }.joined(separator: " "))\(flight.scheduledOut.map { " · \($0.formatted(.dateTime.day().month(.abbreviated)))" } ?? "")")
+                Text("\([flight.airlineName, flight.displayNumber].compactMap { $0 }.joined(separator: " "))\(flight.scheduledOut.map { " · \($0.formatted(departureDayStyle))" } ?? "")")
                     .font(.caption)
                     .foregroundStyle(Theme.textSecondary)
                     .lineLimit(1)

@@ -43,7 +43,8 @@ struct TripLifecycleTests {
             departureDate: calendar.date(byAdding: .day, value: departsInDays, to: today)!,
             arrivalDate: calendar.date(byAdding: .day, value: endsInDays, to: today)!,
             category: .reunion,
-            distanceKm: 8_000
+            distanceKm: 8_000,
+            flights: flights
         )
     }
 
@@ -96,5 +97,86 @@ struct TripLifecycleTests {
         #expect(model.upcomingTrips.map(\.id) == [underway.id])
         #expect(model.pastTrips.isEmpty)
         #expect(model.activeTrip?.id == underway.id)
+    }
+
+    // MARK: - Trips with flights attached (CORE-1 / FLT-1)
+    //
+    // A trip's flight used to count as "currently relevant" whenever it had not landed yet, so a
+    // reunion next month with its flight attached read as under way today: Home said "You're
+    // together now" and the globe drew the trip. These pin fixed instants in an explicit zone, so
+    // they mean the same thing on any simulator.
+
+    private static let melbourne = TimeZone(identifier: "Australia/Melbourne")!
+    private static var melbourneCalendar: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = melbourne
+        return calendar
+    }
+
+    private static func instant(_ iso: String) -> Date {
+        ISO8601DateFormatter().date(from: iso)!
+    }
+
+    private func flight(
+        status: FlightStatus,
+        out: String, in arrival: String,
+        actualOut: String? = nil,
+        refreshed: String? = nil,
+        tracking: Bool = true
+    ) -> Flight {
+        Flight(
+            flightNumberIATA: "QF1", airlineCode: "QF",
+            origin: FlightAirport(iata: "MEL", city: "Melbourne", timezone: "Australia/Melbourne"),
+            destination: FlightAirport(iata: "LHR", city: "London", timezone: "Europe/London"),
+            scheduledOut: Self.instant(out), scheduledIn: Self.instant(arrival),
+            actualOut: actualOut.map(Self.instant),
+            status: status,
+            lastRefreshedAt: refreshed.map(Self.instant),
+            trackingEnabled: tracking
+        )
+    }
+
+    private func trip(from departure: String, to end: String, flights: [Flight]) -> Trip {
+        Trip(
+            travelerIDs: [traveler], origin: place("Melbourne"), destination: place("London"),
+            departureDate: Self.instant(departure), arrivalDate: Self.instant(end),
+            category: .reunion, distanceKm: 16_900, flights: flights
+        )
+    }
+
+    @Test("a reunion next month with its flight attached is not under way today")
+    func futureTripWithItsFlightIsNotActive() {
+        let now = Self.instant("2026-11-02T09:00:00+11:00")
+        let leg = flight(status: .scheduled, out: "2026-12-02T16:00:00+11:00", in: "2026-12-03T06:30:00Z")
+        let trip = trip(from: "2026-12-02T00:00:00+11:00", to: "2026-12-20T00:00:00+11:00", flights: [leg])
+
+        #expect(!leg.isInProgress(at: now))
+        #expect(!trip.isActive(at: now, calendar: Self.melbourneCalendar))
+    }
+
+    @Test("a leg still in the air holds the trip open past midnight on its last day")
+    func airborneLegOutranksTheDates() {
+        // Twenty minutes past midnight after the final day, so the dates alone say it is over; the
+        // plane has not landed, because it left late.
+        let now = Self.instant("2026-12-21T00:20:00+11:00")
+        let leg = flight(
+            status: .inAir, out: "2026-12-20T16:00:00+11:00", in: "2026-12-20T23:50:00+11:00",
+            actualOut: "2026-12-20T18:00:00+11:00", refreshed: "2026-12-21T00:18:00+11:00"
+        )
+        let trip = trip(from: "2026-12-02T00:00:00+11:00", to: "2026-12-20T00:00:00+11:00", flights: [leg])
+
+        #expect(trip.isActive(at: now, calendar: Self.melbourneCalendar))
+    }
+
+    @Test("a leg that landed over a quarter of an hour ago no longer holds the trip open")
+    func landedLegLetsTheTripEnd() {
+        let now = Self.instant("2026-12-21T01:00:00+11:00")
+        let leg = flight(
+            status: .arrived, out: "2026-12-20T16:00:00+11:00", in: "2026-12-21T00:30:00+11:00",
+            actualOut: "2026-12-20T16:05:00+11:00", refreshed: "2026-12-21T00:58:00+11:00"
+        )
+        let trip = trip(from: "2026-12-02T00:00:00+11:00", to: "2026-12-20T00:00:00+11:00", flights: [leg])
+
+        #expect(!trip.isActive(at: now, calendar: Self.melbourneCalendar))
     }
 }

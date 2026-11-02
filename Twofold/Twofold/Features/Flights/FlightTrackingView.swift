@@ -93,11 +93,10 @@ struct FlightTrackingView: View {
         return appModel.trips.first { $0.id == tripID }
     }
 
-    /// The flight's own `travelerIDs` (set explicitly when adding it) takes priority since
-    /// flights don't require a linked trip; the trip's traveler is a fallback for older/
-    /// trip-linked flights that predate that field.
+    /// The one rule every flight surface uses — the flight's own, then its trip's, then whoever
+    /// added it (`Flight.travellerIDs(linkedTrip:)`, FLT-14).
     private var travelerIDs: [Person.ID] {
-        flight.travelerIDs.isEmpty ? linkedTrip.map { $0.travelerIDs } ?? [] : flight.travelerIDs
+        flight.travellerIDs(linkedTrip: linkedTrip)
     }
 
     private var travelers: [Person] {
@@ -254,8 +253,12 @@ struct FlightTrackingView: View {
     /// the couple dissolved, or the subscription lapsed — both of which leave a flight that is
     /// also, by then, in the past). An untracked flight still ahead of its departure was never
     /// tracked.
+    ///
+    /// By the clock as well as the status (`Flight.isOver`): an untracked flight never hears from the
+    /// provider, so it is still `.scheduled` after it has flown, and this used to offer to spend a
+    /// monthly slot tracking it (FLT-10).
     private var isPastTracking: Bool {
-        flight.status.isTerminal || flight.cancelled || flight.diverted
+        flight.isOver()
     }
 
     /// A flight saved while the couple's monthly allowance was spent.
@@ -349,7 +352,16 @@ struct FlightTrackingView: View {
 
     // MARK: - Header
 
+    /// Ticks. The countdown and the home-time line used to be worked out once per render, so they
+    /// only moved when something unrelated changed, and somebody watching at the gate saw "Departs
+    /// in 35m" sit still (FLT-11). Every 30 seconds keeps a minute-resolution countdown honest.
     private var header: some View {
+        TimelineView(.periodic(from: .now, by: 30)) { context in
+            headerContent(now: context.date)
+        }
+    }
+
+    private func headerContent(now: Date) -> some View {
         VStack(spacing: Theme.Spacing.sm) {
             if flight.airlineName != nil || !flight.flightNumberIATA.isEmpty {
                 HStack(spacing: Theme.Spacing.xs) {
@@ -372,9 +384,10 @@ struct FlightTrackingView: View {
                 .minimumScaleFactor(0.8)
 
             HStack(spacing: Theme.Spacing.sm) {
-                StatusPill(flight: flight)
-                Text(flight.countdownSummary)
+                StatusPill(flight: flight, now: now)
+                Text(flight.countdownSummary(at: now))
                     .font(.title2.weight(.bold))
+                    .accessibilityIdentifier("flight.countdown")
             }
 
             if flight.faFlightID == nil {
@@ -388,7 +401,7 @@ struct FlightTrackingView: View {
             // deliberately shown in *that airport's* local time, which is easy to misread as
             // "my time" and mistake for a bug — this one line anchors the same key moment in
             // the user's own home-city time instead, e.g. "4:30pm (Melbourne time)".
-            if let userLocalTimeLabel {
+            if let userLocalTimeLabel = userLocalTimeLabel(now: now) {
                 Text(userLocalTimeLabel)
                     .font(.subheadline)
                     .foregroundStyle(Theme.textSecondary)
@@ -435,22 +448,12 @@ struct FlightTrackingView: View {
         setTravelers(ids)
     }
 
-    /// Mirrors `countdownSummary`'s own choice of "the next relevant moment" (departure
-    /// pre-departure, arrival once en route/landed) so the header's two lines always describe
-    /// the same instant — one counting down to it, the other anchoring it in the user's time.
-    private var referenceEventDate: Date? {
-        switch flight.status {
-        case .cancelled, .diverted:
-            return nil
-        case .arrived, .landed, .landingSoon, .inAir, .departed, .boarding:
-            return flight.bestArrival
-        case .scheduled, .delayed:
-            return flight.bestDeparture
-        }
-    }
-
-    private var userLocalTimeLabel: String? {
-        guard let date = referenceEventDate else { return nil }
+    /// The same moment `countdownSummary` counts to (`Flight.countdownMilestone`), so the header's
+    /// two lines always describe one instant — one counting down to it, the other anchoring it in
+    /// the user's time. This had its own copy of the choice, which put boarding with the arrival
+    /// while the countdown beside it counted to the departure (FLT-7).
+    private func userLocalTimeLabel(now: Date) -> String? {
+        guard let date = flight.countdownMilestone(at: now) else { return nil }
         let timeZone = appModel.currentUser.homeCity?.timeZone ?? .current
         // Date included alongside the time, not just hour:minute — a countdown like "1d 9h"
         // crossing midnight is easy to misjudge against "today" without an explicit day/month
@@ -537,7 +540,14 @@ struct FlightTrackingView: View {
     /// underneath and only when it differs, which answers both without either being a guess.
     private var homeTimeZone: TimeZone { appModel.currentUser.homeCity?.timeZone ?? .current }
 
+    /// Ticks with the header, for the same reason (FLT-11).
     private var journeyCard: some View {
+        TimelineView(.periodic(from: .now, by: 30)) { context in
+            journeyCardContent(now: context.date)
+        }
+    }
+
+    private func journeyCardContent(now: Date) -> some View {
         SectionCard {
             if flight.airlineName != nil || !flight.flightNumberIATA.isEmpty {
                 HStack(spacing: Theme.Spacing.xs) {
@@ -553,7 +563,7 @@ struct FlightTrackingView: View {
                 code: flight.origin.displayCode, city: flight.origin.displayName,
                 time: flight.bestDeparture, timeZone: flight.origin.timeZone ?? homeTimeZone,
                 terminal: flight.terminalOrigin, gate: flight.gateOrigin,
-                statusLine: departureStatusLine
+                statusLine: departureStatusLine(now: now)
             )
 
             HStack {
@@ -565,12 +575,12 @@ struct FlightTrackingView: View {
                 code: flight.destination.displayCode, city: flight.destination.displayName,
                 time: flight.bestArrival, timeZone: flight.destination.timeZone ?? homeTimeZone,
                 terminal: flight.terminalDestination, gate: flight.gateDestination,
-                statusLine: arrivalStatusLine
+                statusLine: arrivalStatusLine(now: now)
             )
         }
     }
 
-    private var departureStatusLine: String {
+    private func departureStatusLine(now: Date) -> String {
         // Checked before anything else — a cancelled/diverted flight's `bestDeparture` is often
         // still a real (now-past) scheduled timestamp, which fell through to the "Departing
         // shortly" branch below and contradicted the "Cancelled" badge shown right above it.
@@ -580,16 +590,16 @@ struct FlightTrackingView: View {
         // flight has genuinely left — see `Flight.bestDeparture`'s doc comment. Without this,
         // that case fell through to the `bestDeparture` branch below with a past timestamp,
         // reading as "Departing shortly" for a flight that's actually been airborne for hours.
-        if let departed = flight.actualOut ?? flight.actualOff { return "Departed \(Self.relativeShort(departed)) ago" }
-        if let scheduled = flight.bestDeparture { return scheduled > .now ? "Departs \(Self.relativeShort(scheduled))" : "Departing shortly" }
+        if let departed = flight.actualOut ?? flight.actualOff { return "Departed \(Self.relativeShort(departed, now: now)) ago" }
+        if let scheduled = flight.bestDeparture { return scheduled > now ? "Departs \(Self.relativeShort(scheduled, now: now))" : "Departing shortly" }
         return "Not available"
     }
 
-    private var arrivalStatusLine: String {
+    private func arrivalStatusLine(now: Date) -> String {
         if flight.status == .cancelled { return "Cancelled" }
         if flight.status == .diverted { return "Diverted" }
-        if flight.actualIn != nil { return "Arrived \(Self.relativeShort(flight.actualIn!)) ago" }
-        if let arrival = flight.bestArrival { return arrival > .now ? "Arrives in \(Self.relativeShort(arrival))" : "Arriving shortly" }
+        if flight.actualIn != nil { return "Arrived \(Self.relativeShort(flight.actualIn!, now: now)) ago" }
+        if let arrival = flight.bestArrival { return arrival > now ? "Arrives in \(Self.relativeShort(arrival, now: now))" : "Arriving shortly" }
         return "Not available"
     }
 
@@ -719,15 +729,17 @@ struct FlightTrackingView: View {
         let color: Color
     }
 
-    /// "On time" covers the same 0–14 minute window as `delayAnalysisCard`'s "On time" bucket
-    /// (the standard on-time-performance definition — within 15 minutes of schedule), so this
-    /// caption and the historical stats above never disagree about what counts as on time.
+    /// `FlightDelay`'s threshold, the one the status pill above uses. This used to borrow the
+    /// fifteen-minute on-time-performance bucket from the delay stats, so a flight ten minutes late
+    /// read "Delayed 10 min" in the pill and "On time" here (FLT-13). That bucket describes a flight
+    /// number's history; this is whether this flight is late.
     private static func delayDelta(scheduled: Date?, actualOrEstimated: Date?) -> DelayDelta? {
-        guard let scheduled, let actualOrEstimated else { return nil }
-        let minutes = Int((actualOrEstimated.timeIntervalSince(scheduled) / 60).rounded())
-        if minutes <= -1 { return DelayDelta(text: "\(abs(minutes)) min early", color: Theme.success) }
-        if minutes < 15 { return DelayDelta(text: "On time", color: Theme.success) }
-        return DelayDelta(text: "+\(minutes) min", color: Theme.warning)
+        switch FlightDelay.deviation(scheduled: scheduled, actualOrEstimated: actualOrEstimated) {
+        case nil: return nil
+        case .early(let minutes): return DelayDelta(text: "\(minutes) min early", color: Theme.success)
+        case .onTime: return DelayDelta(text: "On time", color: Theme.success)
+        case .late(let minutes): return DelayDelta(text: "+\(minutes) min", color: Theme.warning)
+        }
     }
 
     private func delayDeltaCaption(_ delta: DelayDelta) -> some View {
@@ -882,7 +894,7 @@ struct FlightTrackingView: View {
 
                         VStack(alignment: .leading, spacing: 2) {
                             Text(event.label(timeZone: flight.destination.timeZone)).font(.subheadline.weight(.medium))
-                            Text(event.occurredAt, format: Date.FormatStyle(timeZone: flight.origin.timeZone ?? .current).hour().minute())
+                            Text(event.occurredAt, format: Date.FormatStyle(timeZone: flight.origin.timeZone ?? homeTimeZone).hour().minute())
                                 .font(.caption2)
                                 .foregroundStyle(Theme.textSecondary)
                         }
@@ -1216,7 +1228,7 @@ struct FlightTrackingView: View {
         flightUpdateTask = Task {
             for await _ in flightUpdateStream {
                 if let fresh = try? await BackendService.fetchFlight(id: flight.id) {
-                    withAnimation(.easeInOut(duration: 0.3)) { flight = fresh }
+                    withAnimation(.easeInOut(duration: 0.3)) { flight = fresh.keepingTimeZones(from: flight) }
                 }
             }
         }
@@ -1233,8 +1245,10 @@ struct FlightTrackingView: View {
         guard !isRefreshing, flight.trackingEnabled else { return }
         isRefreshing = true
         try? await AeroFlightService.refreshFlight(id: flight.id)
+        // The raw row has no zone for a schedule-only flight; keep the ones already resolved, or
+        // every time on this screen falls back to home time a second after opening (FLT-6).
         if let fresh = try? await BackendService.fetchFlight(id: flight.id) {
-            flight = fresh
+            flight = fresh.keepingTimeZones(from: flight)
         }
         isRefreshing = false
     }
@@ -1323,10 +1337,10 @@ struct FlightTrackingView: View {
         try? await BackendService.deleteFlightDocument(id: document.id, path: document.filePath)
     }
 
-    private static func relativeShort(_ date: Date) -> String {
+    private static func relativeShort(_ date: Date, now: Date) -> String {
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .abbreviated
-        return formatter.localizedString(for: date, relativeTo: .now).replacingOccurrences(of: "in ", with: "").replacingOccurrences(of: " ago", with: "")
+        return formatter.localizedString(for: date, relativeTo: now).replacingOccurrences(of: "in ", with: "").replacingOccurrences(of: " ago", with: "")
     }
 }
 

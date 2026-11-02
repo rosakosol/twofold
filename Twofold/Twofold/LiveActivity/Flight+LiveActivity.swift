@@ -21,7 +21,31 @@ struct JourneyParticipants {
 }
 
 extension Flight {
-    func makeJourneyActivityAttributes(participants: JourneyParticipants) -> JourneyActivityAttributes {
+    /// Whether `LiveActivityManager` starts a card for this flight: tracked, and at the gate or
+    /// later. Unchanged by FLT-3 — when to start one is FLT-4's question, not this one's.
+    func startsLiveActivity(at now: Date = .now) -> Bool {
+        trackingEnabled && status.isActivelyTracked
+    }
+
+    /// How far ahead a delayed departure can be and still keep a running card up.
+    static let delayedCardHorizon: TimeInterval = 12 * 60 * 60
+
+    /// Whether a card already running for this flight stays up.
+    ///
+    /// It used to be the same test as starting one, and `.delayed` isn't actively tracked. The
+    /// server only reports `boarding` within its boarding window around the estimated departure;
+    /// outside it, a slip of more than five minutes reads `delayed`. So a card that started at
+    /// boarding was ended on the next refresh the moment departure slipped — exactly when the person
+    /// waiting needs it — and started again later as a new card (FLT-3). A delayed flight keeps its
+    /// card while the departure is within `delayedCardHorizon`; the server ends it at a terminal
+    /// status, as it always has.
+    func keepsLiveActivity(at now: Date = .now) -> Bool {
+        if startsLiveActivity(at: now) { return true }
+        guard trackingEnabled, !cancelled, status == .delayed, let departure = bestDeparture else { return false }
+        return departure.timeIntervalSince(now) < Self.delayedCardHorizon
+    }
+
+    func makeJourneyActivityAttributes(participants: JourneyParticipants, homeTimeZone: TimeZone) -> JourneyActivityAttributes {
         JourneyActivityAttributes(
             flightID: id,
             travelerName: participants.travelerName,
@@ -32,7 +56,11 @@ extension Flight {
             originCode: origin.displayCode,
             originCity: origin.city,
             destinationCode: destination.displayCode,
-            destinationCity: destination.city
+            destinationCity: destination.city,
+            // Each airport's own zone, home's when that isn't known — the tracking screen's rule
+            // (FLT-5), decided here so the extension never has to.
+            originTimeZoneID: (origin.timeZone ?? homeTimeZone).identifier,
+            destinationTimeZoneID: (destination.timeZone ?? homeTimeZone).identifier
         )
     }
 
