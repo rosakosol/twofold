@@ -23,7 +23,7 @@
 //
 // Requires the OPENAI_API_KEY secret: `supabase secrets set OPENAI_API_KEY=...`
 
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import { userSession } from "../_shared/auth.ts";
 import OpenAI from "openai";
 import { enforceRateLimit } from "../_shared/rate-limit.ts";
 import {
@@ -105,12 +105,7 @@ Deno.serve(async (req) => {
     return Response.json({ error: "Method not allowed" }, { status: 405 });
   }
 
-  const userClient = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_ANON_KEY")!,
-    { global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } } },
-  );
-  const { data: { user } } = await userClient.auth.getUser();
+  const { userClient, user } = await userSession(req);
   if (!user) {
     return Response.json({ error: "Not authenticated" }, { status: 401 });
   }

@@ -10,6 +10,7 @@
 // session).
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { userSession } from "../_shared/auth.ts";
 import {
   AIRBORNE_STATUSES,
   type FlightRow,
@@ -40,13 +41,7 @@ Deno.serve(async (req) => {
     return Response.json({ error: "'flightId' is required" }, { status: 400 });
   }
 
-  const userClient = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_ANON_KEY")!,
-    { global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } } },
-  );
-
-  const { data: { user } } = await userClient.auth.getUser();
+  const { userClient, user } = await userSession(req);
   if (!user) {
     return Response.json({ error: "Not authenticated" }, { status: 401 });
   }

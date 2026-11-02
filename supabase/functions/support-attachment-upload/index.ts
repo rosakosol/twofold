@@ -19,7 +19,7 @@
 // verify_jwt = true, and the role is checked against the CALLER's own client. A service-role client
 // here would make the check pass for anybody.
 
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import { userSession } from "../_shared/auth.ts";
 import { presign, r2ConfigFromEnv } from "../_shared/r2.ts";
 import { serveWithCors } from "../_shared/cors.ts";
 
@@ -51,13 +51,7 @@ Deno.serve(serveWithCors(async (req) => {
     return Response.json({ error: "A conversation and a filename are required." }, { status: 400 });
   }
 
-  const userClient = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_ANON_KEY")!,
-    { global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } } },
-  );
-
-  const { data: { user } } = await userClient.auth.getUser();
+  const { userClient, user } = await userSession(req);
   if (!user) return Response.json({ error: "Not authenticated" }, { status: 401 });
 
   if (wantsDownload) {

@@ -14,7 +14,7 @@
 // reads `auth.uid()` through the user-scoped client. A service-role client here would make every
 // check pass, which is the entire risk this file is built around.
 
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import { userSession } from "../_shared/auth.ts";
 import { presign, r2ConfigFromEnv } from "../_shared/r2.ts";
 import { enforceRateLimit } from "../_shared/rate-limit.ts";
 
@@ -123,13 +123,7 @@ Deno.serve(async (req) => {
   // drive this endpoint's parsing and read back which `kind` values exist. Nothing secret — the
   // kinds ship inside the app — but there is no reason for an unauthenticated caller to learn
   // anything here, or to reach the rate limiter's far side without a session.
-  const userClient = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_ANON_KEY")!,
-    { global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } } },
-  );
-
-  const { data: { user } } = await userClient.auth.getUser();
+  const { userClient, user } = await userSession(req);
   if (!user) return bad("Not authenticated", 401);
 
   const limited = await enforceRateLimit(userClient, RATE_LIMIT);

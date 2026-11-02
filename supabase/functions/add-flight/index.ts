@@ -29,6 +29,7 @@
 // session) so we can resolve which couple this flight belongs to.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { userSession } from "../_shared/auth.ts";
 import { type AeroFlight, fetchAirportCoordinates, fetchFlightByFaId } from "../_shared/aeroapi.ts";
 import { enforceRateLimit } from "../_shared/rate-limit.ts";
 import { deriveFlightStatus } from "../_shared/flight-status.ts";
@@ -166,13 +167,7 @@ Deno.serve(async (req) => {
     return Response.json({ error: "'notifyMe' is required" }, { status: 400 });
   }
 
-  const userClient = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_ANON_KEY")!,
-    { global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } } },
-  );
-
-  const { data: { user } } = await userClient.auth.getUser();
+  const { userClient, user } = await userSession(req);
   if (!user) {
     return Response.json({ error: "Not authenticated" }, { status: 401 });
   }

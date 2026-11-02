@@ -11,7 +11,7 @@
 // same IDOR class `refresh-flight` guards against — mirrored here via the same
 // RLS-select-proves-membership trick against `flights`).
 
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import { userSession } from "../_shared/auth.ts";
 
 interface Input {
   flightId: string;
@@ -38,13 +38,7 @@ Deno.serve(async (req) => {
     return Response.json({ error: "'environment' must be 'sandbox' or 'production'" }, { status: 400 });
   }
 
-  const userClient = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_ANON_KEY")!,
-    { global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } } },
-  );
-
-  const { data: { user } } = await userClient.auth.getUser();
+  const { userClient, user } = await userSession(req);
   if (!user) {
     return Response.json({ error: "Not authenticated" }, { status: 401 });
   }

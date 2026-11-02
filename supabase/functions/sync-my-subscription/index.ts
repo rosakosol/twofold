@@ -41,6 +41,7 @@
 // one call a purchase needs, and far less than a loop.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { userSession } from "../_shared/auth.ts";
 import { enforceRateLimit } from "../_shared/rate-limit.ts";
 
 const RATE_LIMIT = { bucket: "sync-my-subscription", limit: 6, window: "1 hour" };
@@ -58,13 +59,7 @@ Deno.serve(async (req) => {
     return Response.json({ error: "Not configured" }, { status: 500 });
   }
 
-  const userClient = createClient(
-    projectUrl,
-    Deno.env.get("SUPABASE_ANON_KEY")!,
-    { global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } } },
-  );
-
-  const { data: { user } } = await userClient.auth.getUser();
+  const { userClient, user } = await userSession(req, projectUrl);
   if (!user) {
     return Response.json({ error: "Not authenticated" }, { status: 401 });
   }

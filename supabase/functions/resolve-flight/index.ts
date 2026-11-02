@@ -6,7 +6,7 @@
 // Requires an `Authorization: Bearer <user access token>` header (the caller's Supabase auth
 // session) so we can verify they belong to an active couple before spending an AeroAPI call.
 
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import { userSession } from "../_shared/auth.ts";
 import {
   type AeroFlight,
   type AeroScheduledFlight,
@@ -382,13 +382,7 @@ Deno.serve(async (req) => {
     return Response.json({ error: "'originIata' and 'destinationIata' are required for mode 'route'" }, { status: 400 });
   }
 
-  const userClient = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_ANON_KEY")!,
-    { global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } } },
-  );
-
-  const { data: { user } } = await userClient.auth.getUser();
+  const { userClient, user } = await userSession(req);
   if (!user) {
     return Response.json({ error: "Not authenticated" }, { status: 401 });
   }

@@ -37,7 +37,7 @@
 // nor somebody else's to handle, so it raises rather than being quietly counted as nothing. The
 // person is told it did not happen, which is the only honest answer while one exists.
 
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import { userSession } from "../_shared/auth.ts";
 import { cancelWebSubscriptions } from "../_shared/subscription-cancel.ts";
 import { serveWithCors } from "../_shared/cors.ts";
 
@@ -46,13 +46,7 @@ Deno.serve(serveWithCors(async (req) => {
     return Response.json({ error: "Method not allowed" }, { status: 405 });
   }
 
-  const userClient = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_ANON_KEY")!,
-    { global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } } },
-  );
-
-  const { data: { user } } = await userClient.auth.getUser();
+  const { userClient, user } = await userSession(req);
   if (!user) {
     return Response.json({ error: "Not authenticated" }, { status: 401 });
   }

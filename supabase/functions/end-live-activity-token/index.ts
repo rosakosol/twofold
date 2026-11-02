@@ -6,7 +6,7 @@
 // Requires an `Authorization: Bearer <user access token>` header (the caller's Supabase auth
 // session). RLS already scopes the delete to `profile_id = auth.uid()`.
 
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import { userSession } from "../_shared/auth.ts";
 
 interface Input {
   activityId: string;
@@ -27,13 +27,7 @@ Deno.serve(async (req) => {
     return Response.json({ error: "'activityId' is required" }, { status: 400 });
   }
 
-  const userClient = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_ANON_KEY")!,
-    { global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } } },
-  );
-
-  const { data: { user } } = await userClient.auth.getUser();
+  const { userClient, user } = await userSession(req);
   if (!user) {
     return Response.json({ error: "Not authenticated" }, { status: 401 });
   }

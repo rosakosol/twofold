@@ -30,6 +30,7 @@
 // unexplained destructive action found in the log in two years is indistinguishable from a mistake.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { userSession } from "../_shared/auth.ts";
 import { cancelWebSubscriptions } from "../_shared/subscription-cancel.ts";
 import { serveWithCors } from "../_shared/cors.ts";
 
@@ -58,13 +59,7 @@ Deno.serve(serveWithCors(async (req) => {
   if (reason.length < 3) return bad("A reason is required.");
   if (reason.length > 500) return bad("That reason is too long.");
 
-  const userClient = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_ANON_KEY")!,
-    { global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } } },
-  );
-
-  const { data: { user } } = await userClient.auth.getUser();
+  const { userClient, user } = await userSession(req);
   if (!user) return bad("Not authenticated", 401);
 
   // Asked of the database rather than inferred from anything in the request. The role lives in

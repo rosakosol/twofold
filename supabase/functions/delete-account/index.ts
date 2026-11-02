@@ -46,6 +46,7 @@
 // ways to be wrong, only one takes money.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { userSession } from "../_shared/auth.ts";
 // `cancelWebSubscriptions` used to live in this file. It moved to _shared when the account portal
 // needed the same operation: two copies of the logic that decides whether somebody keeps being
 // charged is exactly the pair that agrees in testing and disagrees in production.
@@ -63,13 +64,7 @@ Deno.serve(serveWithCors(async (req) => {
     return Response.json({ error: "Method not allowed" }, { status: 405 });
   }
 
-  const userClient = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_ANON_KEY")!,
-    { global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } } },
-  );
-
-  const { data: { user } } = await userClient.auth.getUser();
+  const { userClient, user } = await userSession(req);
   if (!user) {
     return Response.json({ error: "Not authenticated" }, { status: 401 });
   }

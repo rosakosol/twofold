@@ -32,6 +32,7 @@
 // Neither substitutes for the other, and a reply wants both.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { userSession } from "../_shared/auth.ts";
 import { closeQuietly, dotStuff, fromAddress, singleLine, smtpClient } from "../_shared/mail.ts";
 import { presign, r2ConfigFromEnv } from "../_shared/r2.ts";
 import { replyHtml, replyRecipient, replySubject, replyText, replyToAddress, usableAsInReplyTo } from "./compose.ts";
@@ -65,13 +66,7 @@ Deno.serve(serveWithCors(async (req) => {
   if (!body) return bad("A reply cannot be empty.");
   if (body.length > 20000) return bad("That reply is too long.");
 
-  const userClient = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_ANON_KEY")!,
-    { global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } } },
-  );
-
-  const { data: { user } } = await userClient.auth.getUser();
+  const { userClient, user } = await userSession(req);
   if (!user) return bad("Not authenticated", 401);
 
   // Asked of the database, against the caller's own JWT — never of the service client, which is an
