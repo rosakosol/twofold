@@ -10,6 +10,7 @@
 // ~55 minutes (Apple tokens are valid up to 1 hour) rather than re-signing on every send.
 
 import { importPKCS8, type KeyLike, SignJWT } from "npm:jose@^5";
+import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 
 type ApnsEnvironment = "sandbox" | "production";
 
@@ -108,47 +109,180 @@ export async function diagnoseApnsConfig(): Promise<Record<ApnsEnvironment, { co
   return result;
 }
 
+/// What happened to one push. `ok` is Apple's 200. `tokenDead` means Apple said the token will
+/// never work again (410, or 400 BadDeviceToken / Unregistered); the sender has already deleted it
+/// by the time this returns. `skipped` is a send that never left because the environment's secrets
+/// aren't configured.
+export interface ApnsResult {
+  ok: boolean;
+  status: number | null;
+  reason: string | null;
+  tokenDead: boolean;
+  skipped?: boolean;
+}
+
+/// One retry for a 429 or a 5xx (or a network error), after Apple's `Retry-After` when it gives one
+/// and it is short, else `delayMs`. Exported so tests can set the delay to zero. Kept to a single
+/// retry because the callers are cron fan-outs: a backlog of slow retries would push the rest of
+/// the run past its slot.
+export const APNS_RETRY = { delayMs: 1000, maxRetryAfterMs: 5000 };
+
+/// Apple's reasons for a token that will never work again. 410 always means this too. Anything
+/// else (a bad topic, an expired provider token, a too-big payload) is a problem on this side and
+/// must not cost anybody their device registration.
+// Not `ExpiredToken`: despite the name that is *our* provider JWT, not the device token.
+const DEAD_TOKEN_REASONS = new Set(["BadDeviceToken", "Unregistered"]);
+
+function isDeadToken(status: number, reason: string | null): boolean {
+  if (status === 410) return true;
+  return status === 400 && reason !== null && DEAD_TOKEN_REASONS.has(reason);
+}
+
+function isTransient(status: number): boolean {
+  return status === 429 || status >= 500;
+}
+
+let pruneClient: SupabaseClient | null | undefined;
+
+/// The service client the sender deletes dead tokens with. Imported lazily, as api-usage.ts does,
+/// so this module still loads (and tests) where supabase-js cannot be resolved. Null when the
+/// environment has no service key, in which case a dead token is only logged.
+async function tokenStore(): Promise<SupabaseClient | null> {
+  if (pruneClient !== undefined) return pruneClient;
+  const url = Deno.env.get("SUPABASE_URL");
+  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!url || !key) {
+    pruneClient = null;
+    return pruneClient;
+  }
+  const { createClient } = await import("jsr:@supabase/supabase-js@2");
+  pruneClient = createClient(url, key);
+  return pruneClient;
+}
+
+/// Forgets a token Apple has retired, so no later fan-out pays for a request to it. Never throws:
+/// the push itself is already over, and a failed delete just means one more doomed send next time.
+async function retireToken(table: "device_push_tokens" | "live_activity_push_tokens", column: string, token: string) {
+  try {
+    const db = await tokenStore();
+    if (!db) {
+      console.warn(`[apns] dead token not removed from ${table}: no service key in this environment`);
+      return;
+    }
+    const { error } = await db.from(table).delete().eq(column, token);
+    if (error) console.error(`[apns] could not remove dead token from ${table}:`, error.message);
+  } catch (err) {
+    console.error(`[apns] could not remove dead token from ${table}:`, (err as Error).message);
+  }
+}
+
+async function readReason(res: Response): Promise<string | null> {
+  try {
+    const body = await res.json();
+    return typeof body?.reason === "string" ? body.reason : null;
+  } catch {
+    return null;
+  }
+}
+
+function retryDelayMs(res: Response | null): number {
+  const header = res?.headers.get("retry-after");
+  const seconds = header ? Number(header) : NaN;
+  if (Number.isFinite(seconds) && seconds >= 0) return Math.min(seconds * 1000, APNS_RETRY.maxRetryAfterMs);
+  return APNS_RETRY.delayMs;
+}
+
+/// Posts one push and reads Apple's answer: retries once on 429/5xx, re-signs on 403, and deletes
+/// the token on a dead-token answer.
+async function deliver(
+  label: string,
+  environment: ApnsEnvironment,
+  token: string,
+  headers: Record<string, string>,
+  body: string,
+  store: { table: "device_push_tokens" | "live_activity_push_tokens"; column: string },
+): Promise<ApnsResult> {
+  const host = environment === "sandbox" ? "api.sandbox.push.apple.com" : "api.push.apple.com";
+  let jwt: string;
+  try {
+    jwt = await getApnsJwt(environment);
+  } catch (err) {
+    console.error(`[apns] ${label} could not sign (${environment}):`, (err as Error).message);
+    return { ok: false, status: null, reason: (err as Error).message, tokenDead: false };
+  }
+
+  let last: ApnsResult = { ok: false, status: null, reason: null, tokenDead: false };
+  for (let attempt = 0; attempt < 2; attempt++) {
+    let res: Response;
+    try {
+      res = await fetch(`https://${host}/3/device/${token}`, {
+        method: "POST",
+        headers: { ...headers, authorization: `bearer ${jwt}` },
+        body,
+      });
+    } catch (err) {
+      console.error(`[apns] ${label} threw (${environment}):`, (err as Error).message);
+      last = { ok: false, status: null, reason: (err as Error).message, tokenDead: false };
+      if (attempt === 0) {
+        await new Promise((r) => setTimeout(r, APNS_RETRY.delayMs));
+        continue;
+      }
+      return last;
+    }
+
+    if (res.ok) {
+      await res.body?.cancel();
+      return { ok: true, status: res.status, reason: null, tokenDead: false };
+    }
+
+    const reason = await readReason(res);
+    console.error(`[apns] ${label} failed with status ${res.status}${reason ? ` (${reason})` : ""} (${environment})`);
+    // A stale/invalid cached JWT (e.g. Apple rejected it) shouldn't poison every subsequent
+    // send until the 55-minute TTL naturally expires — clear it so the next call re-signs.
+    if (res.status === 403) tokenCache.delete(environment);
+
+    if (isDeadToken(res.status, reason)) {
+      await retireToken(store.table, store.column, token);
+      return { ok: false, status: res.status, reason, tokenDead: true };
+    }
+
+    last = { ok: false, status: res.status, reason, tokenDead: false };
+    if (attempt === 0 && isTransient(res.status)) {
+      await new Promise((r) => setTimeout(r, retryDelayMs(res)));
+      continue;
+    }
+    return last;
+  }
+  return last;
+}
+
 export async function sendAPNs(
   deviceToken: string,
   environment: ApnsEnvironment,
   title: string,
   body: string,
   data?: Record<string, unknown>,
-): Promise<void> {
+): Promise<ApnsResult> {
   if (!hasApnsConfig(environment)) {
     console.log(`[apns] skipping send — ${environment} APNs secrets not configured yet`);
-    return;
+    return { ok: false, status: null, reason: "not configured", tokenDead: false, skipped: true };
   }
 
-  try {
-    const jwt = await getApnsJwt(environment);
-    const bundleId = Deno.env.get("APNS_BUNDLE_ID")!;
-    const host = environment === "sandbox" ? "api.sandbox.push.apple.com" : "api.push.apple.com";
-
-    // Custom deep-link data (e.g. session id/game type) lives as top-level keys alongside `aps`,
-    // not nested inside it — that's the payload shape APNs/UNNotification expect for anything
-    // the receiving app wants to read out of `userInfo`.
-    const res = await fetch(`https://${host}/3/device/${deviceToken}`, {
-      method: "POST",
-      headers: {
-        authorization: `bearer ${jwt}`,
-        "apns-topic": bundleId,
-        "apns-push-type": "alert",
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({ aps: { alert: { title, body }, sound: "default" }, ...data }),
-    });
-
-    if (!res.ok) {
-      console.error(`[apns] send failed with status ${res.status} (${environment})`);
-      await res.arrayBuffer().catch(() => undefined);
-      // A stale/invalid cached JWT (e.g. Apple rejected it) shouldn't poison every subsequent
-      // send until the 55-minute TTL naturally expires — clear it so the next call re-signs.
-      if (res.status === 403) tokenCache.delete(environment);
-    }
-  } catch (err) {
-    console.error(`[apns] send threw (${environment}):`, (err as Error).message);
-  }
+  // Custom deep-link data (e.g. session id/game type) lives as top-level keys alongside `aps`,
+  // not nested inside it — that's the payload shape APNs/UNNotification expect for anything
+  // the receiving app wants to read out of `userInfo`.
+  return await deliver(
+    "send",
+    environment,
+    deviceToken,
+    {
+      "apns-topic": Deno.env.get("APNS_BUNDLE_ID")!,
+      "apns-push-type": "alert",
+      "content-type": "application/json",
+    },
+    JSON.stringify({ aps: { alert: { title, body }, sound: "default" }, ...data }),
+    { table: "device_push_tokens", column: "apns_token" },
+  );
 }
 
 /// Seconds between the Unix epoch (1970-01-01) and the Cocoa reference date (2001-01-01) —
@@ -174,44 +308,32 @@ export async function sendLiveActivityUpdate(
   contentState: Record<string, unknown>,
   event: "update" | "end",
   opts?: { alert?: { title: string; body: string }; staleDateUnix?: number; dismissalDateUnix?: number },
-): Promise<void> {
+): Promise<ApnsResult> {
   if (!hasApnsConfig(environment)) {
     console.log(`[apns] skipping live activity send — ${environment} APNs secrets not configured yet`);
-    return;
+    return { ok: false, status: null, reason: "not configured", tokenDead: false, skipped: true };
   }
 
-  try {
-    const jwt = await getApnsJwt(environment);
-    const bundleId = Deno.env.get("APNS_BUNDLE_ID")!;
-    const host = environment === "sandbox" ? "api.sandbox.push.apple.com" : "api.push.apple.com";
+  const aps: Record<string, unknown> = {
+    timestamp: Math.round(Date.now() / 1000),
+    event,
+    "content-state": contentState,
+  };
+  if (opts?.alert) aps.alert = opts.alert;
+  if (opts?.staleDateUnix) aps["stale-date"] = opts.staleDateUnix;
+  if (opts?.dismissalDateUnix) aps["dismissal-date"] = opts.dismissalDateUnix;
 
-    const aps: Record<string, unknown> = {
-      timestamp: Math.round(Date.now() / 1000),
-      event,
-      "content-state": contentState,
-    };
-    if (opts?.alert) aps.alert = opts.alert;
-    if (opts?.staleDateUnix) aps["stale-date"] = opts.staleDateUnix;
-    if (opts?.dismissalDateUnix) aps["dismissal-date"] = opts.dismissalDateUnix;
-
-    const res = await fetch(`https://${host}/3/device/${pushToken}`, {
-      method: "POST",
-      headers: {
-        authorization: `bearer ${jwt}`,
-        "apns-topic": `${bundleId}.push-type.liveactivity`,
-        "apns-push-type": "liveactivity",
-        "apns-priority": "10",
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({ aps }),
-    });
-
-    if (!res.ok) {
-      console.error(`[apns] live activity send failed with status ${res.status} (${environment})`);
-      await res.arrayBuffer().catch(() => undefined);
-      if (res.status === 403) tokenCache.delete(environment);
-    }
-  } catch (err) {
-    console.error(`[apns] live activity send threw (${environment}):`, (err as Error).message);
-  }
+  return await deliver(
+    "live activity send",
+    environment,
+    pushToken,
+    {
+      "apns-topic": `${Deno.env.get("APNS_BUNDLE_ID")!}.push-type.liveactivity`,
+      "apns-push-type": "liveactivity",
+      "apns-priority": "10",
+      "content-type": "application/json",
+    },
+    JSON.stringify({ aps }),
+    { table: "live_activity_push_tokens", column: "push_token" },
+  );
 }
