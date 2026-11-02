@@ -507,9 +507,22 @@ export async function syncFlight(
     update.tracking_enabled = false;
   }
 
-  const { error: updateErr } = await serviceClient.from("flights").update(update).eq("id", flightRow.id);
+  // Written only if nobody else has synced this flight since `flightRow` was read (DB-6). The cron,
+  // a refresh press and the webhook can all hold the same read; each diffs against it and would
+  // push every difference it found, so both callers' "departed" reached both phones. Every sync
+  // stamps last_refreshed_at, so a row whose stamp no longer matches the read has already been
+  // synced, and announced, by someone else. This caller then stays quiet; what it fetched is no
+  // newer than what the other caller just wrote.
+  const write = serviceClient.from("flights").update(update).eq("id", flightRow.id);
+  const { data: written, error: updateErr } = await (flightRow.last_refreshed_at
+    ? write.eq("last_refreshed_at", flightRow.last_refreshed_at)
+    : write.is("last_refreshed_at", null)).select("id");
   if (updateErr) {
     console.error(`[flight-sync] failed to update flight ${flightRow.id}:`, updateErr.message);
+    return;
+  }
+  if (!written || written.length === 0) {
+    console.log(`[flight-sync] flight ${flightRow.id} was synced by another caller since it was read; not re-announcing`);
     return;
   }
 
@@ -1056,11 +1069,25 @@ export async function reconcileOverdueArrival(serviceClient: SupabaseClient, fli
   const wasTerminal = currentStatus === "arrived" || currentStatus === "landed";
 
   if (!wasTerminal && now - arrivalMs > ARRIVAL_STATUS_OVERDUE_MS) {
-    const { error } = await serviceClient.from("flights").update({ status: "arrived" }).eq("id", flight.id);
+    // Only from the state this caller read (DB-6): still tracked, not yet landed or arrived, and
+    // not synced since. Two callers holding the same read both used to force "arrived" and both
+    // push it; and a read from before a sync could force "arrived" over a landing the provider had
+    // just confirmed, or over an arrival estimate that had just moved later.
+    const guarded = serviceClient
+      .from("flights")
+      .update({ status: "arrived" })
+      .eq("id", flight.id)
+      .eq("tracking_enabled", true)
+      .not("status", "in", `(${TERMINAL_STATUSES.join(",")})`);
+    const { data: forced, error } = await (flight.last_refreshed_at
+      ? guarded.eq("last_refreshed_at", flight.last_refreshed_at)
+      : guarded.is("last_refreshed_at", null)).select("id");
     if (error) {
       console.error(`[flight-sync] failed to mark overdue flight ${flight.id} arrived:`, error.message);
       return;
     }
+    // Someone else moved this flight on since it was read; the next tick decides from a fresh read.
+    if (!forced || forced.length === 0) return;
     currentStatus = "arrived";
 
     const arrivalIso = flight.estimated_in ?? flight.scheduled_in;
@@ -1089,7 +1116,11 @@ export async function reconcileOverdueArrival(serviceClient: SupabaseClient, fli
 
   const isNowTerminal = wasTerminal || currentStatus === "arrived";
   if (isNowTerminal && now - arrivalMs > ARCHIVE_AFTER_ARRIVAL_MS) {
-    const { error } = await serviceClient.from("flights").update({ tracking_enabled: false }).eq("id", flight.id);
+    const { error } = await serviceClient
+      .from("flights")
+      .update({ tracking_enabled: false })
+      .eq("id", flight.id)
+      .eq("tracking_enabled", true);
     if (error) console.error(`[flight-sync] failed to archive flight ${flight.id}:`, error.message);
   }
 }
