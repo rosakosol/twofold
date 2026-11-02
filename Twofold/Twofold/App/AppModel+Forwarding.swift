@@ -85,3 +85,66 @@ extension AppModel {
     func dismissSetupChecklist() { prompts.dismissSetupChecklist() }
     func noteReviewMilestone(_ milestone: ReviewMilestone) { prompts.noteReviewMilestone(milestone) }
 }
+
+// MARK: - GamesState
+
+extension AppModel {
+    var dailyStreak: Int? {
+        get { games.dailyStreak }
+        set { games.dailyStreak = newValue }
+    }
+    var longestDailyStreak: Int? {
+        get { games.longestDailyStreak }
+        set { games.longestDailyStreak = newValue }
+    }
+    var dailyStreakResetsAt: Date? {
+        get { games.dailyStreakResetsAt }
+        set { games.dailyStreakResetsAt = newValue }
+    }
+    var streakRepair: BackendService.StreakRepairState? {
+        get { games.streakRepair }
+        set { games.streakRepair = newValue }
+    }
+    var todaysDailySessionID: UUID? {
+        get { games.todaysDailySessionID }
+        set { games.todaysDailySessionID = newValue }
+    }
+    var todaysDailyQuestionText: String? {
+        get { games.todaysDailyQuestionText }
+        set { games.todaysDailyQuestionText = newValue }
+    }
+    var isLoadingDailyQuestion: Bool { games.isLoadingDailyQuestion }
+    var todaysMyAnswered: Bool {
+        get { games.todaysMyAnswered }
+        set { games.todaysMyAnswered = newValue }
+    }
+    var todaysPartnerAnswered: Bool {
+        get { games.todaysPartnerAnswered }
+        set { games.todaysPartnerAnswered = newValue }
+    }
+    var dailyQuestionError: String? {
+        get { games.dailyQuestionError }
+        set { games.dailyQuestionError = newValue }
+    }
+    var gameDecks: [GameDeck]? { games.gameDecks }
+    var gameDecksUnavailable: Bool { games.gameDecksUnavailable }
+    var deckProgress: [UUID: DeckProgress]? { games.deckProgress }
+    var adultContentStatus: BackendService.AdultContentStatus? { games.adultContentStatus }
+    var isDailyQuestionOpenRequested: Bool {
+        get { games.isDailyQuestionOpenRequested }
+        set { games.isDailyQuestionOpenRequested = newValue }
+    }
+
+    func startOrResumeDailyQuestion() async { await games.startOrResumeDailyQuestion() }
+    func refreshStreakRepairState() async { await games.refreshStreakRepairState() }
+    func refreshDailyStreak() async { await games.refreshDailyStreak() }
+    func recordGameStateForOffline() { games.recordGameStateForOffline() }
+    func loadGameDecksIfNeeded() async { await games.loadGameDecksIfNeeded() }
+    func refreshGameDecks() async { await games.refreshGameDecks() }
+    func refreshAdultContentStatus() async { await games.refreshAdultContentStatus() }
+    func setAdultContentOptIn(_ isOn: Bool) async throws { try await games.setAdultContentOptIn(isOn) }
+    func markDeckProgressMineCompleted(deckID: UUID?) { games.markDeckProgressMineCompleted(deckID: deckID) }
+    func decks(for topic: GameTopic) -> [GameDeck] { games.decks(for: topic) }
+    func decks(ofType gameType: GameType) -> [GameDeck] { games.decks(ofType: gameType) }
+    func topicProgress(_ topic: GameTopic) -> (played: Int, total: Int)? { games.topicProgress(topic) }
+}
