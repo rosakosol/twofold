@@ -15,10 +15,11 @@ export const ACTIVE_STATUSES = ["boarding", "departed", "in_air", "landing_soon"
 
 export const NEAR_EVENT_WINDOW_MS = 10 * 60 * 1000;
 
-export function isDue(flight: FlightRow, now: number): boolean {
-  if (!flight.scheduled_out) return true; // no schedule to gauge against — always worth a look
-  const lastRefreshedMs = flight.last_refreshed_at ? new Date(flight.last_refreshed_at).getTime() : null;
-  const staleMs = lastRefreshedMs === null ? Infinity : now - lastRefreshedMs;
+// How long this flight may go between AeroAPI polls right now: its cadence tier, in
+// milliseconds. `isDue` is "stale past this"; the cron also uses it to rank due flights by how
+// late each one is against its own cadence (see flight-refresh-run.ts).
+export function refreshThresholdMs(flight: FlightRow, now: number): number {
+  if (!flight.scheduled_out) return 0; // no schedule to gauge against — always worth a look
 
   // Best-known (not just scheduled) times — once AeroAPI reports an estimate, that's a more
   // honest read of "how close is this to actually happening" than the original schedule.
@@ -49,7 +50,7 @@ export function isDue(flight: FlightRow, now: number): boolean {
   // it had left. Reported live: a departure noticed ~10 minutes after the fact.
   const isOverdueForDeparture = msToDeparture < 0 && !flight.actual_out;
   if (isNearDeparture || isNearArrival || isOverdueForArrival || isOverdueForDeparture) {
-    return staleMs > 1 * 60 * 1000;
+    return 1 * 60 * 1000;
   }
 
   // Reaching here means none of the near/overdue branches above applied — so an active flight at
@@ -60,15 +61,25 @@ export function isDue(flight: FlightRow, now: number): boolean {
   // in this state (ETA/progress percent drift slowly), so it can afford to be far less aggressive.
   const isActive = ACTIVE_STATUSES.includes(flight.status);
   if (isActive) {
-    return staleMs > 12 * 60 * 1000;
+    return 12 * 60 * 1000;
   }
   if (msToDeparture <= 2 * 60 * 60 * 1000) {
-    return staleMs > 2 * 60 * 1000;
+    return 2 * 60 * 1000;
   }
   if (msToDeparture <= 24 * 60 * 60 * 1000) {
-    return staleMs > 15 * 60 * 1000;
+    return 15 * 60 * 1000;
   }
-  return lastRefreshedMs === null || staleMs > 6 * 60 * 60 * 1000;
+  return 6 * 60 * 60 * 1000;
+}
+
+// Never refreshed counts as infinitely stale, so a new flight is always due.
+export function msSinceRefresh(flight: FlightRow, now: number): number {
+  return flight.last_refreshed_at ? now - new Date(flight.last_refreshed_at).getTime() : Infinity;
+}
+
+export function isDue(flight: FlightRow, now: number): boolean {
+  if (!flight.scheduled_out) return true;
+  return msSinceRefresh(flight, now) > refreshThresholdMs(flight, now);
 }
 
 // "Wish them a safe flight" nudge to the *other* partner — fires once per flight, guarded by
