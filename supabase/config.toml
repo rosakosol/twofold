@@ -490,16 +490,17 @@ verify_jwt = false
 import_map = "./functions/aeroapi-webhook/deno.json"
 entrypoint = "./functions/aeroapi-webhook/index.ts"
 
-# Hit directly by AsyncImage as a plain image URL (no Authorization header attached) — same
-# public trust level as the logo CDN it caches used to have, so platform-level JWT verification
-# is off.
 # Mints presigned R2 URLs. verify_jwt because the whole point is that it acts as the caller —
 # `can_access_storage_object` reads auth.uid(), and an unauthenticated request has nothing to check.
 [functions.storage-url]
 enabled = true
 verify_jwt = true
 import_map = "./functions/storage-url/deno.json"
+entrypoint = "./functions/storage-url/index.ts"
 
+# Hit directly by AsyncImage as a plain image URL (no Authorization header attached) — same
+# public trust level as the logo CDN it caches used to have, so platform-level JWT verification
+# is off.
 [functions.airline-logo]
 enabled = true
 verify_jwt = false
@@ -524,12 +525,6 @@ enabled = true
 verify_jwt = false
 entrypoint = "./functions/send-partner-invite-reminders/index.ts"
 
-
-# Nightly reconciliation against RevenueCat, invoked by pg_cron with the service role key. Unlike
-# the other cron entrypoints here, JWT verification stays ON: the service role key is itself a valid
-# JWT, so the platform check costs nothing and means an unauthenticated request never reaches the
-# function's own comparison at all. Nothing outside this project should be able to make it call the
-# provider on every subscriber.
 # Closes accounts that have gone dormant, and warns them first. Called only by the pg_cron job in
 # 20261029000200, which posts with the service-role key; the function checks that header itself and
 # 403s anything else, so verify_jwt is belt as well as braces.
@@ -539,6 +534,11 @@ verify_jwt = true
 import_map = "./functions/purge-dormant-accounts/deno.json"
 entrypoint = "./functions/purge-dormant-accounts/index.ts"
 
+# Nightly reconciliation against RevenueCat, invoked by pg_cron with the service role key. Unlike
+# the other cron entrypoints here, JWT verification stays ON: the service role key is itself a valid
+# JWT, so the platform check costs nothing and means an unauthenticated request never reaches the
+# function's own comparison at all. Nothing outside this project should be able to make it call the
+# provider on every subscriber.
 [functions.reconcile-subscriptions]
 enabled = true
 verify_jwt = true
@@ -633,3 +633,61 @@ entrypoint = "./functions/send-birthday-reminders/index.ts"
 enabled = true
 verify_jwt = true
 entrypoint = "./functions/delete-account/index.ts"
+
+# The nine below were deployed before they were registered here, so each has been running on the
+# CLI's default. Every one is `verify_jwt = true` in production (checked with
+# `supabase functions list` on 3 Nov 2026), and that is recorded rather than left to the default.
+# Every function directory needs a block; a deploy of one without one uses whatever the CLI's
+# default is at the time.
+#
+# Called by the app with the person's own token; each reads it into a user-scoped client.
+[functions.end-live-activity-token]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/end-live-activity-token/index.ts"
+
+[functions.flight-delay-stats]
+enabled = true
+verify_jwt = true
+import_map = "./functions/flight-delay-stats/deno.json"
+entrypoint = "./functions/flight-delay-stats/index.ts"
+
+[functions.notify-connection-request]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/notify-connection-request/index.ts"
+
+[functions.register-live-activity-token]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/register-live-activity-token/index.ts"
+
+[functions.submit-help-message]
+enabled = true
+verify_jwt = true
+import_map = "./functions/submit-help-message/deno.json"
+entrypoint = "./functions/submit-help-message/index.ts"
+
+[functions.sync-my-subscription]
+enabled = true
+verify_jwt = true
+import_map = "./functions/sync-my-subscription/deno.json"
+entrypoint = "./functions/sync-my-subscription/index.ts"
+
+# Service role only: the game_moves trigger (20261020000000), the R2 purge cron (20261110000100)
+# and the welcome-email cron (20261111000900). The service role key is a JWT, so the gateway check costs nothing; each function also
+# compares the key itself (_shared/auth.ts).
+[functions.notify-game-turn]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/notify-game-turn/index.ts"
+
+[functions.purge-r2-objects]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/purge-r2-objects/index.ts"
+
+[functions.send-welcome-emails]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/send-welcome-emails/index.ts"
