@@ -33,6 +33,12 @@ The Deno tests go through Docker because deno isn't installed on the host; if yo
 `deno test supabase/functions/_shared/flight-schedule.test.ts` from the repo root does the same
 thing.
 
+The whole Deno suite runs on the host with
+`deno test --allow-all --node-modules-dir=none supabase/functions` (the flag keeps Deno away from
+the repo-root package.json). `flight-sync-races.test.ts` and `flight-refresh-run.test.ts` talk to
+the local stack (`supabase start`), stubbing only AeroAPI, ADS-B and APNs; they skip themselves
+when it isn't running.
+
 Anything a cron job or the app calls on a schedule is worth a test here rather than a manual check
 against production — the flight cadence in particular decides both the AeroAPI bill and how quickly
 a departure is noticed.
