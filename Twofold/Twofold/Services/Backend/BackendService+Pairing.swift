@@ -342,17 +342,8 @@ extension BackendService {
     /// there's no couple to resolve a recipient through (that's the whole point pre-acceptance),
     /// so the target profile is passed explicitly.
     private static func notifyConnectionRequest(eventType: String, targetProfileId: UUID) async {
-        guard let accessToken = await freshAccessToken() else { return }
         let body: [String: Any] = ["eventType": eventType, "targetProfileId": targetProfileId.uuidString]
-
-        var request = URLRequest(url: SupabaseConfig.projectURL.appendingPathComponent("functions/v1/notify-connection-request"))
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue(SupabaseConfig.publishableKey, forHTTPHeaderField: "apiKey")
-        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
-
-        _ = try? await URLSession.shared.data(for: request)
+        _ = try? await EdgeFunctions.send("notify-connection-request", body: body)
     }
 
     private nonisolated struct ConnectionRequestRow: Decodable {

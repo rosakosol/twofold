@@ -46,7 +46,6 @@ extension BackendService {
     /// is sent rather than inferred from `gameType`, since a daily session is an ordinary
     /// `deep_conversations` session under the hood and nothing in the payload distinguishes it.
     static func notifyPartner(event: CoupleNotificationEvent, detail: String? = nil, sessionID: UUID? = nil, gameType: GameType? = nil, isDaily: Bool = false, target: NotifyTarget = .partner) async {
-        guard let accessToken = await freshAccessToken() else { return }
         var body: [String: Any] = ["eventType": event.rawValue]
         if let detail { body["detail"] = detail }
         if let sessionID { body["sessionId"] = sessionID.uuidString }
@@ -54,14 +53,7 @@ extension BackendService {
         if isDaily { body["isDaily"] = true }
         if target != .partner { body["target"] = target.rawValue }
 
-        var request = URLRequest(url: SupabaseConfig.projectURL.appendingPathComponent("functions/v1/notify-couple-event"))
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue(SupabaseConfig.publishableKey, forHTTPHeaderField: "apiKey")
-        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
-
-        _ = try? await URLSession.shared.data(for: request)
+        _ = try? await EdgeFunctions.send("notify-couple-event", body: body)
     }
 
     /// The same call as `notifyPartner`, with the outcome kept rather than discarded.
@@ -75,20 +67,9 @@ extension BackendService {
     /// Returns false for any non-2xx or transport error. Does not throw, because the caller has
     /// nothing useful to do with the distinction between them.
     static func sendBirthdayWish(message: String) async -> Bool {
-        guard let accessToken = await freshAccessToken() else { return false }
         var body: [String: Any] = ["eventType": CoupleNotificationEvent.birthdayWish.rawValue]
         if !message.isEmpty { body["detail"] = message }
-
-        var request = URLRequest(url: SupabaseConfig.projectURL.appendingPathComponent("functions/v1/notify-couple-event"))
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue(SupabaseConfig.publishableKey, forHTTPHeaderField: "apiKey")
-        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
-
-        guard let (_, response) = try? await URLSession.shared.data(for: request),
-              let http = response as? HTTPURLResponse else { return false }
-        return (200..<300).contains(http.statusCode)
+        return (try? await EdgeFunctions.send("notify-couple-event", body: body)) != nil
     }
 
     struct CoupleNotificationPreferences {

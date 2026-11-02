@@ -269,25 +269,18 @@ enum AeroFlightService {
     }
 
     private static func call<Response: Decodable>(_ functionName: String, body: [String: Any]) async throws -> Response {
-        guard let accessToken = await BackendService.freshAccessToken() else { throw AeroFlightError.notAuthenticated }
-
-        var request = URLRequest(url: SupabaseConfig.projectURL.appendingPathComponent("functions/v1/\(functionName)"))
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue(SupabaseConfig.publishableKey, forHTTPHeaderField: "apiKey")
-        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
-
-        let (data, response) = try await URLSession.shared.data(for: request)
-        guard let http = response as? HTTPURLResponse else { throw AeroFlightError.requestFailed(status: -1, message: nil) }
-        guard (200..<300).contains(http.statusCode) else {
-            throw failure(status: http.statusCode, body: data)
-        }
-
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        guard let decoded = try? decoder.decode(Response.self, from: data) else { throw AeroFlightError.decodingFailed }
-        return decoded
+        do {
+            // Slow: these wait on the airline data provider.
+            return try await EdgeFunctions.invoke(functionName, body: body, timeout: EdgeFunctions.slowTimeout, decoder: decoder)
+        } catch EdgeFunctions.Failure.notAuthenticated {
+            throw AeroFlightError.notAuthenticated
+        } catch let EdgeFunctions.Failure.status(status, _, data) {
+            throw failure(status: status, body: data)
+        } catch EdgeFunctions.Failure.undecodable {
+            throw AeroFlightError.decodingFailed
+        }
     }
 
     /// Search by flight number — an optional origin narrows results when the same flight

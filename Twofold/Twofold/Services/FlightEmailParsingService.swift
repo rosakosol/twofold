@@ -83,10 +83,6 @@ enum FlightEmailParsingError: LocalizedError {
     }
 }
 
-private struct ErrorResponse: Decodable {
-    var error: String?
-}
-
 enum FlightEmailParsingService {
     /// `subject`/`body` are tried first server-side; `pdfText` (text extracted from a PDF
     /// attachment) is only used as a fallback when those don't yield a flight — see
@@ -97,30 +93,19 @@ enum FlightEmailParsingService {
         if let body, !body.isEmpty { payload["body"] = body }
         if let pdfText, !pdfText.isEmpty { payload["pdfText"] = pdfText }
         guard !payload.isEmpty else { throw FlightEmailParsingError.missingContent }
-        guard let accessToken = await BackendService.freshAccessToken() else { throw FlightEmailParsingError.notAuthenticated }
-
-        var request = URLRequest(url: SupabaseConfig.projectURL.appendingPathComponent("functions/v1/parse-flight-email"))
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue(SupabaseConfig.publishableKey, forHTTPHeaderField: "apiKey")
-        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-        request.httpBody = try JSONEncoder().encode(payload)
-
-        let (data, response) = try await URLSession.shared.data(for: request)
-        guard let http = response as? HTTPURLResponse else {
+        do {
+            // Slow: the function reads the email with a language model.
+            return try await EdgeFunctions.invoke("parse-flight-email", body: payload, timeout: EdgeFunctions.slowTimeout)
+        } catch EdgeFunctions.Failure.notAuthenticated {
+            throw FlightEmailParsingError.notAuthenticated
+        } catch let EdgeFunctions.Failure.status(_, message?, _) {
+            // The function answers with `{ "error": ... }`, and for 429 (rate limited) and 400 (too
+            // long) that text is the whole explanation. Collapsing every non-2xx into one generic
+            // failure turned "you've done this 10 times this hour" into "something went wrong",
+            // leaving the person to retry against a limit they had no way to know about.
+            throw FlightEmailParsingError.rejected(message: message)
+        } catch is EdgeFunctions.Failure {
             throw FlightEmailParsingError.invalidResponse
         }
-        guard (200..<300).contains(http.statusCode) else {
-            // Same shape `HelpService` already uses: the function answers with `{ "error": ... }`,
-            // and for 429 (rate limited) and 400 (too long) that text is the whole explanation.
-            // Collapsing every non-2xx into one generic failure — which is what this did — turned
-            // "you've done this 10 times this hour" into "something went wrong", leaving the
-            // person to retry against a limit they had no way to know about.
-            if let message = (try? JSONDecoder().decode(ErrorResponse.self, from: data))?.error, !message.isEmpty {
-                throw FlightEmailParsingError.rejected(message: message)
-            }
-            throw FlightEmailParsingError.invalidResponse
-        }
-        return try JSONDecoder().decode(ExtractedFlightDetails.self, from: data)
     }
 }

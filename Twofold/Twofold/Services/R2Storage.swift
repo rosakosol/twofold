@@ -157,36 +157,22 @@ enum R2Storage {
         contentLength: Int? = nil,
         accessToken suppliedToken: String? = nil
     ) async throws -> [String: URL] {
-        // Refreshed if it has expired — see `BackendService.freshAccessToken`.
-        let token: String?
-        if let suppliedToken { token = suppliedToken } else { token = await BackendService.freshAccessToken() }
-        guard let accessToken = token else {
-            throw StorageError.urlUnavailable
-        }
-
         var body: [String: Any] = ["kind": kind.rawValue, "op": op, "paths": paths]
         if let contentType { body["contentType"] = contentType }
         // Signed into the URL, so the PUT below must send exactly this many bytes. URLSession
         // derives `Content-Length` from `httpBody`, and that is the same `data` measured here.
         if let contentLength { body["contentLength"] = contentLength }
 
-        var request = URLRequest(url: SupabaseConfig.projectURL.appendingPathComponent("functions/v1/storage-url"))
-        request.httpMethod = "POST"
-        request.setValue(SupabaseConfig.publishableKey, forHTTPHeaderField: "apiKey")
-        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
-
-        guard let (data, response) = try? await URLSession.shared.data(for: request),
-              let http = response as? HTTPURLResponse else {
+        // The token is refreshed if it has expired, unless the caller already holds one for a
+        // batch — see `EdgeFunctions.send`.
+        do {
+            let decoded: Response = try await EdgeFunctions.invoke("storage-url", body: body, accessToken: suppliedToken)
+            return decoded.urls
+        } catch EdgeFunctions.Failure.status(403, _, _) {
+            // Only 403. A 401 is an expired token, which the next attempt fixes.
+            throw StorageError.refused(status: 403)
+        } catch {
             throw StorageError.urlUnavailable
         }
-        // Only 403. A 401 is an expired token, which the next attempt fixes.
-        if http.statusCode == 403 { throw StorageError.refused(status: http.statusCode) }
-        guard (200..<300).contains(http.statusCode),
-              let decoded = try? JSONDecoder().decode(Response.self, from: data) else {
-            throw StorageError.urlUnavailable
-        }
-        return decoded.urls
     }
 }

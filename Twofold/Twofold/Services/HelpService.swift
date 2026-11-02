@@ -129,10 +129,6 @@ enum HelpServiceError: LocalizedError {
 }
 
 enum HelpService {
-    private struct ErrorResponse: Decodable {
-        var error: String?
-    }
-
     /// Grouped by `category` (nil-category entries — none in the seed data, but the column
     /// allows it — sort under a nil key, last) preserving each row's own `sortOrder` within its
     /// group; groups themselves are ordered by their first entry's `sortOrder`.
@@ -169,24 +165,16 @@ enum HelpService {
     }
 
     private static func submit(body: [String: Any]) async throws {
-        guard let accessToken = await BackendService.freshAccessToken() else { throw HelpServiceError.notAuthenticated }
-
         // Drop nil-valued keys (e.g. no subject supplied) rather than sending JSON `null` —
         // `[String: Any]` + JSONSerialization would otherwise need each optional resolved
         // explicitly first regardless, so this is done once, here, rather than at every call site.
         let cleanedBody = body.filter { !($0.value is NSNull) }
 
-        var request = URLRequest(url: SupabaseConfig.projectURL.appendingPathComponent("functions/v1/submit-help-message"))
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue(SupabaseConfig.publishableKey, forHTTPHeaderField: "apiKey")
-        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-        request.httpBody = try JSONSerialization.data(withJSONObject: cleanedBody)
-
-        let (data, response) = try await URLSession.shared.data(for: request)
-        guard let http = response as? HTTPURLResponse else { throw HelpServiceError.requestFailed(message: nil) }
-        guard (200..<300).contains(http.statusCode) else {
-            let message = (try? JSONDecoder().decode(ErrorResponse.self, from: data))?.error
+        do {
+            try await EdgeFunctions.send("submit-help-message", body: cleanedBody)
+        } catch EdgeFunctions.Failure.notAuthenticated {
+            throw HelpServiceError.notAuthenticated
+        } catch let EdgeFunctions.Failure.status(_, message, _) {
             throw HelpServiceError.requestFailed(message: message)
         }
     }

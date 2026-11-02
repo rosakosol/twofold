@@ -213,19 +213,11 @@ extension BackendService {
     /// route to deleting shared data. The flag was removed rather than reconnected; see that
     /// view's header.
     static func deleteAccount() async throws {
-        guard let accessToken = await freshAccessToken() else { throw BackendError.notAuthenticated }
-
-        var request = URLRequest(url: SupabaseConfig.projectURL.appendingPathComponent("functions/v1/delete-account"))
-        request.httpMethod = "POST"
-        request.setValue(SupabaseConfig.publishableKey, forHTTPHeaderField: "apiKey")
-        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-
-        let (data, response) = try await URLSession.shared.data(for: request)
-        guard let http = response as? HTTPURLResponse else { throw BackendError.requestFailed(message: nil) }
-        guard (200..<300).contains(http.statusCode) else {
-            struct ErrorResponse: Decodable { var error: String? }
-            let message = (try? JSONDecoder().decode(ErrorResponse.self, from: data))?.error
+        do {
+            try await EdgeFunctions.send("delete-account", timeout: EdgeFunctions.slowTimeout)
+        } catch EdgeFunctions.Failure.notAuthenticated {
+            throw BackendError.notAuthenticated
+        } catch let EdgeFunctions.Failure.status(_, message, _) {
             throw BackendError.requestFailed(message: message)
         }
 

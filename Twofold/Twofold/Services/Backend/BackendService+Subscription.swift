@@ -25,20 +25,9 @@ extension BackendService {
     /// the webhook or the nightly reconcile will get there, this only makes it sooner.
     @discardableResult
     static func syncSubscriptionFromStore() async -> Bool {
-        guard let accessToken = await freshAccessToken() else { return false }
-
-        var request = URLRequest(url: SupabaseConfig.projectURL.appendingPathComponent("functions/v1/sync-my-subscription"))
-        request.httpMethod = "POST"
-        request.setValue(SupabaseConfig.publishableKey, forHTTPHeaderField: "apiKey")
-        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-
-        guard let (data, response) = try? await URLSession.shared.data(for: request),
-              let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
-            return false
-        }
         struct Row: Decodable { var active: Bool }
-        return (try? JSONDecoder().decode(Row.self, from: data))?.active ?? false
+        let row: Row? = try? await EdgeFunctions.invoke("sync-my-subscription")
+        return row?.active ?? false
     }
 
     // MARK: - Record export credits
