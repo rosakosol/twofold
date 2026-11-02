@@ -269,7 +269,7 @@ enum AeroFlightService {
     }
 
     private static func call<Response: Decodable>(_ functionName: String, body: [String: Any]) async throws -> Response {
-        guard let accessToken = BackendService.currentAccessToken else { throw AeroFlightError.notAuthenticated }
+        guard let accessToken = await BackendService.freshAccessToken() else { throw AeroFlightError.notAuthenticated }
 
         var request = URLRequest(url: SupabaseConfig.projectURL.appendingPathComponent("functions/v1/\(functionName)"))
         request.httpMethod = "POST"

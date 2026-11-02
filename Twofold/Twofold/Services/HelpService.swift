@@ -169,7 +169,7 @@ enum HelpService {
     }
 
     private static func submit(body: [String: Any]) async throws {
-        guard let accessToken = BackendService.currentAccessToken else { throw HelpServiceError.notAuthenticated }
+        guard let accessToken = await BackendService.freshAccessToken() else { throw HelpServiceError.notAuthenticated }
 
         // Drop nil-valued keys (e.g. no subject supplied) rather than sending JSON `null` —
         // `[String: Any]` + JSONSerialization would otherwise need each optional resolved

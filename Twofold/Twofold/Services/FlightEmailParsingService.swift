@@ -97,7 +97,7 @@ enum FlightEmailParsingService {
         if let body, !body.isEmpty { payload["body"] = body }
         if let pdfText, !pdfText.isEmpty { payload["pdfText"] = pdfText }
         guard !payload.isEmpty else { throw FlightEmailParsingError.missingContent }
-        guard let accessToken = BackendService.currentAccessToken else { throw FlightEmailParsingError.notAuthenticated }
+        guard let accessToken = await BackendService.freshAccessToken() else { throw FlightEmailParsingError.notAuthenticated }
 
         var request = URLRequest(url: SupabaseConfig.projectURL.appendingPathComponent("functions/v1/parse-flight-email"))
         request.httpMethod = "POST"

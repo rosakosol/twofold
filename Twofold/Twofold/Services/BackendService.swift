@@ -355,11 +355,23 @@ enum BackendService {
         supabase.auth.currentSession?.user.email
     }
 
+    /// Where `freshAccessToken()` gets its session. A test hands in its own.
+    nonisolated(unsafe) static var validatedAccessToken: @Sendable () async -> String? = {
+        try? await supabase.auth.session.accessToken
+    }
+
     /// Forwarded as the `Authorization` header when calling Edge Functions that need to know
     /// who's calling (e.g. `resolve-flight`/`add-flight`/`refresh-flight` — see
     /// `AeroFlightService`) so the function can build a request-scoped, RLS-respecting client.
-    static var currentAccessToken: String? {
-        supabase.auth.currentSession?.accessToken
+    ///
+    /// From `auth.session`, which refreshes an expired token before handing it over. This used to
+    /// read `auth.currentSession`, which returns whatever is on disk unchecked: database calls go
+    /// through the SDK and refresh, but these hand-built requests do not, so the first photo
+    /// signing or partner notification after a long time in the background could go out with an
+    /// expired token and 401 — signing reported it as "unavailable", notifying swallowed it.
+    /// Called once per request, not per chunk: see the auth-lock note in `RootView`.
+    static func freshAccessToken() async -> String? {
+        await validatedAccessToken()
     }
 
     /// Restores a persisted session (if any) on launch. supabase-swift keeps the refresh
@@ -436,7 +448,7 @@ enum BackendService {
     /// the webhook or the nightly reconcile will get there, this only makes it sooner.
     @discardableResult
     static func syncSubscriptionFromStore() async -> Bool {
-        guard let accessToken = currentAccessToken else { return false }
+        guard let accessToken = await freshAccessToken() else { return false }
 
         var request = URLRequest(url: SupabaseConfig.projectURL.appendingPathComponent("functions/v1/sync-my-subscription"))
         request.httpMethod = "POST"
@@ -528,7 +540,7 @@ enum BackendService {
     /// route to deleting shared data. The flag was removed rather than reconnected; see that
     /// view's header.
     static func deleteAccount() async throws {
-        guard let accessToken = currentAccessToken else { throw BackendError.notAuthenticated }
+        guard let accessToken = await freshAccessToken() else { throw BackendError.notAuthenticated }
 
         var request = URLRequest(url: SupabaseConfig.projectURL.appendingPathComponent("functions/v1/delete-account"))
         request.httpMethod = "POST"
@@ -1917,7 +1929,7 @@ enum BackendService {
     /// there's no couple to resolve a recipient through (that's the whole point pre-acceptance),
     /// so the target profile is passed explicitly.
     private static func notifyConnectionRequest(eventType: String, targetProfileId: UUID) async {
-        guard let accessToken = currentAccessToken else { return }
+        guard let accessToken = await freshAccessToken() else { return }
         let body: [String: Any] = ["eventType": eventType, "targetProfileId": targetProfileId.uuidString]
 
         var request = URLRequest(url: SupabaseConfig.projectURL.appendingPathComponent("functions/v1/notify-connection-request"))
@@ -4737,7 +4749,7 @@ enum BackendService {
     /// is sent rather than inferred from `gameType`, since a daily session is an ordinary
     /// `deep_conversations` session under the hood and nothing in the payload distinguishes it.
     static func notifyPartner(event: CoupleNotificationEvent, detail: String? = nil, sessionID: UUID? = nil, gameType: GameType? = nil, isDaily: Bool = false, target: NotifyTarget = .partner) async {
-        guard let accessToken = currentAccessToken else { return }
+        guard let accessToken = await freshAccessToken() else { return }
         var body: [String: Any] = ["eventType": event.rawValue]
         if let detail { body["detail"] = detail }
         if let sessionID { body["sessionId"] = sessionID.uuidString }
@@ -4766,7 +4778,7 @@ enum BackendService {
     /// Returns false for any non-2xx or transport error. Does not throw, because the caller has
     /// nothing useful to do with the distinction between them.
     static func sendBirthdayWish(message: String) async -> Bool {
-        guard let accessToken = currentAccessToken else { return false }
+        guard let accessToken = await freshAccessToken() else { return false }
         var body: [String: Any] = ["eventType": CoupleNotificationEvent.birthdayWish.rawValue]
         if !message.isEmpty { body["detail"] = message }
 

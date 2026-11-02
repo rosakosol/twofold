@@ -65,10 +65,14 @@ enum R2Storage {
     static func readURLs(_ kind: Kind, paths: [String]) async -> [String: URL] {
         let unique = Array(Set(paths))
         guard !unique.isEmpty else { return [:] }
+        // Once for every chunk, not once per chunk: the chunks go out together, and each asking
+        // the auth layer for a session at the same moment is the contention `RootView`'s
+        // foreground handler describes.
+        guard let accessToken = await BackendService.freshAccessToken() else { return [:] }
 
         return await withTaskGroup(of: [String: URL].self) { group in
             for chunk in chunked(unique) {
-                group.addTask { (try? await signed(kind, op: "read", paths: chunk)) ?? [:] }
+                group.addTask { (try? await signed(kind, op: "read", paths: chunk, accessToken: accessToken)) ?? [:] }
             }
             var all: [String: URL] = [:]
             for await chunk in group { all.merge(chunk) { current, _ in current } }
@@ -150,9 +154,13 @@ enum R2Storage {
         op: String,
         paths: [String],
         contentType: String? = nil,
-        contentLength: Int? = nil
+        contentLength: Int? = nil,
+        accessToken suppliedToken: String? = nil
     ) async throws -> [String: URL] {
-        guard let accessToken = BackendService.currentAccessToken else {
+        // Refreshed if it has expired — see `BackendService.freshAccessToken`.
+        let token: String?
+        if let suppliedToken { token = suppliedToken } else { token = await BackendService.freshAccessToken() }
+        guard let accessToken = token else {
             throw StorageError.urlUnavailable
         }
 
