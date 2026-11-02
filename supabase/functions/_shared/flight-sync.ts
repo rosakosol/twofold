@@ -737,6 +737,8 @@ async function notifyLiveActivity(serviceClient: SupabaseClient, oldRow: FlightR
         const dismissalDateUnix = Math.round(
           (arrivalBasis ? new Date(arrivalBasis).getTime() : Date.now()) / 1000,
         ) + 30 * 60;
+        // No stale date on the end. The flight's stale date is its arrival, which has passed by
+        // now, so it would mark the final "Landed" card out of date for the half hour it stays up.
         await sendLiveActivityUpdate(token.push_token, token.environment, contentState, "end", { dismissalDateUnix });
         await serviceClient.from("live_activity_push_tokens").delete().eq("id", token.id);
       } else {
