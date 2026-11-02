@@ -10,6 +10,8 @@ import Foundation
 import Testing
 @testable import Twofold
 
+// Nested under `PendingMemoryDiskTests` because these write the pending trip and memory stores.
+extension PendingMemoryDiskTests {
 @Suite("TravelStore", .serialized)
 @MainActor
 struct TravelStoreTests {
@@ -54,4 +56,26 @@ struct TravelStoreTests {
         await travel.refreshFlights()
         #expect(travel.trips.isEmpty)
     }
+
+    @Test("reset() stops reading the couple's flights channel and closes it")
+    func resetEndsTheFlightsChannel() async {
+        let travel = TravelStore()
+        let (stream, continuation) = AsyncStream<Void>.makeStream()
+        var readerEnded = false
+        continuation.onTermination = { _ in Task { @MainActor in readerEnded = true } }
+        var closed = false
+        travel.openCoupleFlightsFeed = { _ in (stream, { closed = true }) }
+        await travel.startFlightsRealtimeSubscription(coupleID: UUID())
+        #expect(travel.isFollowingCoupleFlights)
+
+        travel.reset()
+
+        #expect(!travel.isFollowingCoupleFlights)
+        for _ in 0..<200 where !(closed && readerEnded) {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(closed)
+        #expect(readerEnded)
+    }
+}
 }

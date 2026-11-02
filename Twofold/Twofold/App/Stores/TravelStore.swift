@@ -47,9 +47,11 @@ final class TravelStore: AccountScopedStore {
     /// server had already correctly marked done kept showing as "tracked" on Home/Trips
     /// indefinitely if the app just sat open, only catching up once the user happened to open
     /// that flight's own detail screen (which has its own, single-flight realtime subscription).
-    private var flightsRealtimeChannel: RealtimeChannelV2?
+    ///
+    /// Held as how to end it rather than as the channel, so a test can watch it end.
+    private var stopFlightsRealtimeChannel: (() async -> Void)?
     private var flightsRealtimeTask: Task<Void, Never>?
-    /// Which couple the current `flightsRealtimeChannel` (if any) belongs to — lets
+    /// Which couple the current flights channel (if any) belongs to — lets
     /// `startFlightsRealtimeSubscription` skip re-subscribing when nothing actually changed
     /// (see its own doc comment for why that matters, not just as an optimization).
     private var flightsRealtimeCoupleID: UUID?
@@ -69,6 +71,16 @@ final class TravelStore: AccountScopedStore {
 
     @ObservationIgnored weak var host: (any TravelStoreHost)?
 
+    /// Opens the couple's flights channel: a signal for every change, and how to close it. A seam
+    /// so a test can stand in for the realtime server.
+    @ObservationIgnored var openCoupleFlightsFeed: (UUID) -> (stream: AsyncStream<Void>, stop: () async -> Void) = { coupleID in
+        let (channel, stream) = BackendService.subscribeToCoupleFlights(coupleID: coupleID)
+        return (stream, { await BackendService.unsubscribe(channel) })
+    }
+
+    /// Whether a flights channel is open, or a task is still reading one.
+    var isFollowingCoupleFlights: Bool { stopFlightsRealtimeChannel != nil || flightsRealtimeTask != nil }
+
     func reset() {
         pendingTripIDs = []
         pendingMemoryIDs = []
@@ -77,6 +89,17 @@ final class TravelStore: AccountScopedStore {
         trips = []
         memories = []
         flights = []
+        // The couple's flights channel, which otherwise kept reading for the account that left and
+        // refreshing its flights. Usually already closed by sign-out, which awaits it first; this is
+        // for every path that resets without doing so. Closed in the background because reset()
+        // is synchronous; the reading task stops now.
+        flightsRealtimeTask?.cancel()
+        flightsRealtimeTask = nil
+        if let stop = stopFlightsRealtimeChannel {
+            Task { await stop() }
+        }
+        stopFlightsRealtimeChannel = nil
+        flightsRealtimeCoupleID = nil
     }
 
     // MARK: - Through the host
@@ -323,8 +346,8 @@ final class TravelStore: AccountScopedStore {
     func startFlightsRealtimeSubscription(coupleID: UUID) async {
         guard flightsRealtimeCoupleID != coupleID else { return }
         await stopFlightsRealtimeSubscription()
-        let (channel, stream) = BackendService.subscribeToCoupleFlights(coupleID: coupleID)
-        flightsRealtimeChannel = channel
+        let (stream, stop) = openCoupleFlightsFeed(coupleID)
+        stopFlightsRealtimeChannel = stop
         flightsRealtimeCoupleID = coupleID
         flightsRealtimeTask = Task { [weak self] in
             for await _ in stream {
@@ -336,10 +359,8 @@ final class TravelStore: AccountScopedStore {
     func stopFlightsRealtimeSubscription() async {
         flightsRealtimeTask?.cancel()
         flightsRealtimeTask = nil
-        if let flightsRealtimeChannel {
-            await BackendService.unsubscribe(flightsRealtimeChannel)
-        }
-        flightsRealtimeChannel = nil
+        await stopFlightsRealtimeChannel?()
+        stopFlightsRealtimeChannel = nil
         flightsRealtimeCoupleID = nil
     }
 
