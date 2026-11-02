@@ -2,7 +2,7 @@
 -- neighbours that looked like them, and were kept on purpose, are still there and still run.
 
 begin;
-select plan(13);
+select plan(10);
 
 create extension if not exists pgtap;
 
@@ -39,13 +39,7 @@ select lives_ok(
 );
 reset role;
 
--- Kept: the feedback-board outbox, left for the owner to decide on.
-select has_table('public'::name, 'feature_notification_outbox'::name,
-  'feature_notification_outbox stays until its owner decides');
-select has_trigger('public'::name, 'developer_updates'::name, 'trg_developer_updates_notify'::name,
-  'and the developer-update trigger still fills it');
-select has_trigger('public'::name, 'feature_requests'::name, 'trg_feature_requests_status_change_notify'::name,
-  'and so does the status-change trigger');
+-- The feedback-board outbox this migration kept was dropped later, by 20261120000100.
 
 select * from finish();
 rollback;
