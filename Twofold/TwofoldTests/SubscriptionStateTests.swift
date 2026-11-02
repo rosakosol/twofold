@@ -102,3 +102,35 @@ struct SubscriptionSnapshotTests {
         #expect(state.isActive)
     }
 }
+
+@Suite("Leaks reset() used to leave behind (CORE-5)")
+@MainActor
+struct AccountScopedLeakTests {
+
+    @Test("Whether this person pays goes, so the next account is not told to cancel it")
+    func viewerHoldsSubscriptionIsCleared() {
+        let state = SubscriptionState()
+        state.apply(active: true, viewerHolds: true, tier: "plus", viewerStore: "app_store")
+        state.reset()
+        #expect(state.viewerHoldsSubscription == false)
+    }
+
+    @Test("The outgoing request lookup counts as not asked yet, for the next account")
+    func outgoingRequestResolutionIsCleared() async {
+        let session = CoupleSession()
+        session.hasResolvedOutgoingConnectionRequest = true
+        session.reset()
+        #expect(session.hasResolvedOutgoingConnectionRequest == false)
+    }
+
+    @Test("The decks' unavailable state and a pending open of today's question go")
+    func gamesFlagsAreCleared() {
+        let games = GamesState()
+        games.applyDemoState()
+        games.isDailyQuestionOpenRequested = true
+        games.markDecksUnavailableForTesting()
+        games.reset()
+        #expect(games.gameDecksUnavailable == false)
+        #expect(games.isDailyQuestionOpenRequested == false)
+    }
+}

@@ -100,6 +100,9 @@ final class CoupleSession: AccountScopedStore {
         // These carry the name of someone who asked to connect.
         pendingConnectionRequests = []
         pendingOutgoingConnectionRequest = nil
+        // Left true, Home showed the next account the generic invite card before its own lookup
+        // had run, to someone who may well have a request waiting. Signing in resolves it again.
+        hasResolvedOutgoingConnectionRequest = false
     }
 
     static var placeholderCouple: Couple {

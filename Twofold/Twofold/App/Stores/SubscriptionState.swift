@@ -99,6 +99,9 @@ final class SubscriptionState: AccountScopedStore {
 
     func reset() {
         isActive = false
+        // Read by the delete-account, disconnect and settings screens to tell the payer to cancel.
+        // Left set, the next account was told to cancel a subscription it does not hold.
+        viewerHoldsSubscription = false
         hasResolved = false
         // Tier, which gates content. A new free account inheriting "premium" sees premium decks
         // until the next refresh corrects it.

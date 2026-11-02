@@ -39,3 +39,47 @@ struct AccountScopedStoreTests {
         #expect(found.count == model.accountScopedStores.count)
     }
 }
+
+extension PendingMemoryDiskTests {
+    /// Nested here because signing out clears the stores on disk the suites here also use.
+    @Suite("Signing out resets every child store", .serialized)
+    @MainActor
+    struct SignOutResetsEveryStoreTests {
+
+        @Test("After sign-out, every store holds what a fresh one does")
+        func signOutResetsEveryStore() async {
+            let model = AppModel()
+            model.sessionTeardown = FakeSessionTeardown()
+            model.session.hasCouple = true
+            model.session.partnerConnected = true
+            model.session.backendCoupleID = UUID()
+            model.session.hasResolvedOutgoingConnectionRequest = true
+            model.subscription.apply(active: true, viewerHolds: true, tier: "premium", viewerStore: "stripe")
+            model.prompts.writeRefusedMessage = "refused"
+            model.prompts.setupChecklistDismissed = true
+            model.games.applyDemoState()
+            model.games.isDailyQuestionOpenRequested = true
+            model.travel.trips = DemoData.trips
+            model.travel.flights = DemoData.flights
+            model.myDrawingURL = URL(string: "https://example.test/pad.png")
+
+            await model.signOut()
+
+            #expect(model.session.hasCouple == false)
+            #expect(model.session.partnerConnected == false)
+            #expect(model.session.backendCoupleID == nil)
+            #expect(model.session.hasResolvedOutgoingConnectionRequest == false)
+            #expect(model.subscription.isActive == false)
+            #expect(model.subscription.viewerHoldsSubscription == false)
+            #expect(model.subscription.tier == nil)
+            #expect(model.prompts.writeRefusedMessage == nil)
+            #expect(model.prompts.setupChecklistDismissed == false)
+            #expect(model.games.dailyStreak == nil)
+            #expect(model.games.gameDecks == nil)
+            #expect(model.games.isDailyQuestionOpenRequested == false)
+            #expect(model.travel.trips.isEmpty)
+            #expect(model.travel.flights.isEmpty)
+            #expect(model.myDrawingURL == nil)
+        }
+    }
+}

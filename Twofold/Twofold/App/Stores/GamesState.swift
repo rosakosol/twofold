@@ -91,6 +91,11 @@ final class GamesState: AccountScopedStore {
         todaysMyAnswered = false
         todaysPartnerAnswered = false
         dailyQuestionError = nil
+
+        // The previous account's failed deck fetch, and a widget link or push asking to open the
+        // previous couple's question, which the next account's Games tab would otherwise act on.
+        gameDecksUnavailable = false
+        isDailyQuestionOpenRequested = false
     }
 
     /// The streak and today's question, restored the same way and for the same reason as the rest:
@@ -391,6 +396,10 @@ final class GamesState: AccountScopedStore {
     }
 
     #if DEBUG
+    func markDecksUnavailableForTesting() {
+        gameDecksUnavailable = true
+    }
+
     /// The sample couple's games, for `-demoMode` (see `AppModel.applyDemoState()`).
     func applyDemoState() {
             dailyStreak = DemoData.streak
