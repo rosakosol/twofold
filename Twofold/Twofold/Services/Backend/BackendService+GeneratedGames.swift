@@ -32,17 +32,11 @@ extension BackendService {
     }
 
     static func startSudokuSession(difficulty: SudokuDifficulty) async throws -> SudokuSessionStart {
-        struct Params: Encodable {
+        nonisolated struct Params: Encodable {
             var pDifficulty: String
             enum CodingKeys: String, CodingKey { case pDifficulty = "p_difficulty" }
         }
-        // `returns table` comes back as a set, so this decodes as an array of one rather than a
-        // bare object.
-        let rows: [SudokuSessionStart] = try await supabase
-            .rpc("start_sudoku_session", params: Params(pDifficulty: difficulty.rawValue))
-            .execute()
-            .value
-        guard let start = rows.first else { throw BackendError.notAuthenticated }
+        let start: SudokuSessionStart = try await rpcSingle("start_sudoku_session", params: Params(pDifficulty: difficulty.rawValue))
         Analytics.capture(Analytics.Event.sessionStart, properties: [
             "game_type": GameType.sudoku.rawValue,
             "difficulty": difficulty.rawValue,
@@ -202,27 +196,14 @@ extension BackendService {
     }
 
     static func startWordGuessSession() async throws -> WordGuessSessionStart {
-        do {
-            // `returns table` comes back as a set, so this decodes as an array of one.
-            let rows: [WordGuessSessionStart] = try await supabase
-                .rpc("start_word_guess_session")
-                .execute()
-                .value
-            guard let start = rows.first else { throw BackendError.notAuthenticated }
-            Analytics.capture(Analytics.Event.sessionStart, properties: [
-                "game_type": GameType.wordGuess.rawValue,
-                "resumed": start.resumed
-            ])
-            return start
-        } catch {
-            // The RPC raises a bare `word_guess_daily_limit`, which arrives as a generic Postgres
-            // error. Recognising it here keeps the string in one place rather than having the two
-            // call sites match on message text.
-            if "\(error)".contains("word_guess_daily_limit") {
-                throw BackendError.wordGuessDailyLimit
-            }
-            throw error
-        }
+        // A Plus couple that has had today's word gets `word_guess_daily_limit`, which
+        // `BackendFailure` names `.wordGuessDailyLimit`.
+        let start: WordGuessSessionStart = try await rpcSingle("start_word_guess_session")
+        Analytics.capture(Analytics.Event.sessionStart, properties: [
+            "game_type": GameType.wordGuess.rawValue,
+            "resumed": start.resumed
+        ])
+        return start
     }
 
     /// Starts, or picks back up, a Word Search at this theme.
@@ -244,26 +225,13 @@ extension BackendService {
     }
 
     static func startWordSearchSession(theme: WordSearchTheme) async throws -> WordSearchSessionStart {
-        struct Params: Encodable {
+        nonisolated struct Params: Encodable {
             var pTheme: String
             enum CodingKeys: String, CodingKey { case pTheme = "p_theme" }
         }
-        // `returns table` comes back as a set, so this decodes as an array of one.
-        let rows: [WordSearchSessionStart]
-        do {
-            rows = try await supabase
-                .rpc("start_word_search_session", params: Params(pTheme: theme.rawValue))
-                .execute()
-                .value
-        } catch {
-            // Translated here rather than shown raw: the RPC's message is a Postgres exception,
-            // and the screen has a real thing to offer instead. See 20261111000700.
-            if "\(error)".contains("word_search_requires_premium") {
-                throw BackendError.wordSearchRequiresPremium
-            }
-            throw error
-        }
-        guard let start = rows.first else { throw BackendError.notAuthenticated }
+        // `word_search_requires_premium` comes back as `.wordSearchRequiresPremium` rather than
+        // shown raw: the screen has a real thing to offer instead. See 20261111000700.
+        let start: WordSearchSessionStart = try await rpcSingle("start_word_search_session", params: Params(pTheme: theme.rawValue))
         Analytics.capture(Analytics.Event.sessionStart, properties: [
             "game_type": GameType.wordSearch.rawValue,
             "theme": theme.rawValue,
@@ -320,26 +288,13 @@ extension BackendService {
     }
 
     static func startConnectFourSession() async throws -> ConnectFourStart {
-        do {
-            let rows: [ConnectFourStart] = try await supabase
-                .rpc("start_connect_four_session")
-                .execute()
-                .value
-            guard let start = rows.first else { throw BackendError.notAuthenticated }
-            Analytics.capture(Analytics.Event.sessionStart, properties: [
-                "game_type": GameType.connectFour.rawValue,
-                "resumed": start.resumed
-            ])
-            return start
-        } catch {
-            if "\(error)".contains("connect_four_requires_premium") {
-                throw BackendError.connectFourRequiresPremium
-            }
-            if "\(error)".contains("connect_four_needs_partner") {
-                throw BackendError.connectFourNeedsPartner
-            }
-            throw error
-        }
+        // Refused as `.connectFourRequiresPremium` or `.connectFourNeedsPartner`.
+        let start: ConnectFourStart = try await rpcSingle("start_connect_four_session")
+        Analytics.capture(Analytics.Event.sessionStart, properties: [
+            "game_type": GameType.connectFour.rawValue,
+            "resumed": start.resumed
+        ])
+        return start
     }
 
     /// Drops a disc, and reports whether that ended the game.
@@ -348,7 +303,7 @@ extension BackendService {
     /// matter: the check produces a useful error, and the index is what makes the outcome correct
     /// when two moves race — see the migration's header.
     static func playConnectFourMove(sessionID: UUID, column: Int) async throws -> ConnectFourMoveResult {
-        struct Params: Encodable {
+        nonisolated struct Params: Encodable {
             var pSessionId: UUID
             var pColumn: Int
             enum CodingKeys: String, CodingKey {
@@ -356,22 +311,9 @@ extension BackendService {
                 case pColumn = "p_column"
             }
         }
-        do {
-            let rows: [ConnectFourMoveResult] = try await supabase
-                .rpc("play_connect_four_move", params: Params(pSessionId: sessionID, pColumn: column))
-                .execute()
-                .value
-            guard let result = rows.first else { throw BackendError.notAuthenticated }
-            return result
-        } catch {
-            // These three are ordinary outcomes rather than failures — the board raced, or was
-            // finished, or the column filled up — so they are named rather than shown as errors.
-            let description = "\(error)"
-            if description.contains("connect_four_not_your_turn") { throw BackendError.notYourTurn }
-            if description.contains("connect_four_column_full") { throw BackendError.columnFull }
-            if description.contains("connect_four_finished") { throw BackendError.gameAlreadyFinished }
-            throw error
-        }
+        // Three ordinary outcomes rather than failures — the board raced, or was finished, or the
+        // column filled up — come back named: `.notYourTurn`, `.gameAlreadyFinished`, `.columnFull`.
+        return try await rpcSingle("play_connect_four_move", params: Params(pSessionId: sessionID, pColumn: column))
     }
 
     static func fetchGameMoves(sessionID: UUID) async throws -> [GameMove] {

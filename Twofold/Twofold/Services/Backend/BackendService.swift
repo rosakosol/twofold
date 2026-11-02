@@ -150,6 +150,8 @@ enum BackendService {
             return error.response.statusCode == 403
         case FunctionsError.httpError(let code, _):
             return code == 403
+        case EdgeFunctions.Failure.status(let code, _, _):
+            return code == 403
         case R2Storage.StorageError.refused:
             return true
         default:
