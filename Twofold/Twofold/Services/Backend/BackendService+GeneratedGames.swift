@@ -370,25 +370,12 @@ extension BackendService {
     }
 
     static func subscribeToGameMoves(sessionID: UUID) -> (channel: RealtimeChannelV2, stream: AsyncStream<Void>) {
-        let channel = supabase.channel("game_moves_\(sessionID.uuidString)")
-        let moves = channel.postgresChange(InsertAction.self, table: "game_moves", filter: .eq("session_id", value: sessionID.uuidString))
-        // The session row too: it is what says the game is over, and the move that ended it was the
-        // partner's — so this device never saw the RPC's answer.
-        let sessionUpdates = channel.postgresChange(UpdateAction.self, table: "game_sessions", filter: .eq("id", value: sessionID.uuidString))
-
-        let (stream, continuation) = AsyncStream<Void>.makeStream()
-        Task {
-            try? await channel.subscribeWithError()
-            async let moveTask: Void = {
-                for await _ in moves { continuation.yield(()) }
-            }()
-            async let sessionTask: Void = {
-                for await _ in sessionUpdates { continuation.yield(()) }
-            }()
-            _ = await (moveTask, sessionTask)
-            continuation.finish()
-        }
-        return (channel, stream)
+        signalStream(channelName: "game_moves_\(sessionID.uuidString)", changes: [
+            .insert("game_moves", filter: .eq("session_id", value: sessionID.uuidString)),
+            // The session row too: it is what says the game is over, and the move that ended it
+            // was the partner's — so this device never saw the RPC's answer.
+            .update("game_sessions", filter: .eq("id", value: sessionID.uuidString)),
+        ])
     }
 
     /// Every finished sudoku solve visible to this account, flattened for `SudokuStats`.

@@ -868,22 +868,9 @@ extension BackendService {
     /// per the reveal design, the client always re-fetches via the RLS-protected select on any
     /// change rather than trusting realtime payload contents for sensitive round data.
     static func subscribeToGameSession(id: UUID) -> (channel: RealtimeChannelV2, stream: AsyncStream<Void>) {
-        let channel = supabase.channel("game_session_\(id.uuidString)")
-        let responseInsertions = channel.postgresChange(InsertAction.self, table: "game_responses", filter: .eq("session_id", value: id.uuidString))
-        let sessionUpdates = channel.postgresChange(UpdateAction.self, table: "game_sessions", filter: .eq("id", value: id.uuidString))
-
-        let (stream, continuation) = AsyncStream<Void>.makeStream()
-        Task {
-            try? await channel.subscribeWithError()
-            async let insertionsTask: Void = {
-                for await _ in responseInsertions { continuation.yield(()) }
-            }()
-            async let updatesTask: Void = {
-                for await _ in sessionUpdates { continuation.yield(()) }
-            }()
-            _ = await (insertionsTask, updatesTask)
-            continuation.finish()
-        }
-        return (channel, stream)
+        signalStream(channelName: "game_session_\(id.uuidString)", changes: [
+            .insert("game_responses", filter: .eq("session_id", value: id.uuidString)),
+            .update("game_sessions", filter: .eq("id", value: id.uuidString)),
+        ])
     }
 }

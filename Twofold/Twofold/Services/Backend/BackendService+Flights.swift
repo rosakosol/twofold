@@ -359,22 +359,20 @@ extension BackendService {
     /// A Realtime channel of newly-inserted provider events, written server-side by the
     /// AeroAPI sync pipeline.
     static func subscribeToFlightStatusEvents(flightID: UUID) -> (channel: RealtimeChannelV2, stream: AsyncStream<FlightStatusEvent>) {
-        let channel = supabase.channel("flight_status_events_\(flightID.uuidString)")
+        let name = "flight_status_events_\(flightID.uuidString)"
+        let channel = supabase.channel(name)
         let insertions = channel.postgresChange(
             InsertAction.self,
             table: "flight_status_events",
             filter: .eq("flight_id", value: flightID.uuidString)
         )
-
-        let (stream, continuation) = AsyncStream<FlightStatusEvent>.makeStream()
-        Task {
-            try? await channel.subscribeWithError()
+        let forward: RealtimeSource<FlightStatusEvent> = { continuation in
             for await insertion in insertions {
                 guard let row = try? insertion.decodeRecord(as: FlightStatusEventRow.self, decoder: AnyJSON.decoder) else { continue }
                 continuation.yield(row.toModel())
             }
-            continuation.finish()
         }
+        let stream = realtimeStream(channel, name: name, sources: [forward])
         return (channel, stream)
     }
 
@@ -384,16 +382,9 @@ extension BackendService {
     /// refresh, so it just sat stale between visits. The caller re-fetches via `fetchFlight`
     /// rather than trusting the realtime payload's shape.
     static func subscribeToFlightRefresh(flightID: UUID) -> (channel: RealtimeChannelV2, stream: AsyncStream<Void>) {
-        let channel = supabase.channel("flight_refresh_\(flightID.uuidString)")
-        let updates = channel.postgresChange(UpdateAction.self, table: "flights", filter: .eq("id", value: flightID.uuidString))
-
-        let (stream, continuation) = AsyncStream<Void>.makeStream()
-        Task {
-            try? await channel.subscribeWithError()
-            for await _ in updates { continuation.yield(()) }
-            continuation.finish()
-        }
-        return (channel, stream)
+        signalStream(channelName: "flight_refresh_\(flightID.uuidString)", changes: [
+            .update("flights", filter: .eq("id", value: flightID.uuidString)),
+        ])
     }
 
     /// App-wide counterpart to `subscribeToFlightRefresh` — that one only covers a single flight
@@ -404,20 +395,10 @@ extension BackendService {
     /// while just sitting on a list screen. Scoped to the whole couple (every insert/update, not
     /// filtered to one row) and kept alive for as long as a couple is loaded, not just one view.
     static func subscribeToCoupleFlights(coupleID: UUID) -> (channel: RealtimeChannelV2, stream: AsyncStream<Void>) {
-        let channel = supabase.channel("couple_flights_\(coupleID.uuidString)")
-        let inserts = channel.postgresChange(InsertAction.self, table: "flights", filter: .eq("couple_id", value: coupleID.uuidString))
-        let updates = channel.postgresChange(UpdateAction.self, table: "flights", filter: .eq("couple_id", value: coupleID.uuidString))
-
-        let (stream, continuation) = AsyncStream<Void>.makeStream()
-        Task {
-            try? await channel.subscribeWithError()
-            await withTaskGroup(of: Void.self) { group in
-                group.addTask { for await _ in inserts { continuation.yield(()) } }
-                group.addTask { for await _ in updates { continuation.yield(()) } }
-            }
-            continuation.finish()
-        }
-        return (channel, stream)
+        signalStream(channelName: "couple_flights_\(coupleID.uuidString)", changes: [
+            .insert("flights", filter: .eq("couple_id", value: coupleID.uuidString)),
+            .update("flights", filter: .eq("couple_id", value: coupleID.uuidString)),
+        ])
     }
 
     private struct NotificationPreferencesRow: Codable {
