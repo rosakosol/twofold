@@ -81,11 +81,6 @@ final class AppModel {
     /// account and signs it back out. `SignInView`/`WelcomeView` read this once to show the
     /// user why they landed back at sign-in instead of their previous session resuming.
     var accountDeletedMessage: String?
-    /// Set by `adoptSoloProfile(_:)` whenever it fires while the couple was still considered
-    /// connected a moment ago — a partner removing you, or a partner deleting their own account,
-    /// look identical from here. `HomeView` reads this once to explain why Trips/Memories/
-    /// Flights just went quiet, instead of letting them silently empty out with no context.
-    var partnerDisconnectedMessage: String?
     var couple: Couple = AppModel.placeholderCouple
     var trips: [Trip] = []
     var memories: [Memory] = []
@@ -99,51 +94,21 @@ final class AppModel {
 
     // MARK: - Child stores
     //
-    // Each holds one part of the account's state and puts it back with its own `reset()`. The
-    // properties below that read through to one of them are forwarders, kept so views and tests
-    // did not have to change when the state moved; see each store for what its fields mean.
+    // Each holds one part of the account's state and puts it back with its own `reset()`. The old
+    // property names still work on `AppModel` through the forwarders in AppModel+Forwarding.swift,
+    // kept so views and tests did not have to change when the state moved.
 
     /// Subscribed or not, which tier, and who pays.
     let subscription = SubscriptionState()
+    /// The review prompt, invite nudge, celebration, checklist, and the notices.
+    let prompts = PromptsState()
 
     /// Every child store holding account state — what `resetAccountScopedState()` resets.
     /// `AccountScopedStoreTests` fails if a store is added above and not here.
     var accountScopedStores: [any AccountScopedStore] {
-        [subscription]
+        [subscription, prompts]
     }
 
-    var isSubscriptionActive: Bool {
-        get { subscription.isActive }
-        set { subscription.isActive = newValue }
-    }
-    var viewerHoldsSubscription: Bool {
-        get { subscription.viewerHoldsSubscription }
-        set { subscription.viewerHoldsSubscription = newValue }
-    }
-
-    /// Set when a write was refused outright rather than merely failing to send — an RLS denial,
-    /// which since 20261028000000 is what an unsubscribed couple gets for adding or editing.
-    ///
-    /// Exists because the optimistic-local-edit pattern these paths use is right for a dropped
-    /// connection and wrong for a refusal. Offline, the edit is correct and lands later; refused,
-    /// it is already gone and staying on screen is a lie that unwinds at the next relaunch.
-    /// Cleared by whoever shows it.
-    var writeRefusedMessage: String?
-    var subscriptionTier: String? {
-        get { subscription.tier }
-        set { subscription.tier = newValue }
-    }
-    var viewerSubscriptionStore: String? {
-        get { subscription.viewerStore }
-        set { subscription.viewerStore = newValue }
-    }
-
-    /// Server-persisted "seen it" flags — deliberately not UserDefaults/@AppStorage, since those
-    /// live in the app's local sandbox and get wiped on every uninstall/reinstall, showing these
-    /// one-time prompts again even though nothing about the account changed. See
-    /// `markPartnerConnectedCelebrationShown()`/`dismissSetupChecklist()`.
-    var partnerConnectedCelebrationShown = false
-    var setupChecklistDismissed = false
 
     /// Daily Activity streak — see `startOrResumeDailyQuestion()`/`refreshDailyStreak()`. Nil
     /// until the first fetch resolves (not defaulted to 0) so `DailyActivityCard` can show a
@@ -221,11 +186,6 @@ final class AppModel {
     /// meant to exempt.
     private(set) var hasResolvedOutgoingConnectionRequest = false
 
-    var hasResolvedSubscription: Bool { subscription.hasResolved }
-
-    func markSubscriptionResolved() {
-        subscription.markResolved()
-    }
 
     /// Whether the couple's own state has been fetched yet.
     ///
@@ -241,22 +201,6 @@ final class AppModel {
     /// they all answer to the same fetch.
     private(set) var hasLoadedCoupleState = false
 
-    /// Non-nil only while there's an unacknowledged "your subscription lapsed because {name}
-    /// left" notice — set by `adoptSoloProfile(_:)` from `leave_couple`'s server-captured
-    /// snapshot (the ex-partner's name is already gone from `partner_name` by the time this
-    /// loads). `HomeView` shows its `subscriptionLapsedCard` while this is set — see
-    /// `markPartnerSubscriptionLapseAcknowledged()`. It used to be a whole screen shown by
-    /// `RootView` in place of the non-dismissable paywall; both went when the paywall did.
-    var partnerSubscriptionLapsedPartnerName: String?
-
-    /// Set whenever a newly-crossed, not-yet-shown review milestone is detected — RootView
-    /// presents `ReviewPromptView` as a sheet whenever this is non-nil. See
-    /// `checkReviewMilestones()`/`noteReviewMilestone(_:)`.
-    var pendingReviewMilestone: ReviewMilestone?
-
-    /// RootView presents `PartnerInviteNudgeView` as a sheet whenever this is true — see
-    /// `noteSoloActionCompleted()`.
-    var pendingPartnerInviteNudge = false
 
     /// Set once a real `couples` row exists for this user.
     /// `private(set)` rather than `private`: `ExportDataView` needs the id to export the couple
@@ -1088,18 +1032,6 @@ final class AppModel {
         partnerSubscriptionLapsedPartnerName = profile.partnerSubscriptionLapseShown ? nil : profile.partnerSubscriptionLapsePartnerName
     }
 
-    // Forwarded to `SubscriptionState`, where they now live.
-    static func isSubscribed(backendSaysActive: Bool, deviceTier: SubscriptionTier?) -> Bool {
-        SubscriptionState.isSubscribed(backendSaysActive: backendSaysActive, deviceTier: deviceTier)
-    }
-
-    static func deviceTier() async -> SubscriptionTier? {
-        await SubscriptionState.deviceTier()
-    }
-
-    static func isWebManagedStore(_ store: String?) -> Bool {
-        SubscriptionState.isWebManagedStore(store)
-    }
 
     /// A device's own successful purchase or restore, applied at once — see
     /// `SubscriptionState.markActive(tier:)` — then the lapse notice retired and the widgets told.
@@ -1113,31 +1045,6 @@ final class AppModel {
         Task { await WidgetSnapshotWriter.refresh(appModel: self) }
     }
 
-    /// Flips instantly (so the caller's UI never shows the celebration twice in one session)
-    /// and persists server-side in the background — see `BackendService.markPartnerConnectedCelebrationShown`.
-    func markPartnerConnectedCelebrationShown() {
-        guard !partnerConnectedCelebrationShown else { return }
-        partnerConnectedCelebrationShown = true
-        Task { await BackendService.markPartnerConnectedCelebrationShown() }
-    }
-
-    /// Same pattern as `markPartnerConnectedCelebrationShown()` — instant local flip (so the
-    /// notice never comes back in the same session), persisted
-    /// server-side in the background. Re-armable: `leave_couple` can set the underlying flag back
-    /// to `false` again later, for a different relationship's same non-payer outcome.
-    func markPartnerSubscriptionLapseAcknowledged() {
-        guard partnerSubscriptionLapsedPartnerName != nil else { return }
-        partnerSubscriptionLapsedPartnerName = nil
-        Task { await BackendService.markPartnerSubscriptionLapseShown() }
-    }
-
-    /// Same pattern as `markPartnerConnectedCelebrationShown()` — instant local flip, persisted
-    /// server-side in the background.
-    func dismissSetupChecklist() {
-        guard !setupChecklistDismissed else { return }
-        setupChecklistDismissed = true
-        Task { await BackendService.markSetupChecklistDismissed() }
-    }
 
     /// Tells RevenueCat who this device's user actually is, so its entitlement/purchase history
     /// is attributed to the same identity across every device that signs into this account —
@@ -1435,22 +1342,9 @@ final class AppModel {
         dailyQuestionError = nil
 
 
-        // All of these carry a name — an ex-partner's, or that of someone who asked to connect.
-        partnerDisconnectedMessage = nil
-        partnerSubscriptionLapsedPartnerName = nil
+        // These carry the name of someone who asked to connect.
         pendingConnectionRequests = []
         pendingOutgoingConnectionRequest = nil
-
-        // Per-account "already seen" flags. Harmless next to the above, but they belong to whoever
-        // dismissed them: a new account arriving to a pre-dismissed checklist and no
-        // partner-connected celebration is still the previous account's state showing through.
-        partnerConnectedCelebrationShown = false
-        setupChecklistDismissed = false
-        pendingReviewMilestone = nil
-        pendingPartnerInviteNudge = false
-
-        // Transient, but it refers to a write made by the previous account.
-        writeRefusedMessage = nil
     }
 
     private static var placeholderCouple: Couple {
@@ -1772,17 +1666,9 @@ final class AppModel {
     /// state AppModel tracks directly, so that one's raised via `noteReviewMilestone(_:)` from
     /// `GameResultsView` instead.
     func checkReviewMilestones() {
-        guard hasCouple, partnerConnected, pendingReviewMilestone == nil else { return }
+        guard hasCouple, partnerConnected else { return }
         guard !trips.isEmpty || !memories.isEmpty || !flights.isEmpty else { return }
-        if ReviewPromptService.markShownIfEligible(.partnerConnected) {
-            pendingReviewMilestone = .partnerConnected
-        }
-    }
-
-    /// For the one milestone AppModel can't derive from its own state.
-    func noteReviewMilestone(_ milestone: ReviewMilestone) {
-        guard pendingReviewMilestone == nil, ReviewPromptService.markShownIfEligible(milestone) else { return }
-        pendingReviewMilestone = milestone
+        prompts.notePartnerConnectedMilestone()
     }
 
     /// Call after a solo (unpaired) user finishes adding a trip/memory or completes a game —
@@ -1790,9 +1676,8 @@ final class AppModel {
     /// invite anyone to) or while a request is already pending (they've already invited someone —
     /// Home's own pending-invite card, not this nudge, is the right prompt for that state).
     func noteSoloActionCompleted() {
-        guard !partnerConnected, pendingOutgoingConnectionRequest == nil, PartnerInviteNudgeService.isEligibleToday() else { return }
-        pendingPartnerInviteNudge = true
-        PartnerInviteNudgeService.markShown()
+        guard !partnerConnected, pendingOutgoingConnectionRequest == nil else { return }
+        prompts.noteSoloActionCompleted()
     }
 
     // MARK: - Games: Daily Activity + topic browsing
@@ -2099,13 +1984,6 @@ final class AppModel {
             .sorted { $0.sortOrder < $1.sortOrder }
     }
 
-    func isDeckLocked(_ deck: GameDeck) -> Bool {
-        subscription.isDeckLocked(deck)
-    }
-
-    var canAddContent: Bool { subscription.canAddContent }
-
-    var isPremiumLocked: Bool { subscription.isPremiumLocked }
 
     /// Every deck of this game type, across every topic — powers "tap a game type card, see all
     /// its decks" browsing, as opposed to `decks(for topic:)`'s single-topic scoping.
