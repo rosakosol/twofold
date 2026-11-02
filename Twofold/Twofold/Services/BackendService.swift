@@ -3700,7 +3700,45 @@ enum BackendService {
         var responses: [GameResponse]
     }
 
-    private struct GameDeckRow: Decodable {
+    /// A list of rows that each name a `GameType`, minus the rows naming one this build has never
+    /// heard of.
+    ///
+    /// `GameType` is a closed enum and games are added on the server regularly. Decoded as a plain
+    /// array, one row of a new type failed the whole list: once a partner on a newer build started
+    /// a game this build does not have, this one's history and open games went empty, and its deck
+    /// list fell back to the bundled catalogue without saying why. An older build cannot play a
+    /// game it does not have, so leaving the row out is the right answer, the one
+    /// `GameContentStore.decks()` already gives.
+    ///
+    /// Only that is forgiven. A row of a known type that fails to decode is still an error, so a
+    /// real schema mistake shows up as one rather than as an empty screen.
+    struct KnownGameTypes<Element: Decodable>: Decodable {
+        var elements: [Element]
+
+        private struct GameTypeProbe: Decodable {
+            let gameType: String
+            enum CodingKeys: String, CodingKey { case gameType = "game_type" }
+        }
+
+        init(from decoder: Decoder) throws {
+            var container = try decoder.unkeyedContainer()
+            var elements: [Element] = []
+            while !container.isAtEnd {
+                do {
+                    elements.append(try container.decode(Element.self))
+                } catch {
+                    // A failed decode leaves the container on the same element, so the probe reads
+                    // the row that just failed — and moves past it.
+                    guard let probe = try? container.decode(GameTypeProbe.self),
+                          GameType(rawValue: probe.gameType) == nil
+                    else { throw error }
+                }
+            }
+            self.elements = elements
+        }
+    }
+
+    struct GameDeckRow: Decodable {
         var id: UUID
         var topic: String
         var gameType: GameType
@@ -3727,14 +3765,14 @@ enum BackendService {
     /// Every active deck across all topics — small enough (a few dozen rows) to fetch in full and
     /// let the caller filter/group client-side, same approach as `fetchGameContentCatalog`.
     static func fetchGameDecks() async throws -> [GameDeck] {
-        let rows: [GameDeckRow] = try await supabase
+        let rows: KnownGameTypes<GameDeckRow> = try await supabase
             .from("game_decks")
             .select()
             .eq("active", value: true)
             .order("sort_order")
             .execute()
             .value
-        return rows.map { $0.toModel() }
+        return rows.elements.map { $0.toModel() }
     }
 
     /// The whole deck catalogue and every round behind it, encoded as the payload
@@ -4304,7 +4342,8 @@ enum BackendService {
     static func fetchOpenGames() async -> [OpenGame] {
         guard currentUserID != nil else { return [] }
         do {
-            return try await supabase.rpc("list_open_puzzle_games").execute().value
+            let games: KnownGameTypes<OpenGame> = try await supabase.rpc("list_open_puzzle_games").execute().value
+            return games.elements
         } catch {
             return []
         }
@@ -4321,7 +4360,8 @@ enum BackendService {
     static func fetchGameRecords() async -> [GameRecord] {
         guard currentUserID != nil else { return [] }
         do {
-            return try await supabase.rpc("get_game_stats").execute().value
+            let records: KnownGameTypes<GameRecord> = try await supabase.rpc("get_game_stats").execute().value
+            return records.elements
         } catch {
             return []
         }
@@ -4538,12 +4578,12 @@ enum BackendService {
         if let status {
             query = query.eq("status", value: status.rawValue)
         }
-        let rows: [GameSessionRow] = try await query
+        let rows: KnownGameTypes<GameSessionRow> = try await query
             .order("updated_at", ascending: false)
             .range(from: offset, to: offset + limit - 1)
             .execute()
             .value
-        return rows.map { $0.toModel() }
+        return rows.elements.map { $0.toModel() }
     }
 
     static func fetchGameSession(id: UUID) async throws -> GameSessionDetail {
