@@ -149,6 +149,52 @@ struct Scenario {
         return id
     }
 
+    /// A flight, written the way `add-flight` writes one: with the service role, since no client
+    /// may insert into `flights`. Times are offsets from now in seconds, so a test can put a flight
+    /// in the past, in the air or ahead. San Francisco to Melbourne, both zones known.
+    @discardableResult
+    func addFlight(
+        number: String = "UA60",
+        departsIn: TimeInterval,
+        arrivesIn: TimeInterval,
+        status: String = "scheduled",
+        tracking: Bool = true,
+        tripID: UUID? = nil,
+        departureDelaySeconds: Int? = nil,
+        refreshedNow: Bool = true
+    ) async throws -> UUID {
+        let coupleID = try requireCouple()
+        let id = UUID()
+        let now = Date()
+        let scheduledOut = now.addingTimeInterval(departsIn)
+        var body: [String: Any] = [
+            "id": id.uuidString,
+            "couple_id": coupleID.uuidString,
+            "created_by": me.id.uuidString,
+            "traveler_ids": [me.id.uuidString],
+            "fa_flight_id": "\(number)-e2e-\(id.uuidString.prefix(6))",
+            "flight_number_iata": number,
+            "airline_code": String(number.prefix(2)),
+            "airline_name": "United",
+            "origin_iata": "SFO", "origin_city": "San Francisco", "origin_timezone": "America/Los_Angeles",
+            "destination_iata": "MEL", "destination_city": "Melbourne", "destination_timezone": "Australia/Melbourne",
+            "scheduled_out": Self.iso(scheduledOut),
+            "scheduled_in": Self.iso(now.addingTimeInterval(arrivesIn)),
+            "status": status,
+            "tracking_enabled": tracking,
+        ]
+        // The provider sets both for a cancellation; the app reads either.
+        if status == "cancelled" { body["cancelled"] = true }
+        if let tripID { body["trip_id"] = tripID.uuidString }
+        if let departureDelaySeconds {
+            body["departure_delay_seconds"] = departureDelaySeconds
+            body["estimated_out"] = Self.iso(scheduledOut.addingTimeInterval(TimeInterval(departureDelaySeconds)))
+        }
+        if refreshedNow { body["last_refreshed_at"] = Self.iso(now) }
+        try await LocalStack.send("POST", "rest/v1/flights", body: body, as: .service)
+        return id
+    }
+
     /// A Sudoku already under way, through the RPC the difficulty picker calls.
     @discardableResult
     func startSudoku(difficulty: String = "easy") async throws -> UUID {
