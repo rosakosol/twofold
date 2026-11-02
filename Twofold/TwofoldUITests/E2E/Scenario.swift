@@ -73,7 +73,7 @@ struct Scenario {
     }
 
     /// A couple formed through the invite flow. `payer` is whose subscription it is: one partner's
-    /// covers both, which is the case that has gone wrong before (see `fetchSubscriptionAccess`),
+    /// covers both, which is the case that has gone wrong before (see `fetchSubscriptionSnapshot`),
     /// so it is worth being able to say which.
     static func paired(
         tier: TestTier,

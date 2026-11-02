@@ -62,3 +62,43 @@ struct SubscriptionStateTests {
         #expect(!model.isPremiumLocked)
     }
 }
+
+@Suite("The couple's subscription, read once")
+@MainActor
+struct SubscriptionSnapshotTests {
+
+    @Test("Premium wins when either active partner has it")
+    func premiumWins() {
+        #expect(BackendService.effectiveTier([(true, "plus"), (true, "premium")]) == "premium")
+        #expect(BackendService.effectiveTier([(true, "premium"), (true, "plus")]) == "premium")
+    }
+
+    @Test("A lapsed partner's leftover tier does not count")
+    func lapsedTierIgnored() {
+        #expect(BackendService.effectiveTier([(false, "premium"), (true, "plus")]) == "plus")
+        #expect(BackendService.effectiveTier([(false, "premium"), (false, "plus")]) == nil)
+    }
+
+    @Test("An active subscriber from before the tier column has no tier")
+    func noTier() {
+        #expect(BackendService.effectiveTier([(true, nil)]) == nil)
+        #expect(BackendService.effectiveTier([]) == nil)
+    }
+
+    @Test("A false that could not see the couple is not trusted while a partner is connected")
+    func falseWithoutCoupleIgnored() {
+        let state = SubscriptionState()
+        state.isActive = true
+        state.applyRefresh(.init(active: false, sawActiveCouple: false, tier: nil), deviceEntitled: false, partnerConnected: true)
+        #expect(state.isActive)
+        state.applyRefresh(.init(active: false, sawActiveCouple: true, tier: nil), deviceEntitled: false, partnerConnected: true)
+        #expect(!state.isActive)
+    }
+
+    @Test("A backend false is overruled by this device's own entitlement")
+    func deviceEntitlementWins() {
+        let state = SubscriptionState()
+        state.applyRefresh(.init(active: false, sawActiveCouple: false, tier: nil), deviceEntitled: true, partnerConnected: false)
+        #expect(state.isActive)
+    }
+}

@@ -72,34 +72,13 @@ extension BackendService {
     // Both were answers to problems only the client-side write had.
 
 
-    private struct SubscriptionActiveRow: Decodable {
-        var subscriptionActive: Bool
-        enum CodingKeys: String, CodingKey { case subscriptionActive = "subscription_active" }
-    }
-
-    /// Cheap, dedicated status check — deliberately not `fetchCoupleState()` (which also pulls
-    /// trips/flights/memories/places), since this needs to be re-checked periodically
-    /// (app foreground), not just once at cold launch. "Your partner doesn't pay anything" —
-    /// true if *either* partner's profile reports an active subscription; solo (unpaired)
-    /// users only have their own row to check.
-    /// Whether anyone is paying, and whether the answer actually covered a couple.
+    /// The signed-in person's active couple, or nil when they are in none.
     ///
-    /// `sawActiveCouple` exists because the fallback below is silent and the two cases it merges
-    /// are not the same. "No active couple row came back" and "a couple came back and neither of
-    /// them pays" both used to return plain `false`, so a lookup that could not see the couple —
-    /// a read landing before the row is visible, a transient failure on that first query —
-    /// reported the caller's own row as the whole truth. For somebody whose *partner* pays, that
-    /// is `false`, and it was written straight over a correct `true`.
-    struct SubscriptionAccess {
-        var active: Bool
-        /// False when the answer covers only this user's own profile.
-        var sawActiveCouple: Bool
-    }
-
-    static func fetchSubscriptionAccess() async throws -> SubscriptionAccess {
+    /// The one place that asks. The same query was written out in `fetchCoupleState`
+    /// and both subscription reads (CORE-21).
+    static func activeCoupleRow() async throws -> CoupleRow? {
         guard let userID = currentUserID else { throw BackendError.notAuthenticated }
-
-        let coupleRows: [CoupleRow] = try await supabase
+        let rows: [CoupleRow] = try await supabase
             .from("couples")
             .select()
             .or("partner_a_id.eq.\(userID),partner_b_id.eq.\(userID)")
@@ -107,28 +86,23 @@ extension BackendService {
             .limit(1)
             .execute()
             .value
-
-        let profileIDs: [UUID]
-        if let couple = coupleRows.first {
-            profileIDs = [couple.partnerAId, couple.partnerBId]
-        } else {
-            profileIDs = [userID]
-        }
-
-        let rows: [SubscriptionActiveRow] = try await supabase
-            .from("profiles")
-            .select("subscription_active")
-            .in("id", values: profileIDs)
-            .execute()
-            .value
-
-        return SubscriptionAccess(
-            active: rows.contains { $0.subscriptionActive },
-            sawActiveCouple: coupleRows.first != nil
-        )
+        return rows.first
     }
 
-    private struct SubscriptionTierRow: Decodable {
+    /// The tier a couple has, from each partner's profile: Premium if either of them is on it,
+    /// otherwise whichever tier an active partner has.
+    ///
+    /// Only a still-active row's tier counts. A lapsed partner's `subscription_tier` column is left
+    /// stale rather than nulled out (the webhook writes `active: false` and leaves the tier alone),
+    /// so an inactive row's tier must never be reported as the couple's plan, nor block a fresh
+    /// purchase. Nil when nobody active has a tier, which includes subscribers from before the
+    /// column existed.
+    static func effectiveTier(_ profiles: [(active: Bool, tier: String?)]) -> String? {
+        let activeTiers = profiles.compactMap { $0.active ? $0.tier : nil }
+        return activeTiers.contains("premium") ? "premium" : activeTiers.first
+    }
+
+    private nonisolated struct SubscriptionTierRow: Decodable {
         var subscriptionActive: Bool
         var subscriptionTier: String?
         enum CodingKeys: String, CodingKey {
@@ -137,34 +111,35 @@ extension BackendService {
         }
     }
 
-    /// Same couple-wide lookup as `fetchSubscriptionActive()`, but resolves which tier is
-    /// actually active *right now* across both partners (Premium wins if each partner
-    /// independently ended up on a different tier). Deliberately a fresh network fetch rather
-    /// than reading `AppModel.subscriptionTier` — that field is only set at couple-adoption time
-    /// and never refreshed on foreground the way `isSubscriptionActive` is, so it can miss a
-    /// partner's subscription that started after this device last loaded couple state. `PaywallView`
-    /// calls this right before allowing a purchase for exactly that reason: App Store Connect's
-    /// subscription-group exclusivity is per Apple ID, not per couple, so nothing on Apple's side
-    /// stops each partner from independently subscribing to a different tier — only this app-side
-    /// check can catch it before it turns into a second, real charge.
-    static func fetchCoupleSubscriptionTier() async throws -> String? {
+    /// Whether anyone in the couple is paying, for which tier, and whether the answer actually
+    /// covered a couple.
+    ///
+    /// Cheap and dedicated — deliberately not `fetchCoupleState()` (which also pulls trips,
+    /// flights and memories), since this is re-checked on every foreground and whenever RevenueCat
+    /// reports a change, not just once at cold launch. "Your partner doesn't pay anything": active
+    /// if *either* partner's profile says so. Solo (unpaired) users only have their own row.
+    ///
+    /// One read for the access and the tier. They used to be two functions making the same two
+    /// round trips, called one after the other, which was four where two do.
+    struct SubscriptionSnapshot: Equatable {
+        var active: Bool
+        /// False when the answer covers only this user's own profile.
+        ///
+        /// Exists because the fallback is silent and the two cases it merges are not the same.
+        /// "No active couple row came back" and "a couple came back and neither of them pays" both
+        /// used to return plain `false`, so a lookup that could not see the couple — a read
+        /// landing before the row is visible, a transient failure on that first query — reported
+        /// the caller's own row as the whole truth. For somebody whose *partner* pays, that is
+        /// `false`, and it was written straight over a correct `true`.
+        var sawActiveCouple: Bool
+        /// See `effectiveTier(_:)`.
+        var tier: String?
+    }
+
+    static func fetchSubscriptionSnapshot() async throws -> SubscriptionSnapshot {
         guard let userID = currentUserID else { throw BackendError.notAuthenticated }
-
-        let coupleRows: [CoupleRow] = try await supabase
-            .from("couples")
-            .select()
-            .or("partner_a_id.eq.\(userID),partner_b_id.eq.\(userID)")
-            .eq("status", value: "active")
-            .limit(1)
-            .execute()
-            .value
-
-        let profileIDs: [UUID]
-        if let couple = coupleRows.first {
-            profileIDs = [couple.partnerAId, couple.partnerBId]
-        } else {
-            profileIDs = [userID]
-        }
+        let couple = try await activeCoupleRow()
+        let profileIDs = couple.map { [$0.partnerAId, $0.partnerBId] } ?? [userID]
 
         let rows: [SubscriptionTierRow] = try await supabase
             .from("profiles")
@@ -173,11 +148,22 @@ extension BackendService {
             .execute()
             .value
 
-        // Only a still-active row's tier counts — a lapsed partner's `subscription_tier` column is
-        // left stale rather than nulled out (the webhook writes `active: false` and leaves the tier
-        // alone), so an inactive row's tier must never block a fresh purchase.
-        let activeTiers = rows.compactMap { $0.subscriptionActive ? $0.subscriptionTier : nil }
-        return activeTiers.contains("premium") ? "premium" : activeTiers.first
+        return SubscriptionSnapshot(
+            active: rows.contains { $0.subscriptionActive },
+            sawActiveCouple: couple != nil,
+            tier: effectiveTier(rows.map { ($0.subscriptionActive, $0.subscriptionTier) })
+        )
+    }
+
+    /// Which tier is active *right now* across both partners — `fetchSubscriptionSnapshot()`'s
+    /// tier. Deliberately a fresh network fetch rather than reading `AppModel.subscriptionTier`,
+    /// which can miss a partner's subscription that started after this device last loaded couple
+    /// state. `PaywallView` calls this right before allowing a purchase for exactly that reason:
+    /// App Store Connect's subscription-group exclusivity is per Apple ID, not per couple, so
+    /// nothing on Apple's side stops each partner from independently subscribing to a different
+    /// tier — only this app-side check can catch it before it turns into a second, real charge.
+    static func fetchCoupleSubscriptionTier() async throws -> String? {
+        try await fetchSubscriptionSnapshot().tier
     }
 
     /// Whether this couple is paying twice for one subscription, and which of them bought later.

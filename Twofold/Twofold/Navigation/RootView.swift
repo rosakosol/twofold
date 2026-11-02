@@ -195,12 +195,11 @@ struct RootView: View {
                 // webhook does that now, and the client is refused if it tries (see
                 // `BackendService`'s note where that write used to live). RevenueCat delivers the
                 // same change to both, so the row is either already updated or about to be.
-                if let coupleTier = try? await BackendService.fetchCoupleSubscriptionTier() {
-                    appModel.subscriptionTier = coupleTier
-                }
-                if let access = try? await BackendService.fetchSubscriptionAccess(),
-                   access.sawActiveCouple || !appModel.partnerConnected {
-                    appModel.isSubscriptionActive = access.active || tier != nil
+                if let snapshot = try? await BackendService.fetchSubscriptionSnapshot() {
+                    appModel.subscriptionTier = snapshot.tier
+                    appModel.subscription.applyRefresh(
+                        snapshot, deviceEntitled: tier != nil, partnerConnected: appModel.partnerConnected
+                    )
                 }
                 await WidgetSnapshotWriter.refresh(appModel: appModel)
             }
@@ -1000,26 +999,15 @@ struct RootView: View {
         // Customer Center screens — but nothing is written back from it any more.
         await subscriptionStore.refreshEntitlementsOnly()
 
-        if let access = try? await BackendService.fetchSubscriptionAccess() {
-            // Only trust a `false` that actually saw the couple. Reported after joining a partner
-            // who pays: Home showed "No active subscription" and gated adding until Settings was
-            // opened, which ran this again and fixed it. A lookup that cannot see the couple row
-            // falls back to the caller's own profile, and for the non-paying half of a couple that
-            // reads `false` — indistinguishable from nobody paying, and written straight over the
-            // couple-wide `true` that `performAdopt` had just set.
-            //
-            // `partnerConnected` is the app's own belief that a couple exists. When it says one
-            // does and the lookup disagrees, the lookup is the thing that is behind.
-            if access.sawActiveCouple || !appModel.partnerConnected {
-                // OR'd with this device's own entitlement for the same reason the gate above is: a
-                // backend `false` for someone RevenueCat says is subscribed means the webhook has
-                // not caught up, not that they stopped paying. Without this the next foreground
-                // undoes the access the gate just granted.
-                appModel.isSubscriptionActive = access.active || deviceHoldsEntitlement
-            }
-            let active = access.active
+        // One read for the access and the tier. They used to be two, each making the same two
+        // round trips.
+        let snapshot = try? await BackendService.fetchSubscriptionSnapshot()
+        if let snapshot {
+            appModel.subscription.applyRefresh(
+                snapshot, deviceEntitled: deviceHoldsEntitlement, partnerConnected: appModel.partnerConnected
+            )
             OfflineSessionCache.record(
-                active: active,
+                active: snapshot.active,
                 tier: appModel.subscriptionTier,
                 userID: BackendService.currentUserID,
                 partnerConnected: appModel.partnerConnected,
@@ -1045,23 +1033,18 @@ struct RootView: View {
         // profile columns, so a client that is ahead of the row cannot actually open anything.
         //
         // The fallback used to be unreachable, and unreachable in precisely the case it was written
-        // for. `fetchCoupleSubscriptionTier()` returns `String?`; `try?` on it gives `String??`,
-        // which Swift flattens to `String?`; `if let` then unwrapped that, so `tier` was already
-        // non-optional and `?? subscriptionStore…` could never run. A couple row with no tier came
-        // back nil, the `if let` failed, and the whole block — fallback included — was skipped. The
-        // compiler said so ("right side is never used") and the warning had been sitting there.
-        do {
-            let coupleTier = try await BackendService.fetchCoupleSubscriptionTier()
-            if let resolved = Self.tierAfterRefresh(
-                fetched: coupleTier, deviceTier: subscriptionStore.subscribedTier?.dbValue
-            ) {
-                appModel.subscriptionTier = resolved
-            }
-        } catch {
-            // Deliberately distinct from a successful nil, which the old single `try?` could not
-            // tell apart. A throw means the row could not be read at all — offline, most likely —
-            // and the branch above may just have restored `cached.tier` for exactly that reason.
-            // Overwriting it here with a guess would undo the restore.
+        // for. A `try?` on the tier fetch gave `String??`, which Swift flattened to `String?`, and
+        // `if let` then unwrapped that, so the fallback could never run. A couple row with no tier
+        // came back nil and the whole block was skipped.
+        //
+        // Only after a read that succeeded. A failed read is distinct from a successful nil: it
+        // means the row could not be read at all — offline, most likely — and the branch above may
+        // just have restored `cached.tier` for exactly that reason. Overwriting it here with a
+        // guess would undo the restore.
+        if let snapshot, let resolved = Self.tierAfterRefresh(
+            fetched: snapshot.tier, deviceTier: subscriptionStore.subscribedTier?.dbValue
+        ) {
+            appModel.subscriptionTier = resolved
         }
         // Owns its own widget refresh (same convention every other state-mutating `AppModel`
         // method uses — see `performAdopt`, `refreshFlights`, `addMemory`) rather than relying on

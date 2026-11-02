@@ -79,6 +79,24 @@ final class SubscriptionState: AccountScopedStore {
         self.tier = tier
     }
 
+    /// A re-read of the couple's subscription — on foreground, or when RevenueCat reports a change.
+    ///
+    /// Only trusts a `false` that actually saw the couple. Reported after joining a partner who
+    /// pays: Home showed "No active subscription" and gated adding until Settings was opened, which
+    /// ran the check again and fixed it. A lookup that cannot see the couple row falls back to the
+    /// caller's own profile, and for the non-paying half of a couple that reads `false` —
+    /// indistinguishable from nobody paying, and written straight over the couple-wide `true` that
+    /// `performAdopt` had just set. `partnerConnected` is the app's own belief that a couple exists;
+    /// when it says one does and the lookup disagrees, the lookup is the thing that is behind.
+    ///
+    /// OR'd with this device's own entitlement: a backend `false` for someone RevenueCat says is
+    /// subscribed means the webhook has not caught up, not that they stopped paying. Without it the
+    /// next foreground undoes the access the paywall just granted.
+    func applyRefresh(_ snapshot: BackendService.SubscriptionSnapshot, deviceEntitled: Bool, partnerConnected: Bool) {
+        guard snapshot.sawActiveCouple || !partnerConnected else { return }
+        isActive = snapshot.active || deviceEntitled
+    }
+
     func reset() {
         isActive = false
         hasResolved = false

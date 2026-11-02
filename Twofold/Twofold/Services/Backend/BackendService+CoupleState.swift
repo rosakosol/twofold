@@ -64,16 +64,7 @@ extension BackendService {
     static func fetchCoupleState() async throws -> CoupleState? {
         guard let userID = currentUserID else { throw BackendError.notAuthenticated }
 
-        let coupleRows: [CoupleRow] = try await supabase
-            .from("couples")
-            .select()
-            .or("partner_a_id.eq.\(userID),partner_b_id.eq.\(userID)")
-            .eq("status", value: "active")
-            .limit(1)
-            .execute()
-            .value
-
-        guard let coupleRow = coupleRows.first else { return nil }
+        guard let coupleRow = try await activeCoupleRow() else { return nil }
 
         // Four independent reads, started together rather than one after another.
         //
@@ -256,11 +247,7 @@ extension BackendService {
             )
         }
 
-        // Only a still-active profile's tier counts — `subscription_tier` is left stale rather than
-        // nulled out once a subscription lapses, so an inactive row's leftover tier must never be
-        // reported as the couple's active plan.
-        let activeTiers = [meProfile, partnerProfile].compactMap { $0.subscriptionActive ? $0.subscriptionTier : nil }
-        let effectiveTier: String? = activeTiers.contains("premium") ? "premium" : activeTiers.first
+        let effectiveTier = Self.effectiveTier([meProfile, partnerProfile].map { ($0.subscriptionActive, $0.subscriptionTier) })
 
         return CoupleState(
             couple: couple,
