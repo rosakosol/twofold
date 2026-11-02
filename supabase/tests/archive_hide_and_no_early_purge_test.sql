@@ -47,12 +47,9 @@ select hasnt_function('public'::name, 'withdraw_couple_purge'::name,
 set local role authenticated;
 set local request.jwt.claims = '{"sub":"aaaaaaaa-6666-0000-0000-00000000000a","role":"authenticated"}';
 
-select throws_ok(
-  $$ select public.delete_dissolved_couple_data('cccccccc-6666-0000-0000-00000000000c') $$,
-  '42501',
-  null,
-  'the old one-sided delete still refuses'
-);
+-- Dropped outright in 20261120000000.
+select hasnt_function('public'::name, 'delete_dissolved_couple_data'::name,
+  'the old one-sided delete is gone');
 
 select is(
   (select count(*)::integer from public.flights where couple_id = 'cccccccc-6666-0000-0000-00000000000c'),

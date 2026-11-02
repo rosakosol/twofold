@@ -37,11 +37,9 @@ select ok(
   'the archive timer still can'
 );
 
-select ok(
-  not has_function_privilege('anon', 'public.delete_dissolved_couple_data(uuid)', 'EXECUTE')
-    and not has_function_privilege('authenticated', 'public.delete_dissolved_couple_data(uuid)', 'EXECUTE'),
-  'deleting a dissolved couple''s data is not a client operation'
-);
+-- Dropped in 20261120000000, which is the strongest form of "not a client operation".
+select hasnt_function('public'::name, 'delete_dissolved_couple_data'::name,
+  'deleting a dissolved couple''s data is not a client operation');
 
 -- Returns profile ids, couple ids and partner ids for every couple currently due a reminder.
 select ok(
@@ -57,11 +55,8 @@ select ok(
   'a client cannot write its own flight ledger'
 );
 
-select ok(
-  not has_function_privilege('anon', 'public.mark_discussion_round(uuid, text)', 'EXECUTE')
-    and not has_function_privilege('authenticated', 'public.mark_discussion_round(uuid, text)', 'EXECUTE'),
-  'a client cannot mark an arbitrary round'
-);
+select hasnt_function('public'::name, 'mark_discussion_round'::name,
+  'a client cannot mark an arbitrary round (dropped in 20261120000000)');
 
 -- ---------------------------------------------------------------------------
 -- Signed-in only
