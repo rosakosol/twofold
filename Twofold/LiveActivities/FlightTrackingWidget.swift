@@ -71,7 +71,7 @@ struct FlightTrackingProvider: TimelineProvider {
         let snapshot = WidgetSnapshot.read()
         let plan = FlightWidgetTimeline.trackingPlan(snapshot, from: .now)
         let entries = plan.moments.map { entry(from: snapshot, moment: $0) }
-        completion(Timeline(entries: entries, policy: plan.reloadAt.map { .after($0) } ?? .atEnd))
+        completion(Timeline(entries: entries, policy: .after(plan.reloadAt)))
     }
 
     private func entry(from snapshot: WidgetSnapshot?, at date: Date) -> FlightTrackingEntry {

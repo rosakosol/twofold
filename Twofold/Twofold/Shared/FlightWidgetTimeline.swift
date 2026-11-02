@@ -30,34 +30,66 @@ nonisolated enum FlightWidgetTimeline {
             guard let target, target > date else { return nil }
             return target.timeIntervalSince(date)
         }
+
+        /// What the flight came to, once there is nothing left to count: cancelled or diverted at
+        /// any time, landed once touchdown has passed.
+        var outcome: FlightStatus? {
+            guard let status else { return nil }
+            if status == .cancelled || status == .diverted { return status }
+            if isDeparted, let target, target <= date { return status }
+            return nil
+        }
     }
 
-    /// The entries, and when to ask for the next timeline: nil means `.atEnd`.
+    /// The entries, and when to ask for the next timeline.
     struct Plan {
         var moments: [Moment]
-        var reloadAt: Date?
+        var reloadAt: Date
     }
 
     /// The most entries one timeline carries. WidgetKit's daily budget counts reloads, not
     /// entries, so this only bounds the work of rendering ahead.
     static let entryCap = 150
 
-    // MARK: - Flight Tracking
+    /// How long a landed flight stays on a widget before the next one takes its place: the same
+    /// fifteen minutes `Flight.isCurrentlyRelevant` keeps it in the app's own list.
+    static let landedLinger: TimeInterval = 15 * 60
 
-    /// On the minute marks before take-off and touchdown (see `TimeMath.countdownMoments`), each
-    /// entry worked out for its own moment.
-    static func trackingPlan(_ snapshot: WidgetSnapshot?, from now: Date) -> Plan {
-        let flight = snapshot?.nextFlight
-        let targets = [flight?.bestDeparture, flight?.bestArrival].compactMap { $0 }
-        let dates = Array(TimeMath.countdownMoments(to: targets, from: now).prefix(entryCap))
-        // Nothing to count down to: look again in fifteen minutes.
-        let reloadAt = dates.count > 1 ? dates.last! : now.addingTimeInterval(900)
-        return Plan(moments: dates.map { trackingMoment(snapshot, at: $0) }, reloadAt: reloadAt)
+    /// When to look again once nothing on the widget changes with the clock any more. Only a new
+    /// snapshot changes it then, and the app reloads the widget when it writes one, so this is a
+    /// safety net rather than a schedule.
+    static let idleReload: TimeInterval = 6 * 3600
+
+    // MARK: - Which flight, and how it stands
+
+    /// The snapshot's flights, soonest first: `trackedFlights`, or `nextFlight` alone in a
+    /// snapshot that has no list.
+    static func flights(in snapshot: WidgetSnapshot?) -> [WidgetSnapshot.FlightInfo] {
+        guard let snapshot else { return [] }
+        return snapshot.trackedFlights.isEmpty ? [snapshot.nextFlight].compactMap { $0 } : snapshot.trackedFlights
     }
 
-    /// The Flight Tracking widget at one moment.
-    static func trackingMoment(_ snapshot: WidgetSnapshot?, at date: Date) -> Moment {
-        let flight = snapshot?.nextFlight
+    /// Still on the widget at `date`: until fifteen minutes past touchdown. A flight with no
+    /// arrival time has no end the widget can see, so it stays until the app writes it away.
+    static func isShowing(_ flight: WidgetSnapshot.FlightInfo, at date: Date) -> Bool {
+        guard let arrival = flight.bestArrival else { return true }
+        return arrival.addingTimeInterval(landedLinger) > date
+    }
+
+    /// The flight on the widget at `date`: the picked one while it's still showing, otherwise the
+    /// soonest still showing. So a landed flight gives way to the next one, or to the empty state,
+    /// without waiting for the app to run.
+    static func flight(in flights: [WidgetSnapshot.FlightInfo], preferring selectedID: UUID?, at date: Date) -> WidgetSnapshot.FlightInfo? {
+        let showing = flights.filter { isShowing($0, at: date) }
+        if let selectedID, let match = showing.first(where: { $0.id == selectedID }) {
+            return match
+        }
+        return showing.first
+    }
+
+    /// `flight` as it stands at `date`, every field worked out for that moment rather than for
+    /// the moment the timeline was built.
+    static func moment(_ flight: WidgetSnapshot.FlightInfo?, at date: Date) -> Moment {
         let isDeparted = (flight?.bestDeparture ?? .distantFuture) <= date
         return Moment(
             date: date,
@@ -70,9 +102,48 @@ nonisolated enum FlightWidgetTimeline {
         )
     }
 
-    /// "Departs in" or "Lands in", over the time left.
+    /// Entries on the minute marks before every take-off and touchdown in the snapshot (see
+    /// `TimeMath.countdownMoments`), plus one at each hand-over fifteen minutes after a
+    /// touchdown, each worked out for its own date. Every flight's marks are there, not only the
+    /// first one's, because the next flight can take over within the same timeline.
+    ///
+    /// Reloads when the entries run out if there is more to count after them, and otherwise only
+    /// after `idleReload`. A run that ended with nothing to show used to ask again immediately
+    /// (`.atEnd` on a single entry) or every fifteen minutes, spending the budget on the same
+    /// answer all day.
+    static func plan(_ flights: [WidgetSnapshot.FlightInfo], preferring selectedID: UUID?, from now: Date) -> Plan {
+        let targets = flights.flatMap { [$0.bestDeparture, $0.bestArrival].compactMap { $0 } }
+        let handovers = flights.compactMap { $0.bestArrival?.addingTimeInterval(landedLinger) }
+        let horizon: TimeInterval = 3 * 3600
+
+        var dates = Set(TimeMath.countdownMoments(to: targets, from: now, horizon: horizon))
+        dates.formUnion(handovers.filter { $0 > now && $0 <= now.addingTimeInterval(horizon) })
+        let sorted = Array(dates.sorted().prefix(entryCap))
+
+        let moments = sorted.map { moment(flight(in: flights, preferring: selectedID, at: $0), at: $0) }
+        let last = sorted.last ?? now
+        let moreToCome = (targets + handovers).contains { $0 > last }
+        let reloadAt = moreToCome ? max(last, now.addingTimeInterval(60)) : now.addingTimeInterval(idleReload)
+        return Plan(moments: moments, reloadAt: reloadAt)
+    }
+
+    // MARK: - Flight Tracking
+
+    /// The soonest flight, as it stands at each entry.
+    static func trackingPlan(_ snapshot: WidgetSnapshot?, from now: Date) -> Plan {
+        plan(flights(in: snapshot), preferring: nil, from: now)
+    }
+
+    /// The Flight Tracking widget at one moment.
+    static func trackingMoment(_ snapshot: WidgetSnapshot?, at date: Date) -> Moment {
+        moment(flight(in: flights(in: snapshot), preferring: nil, at: date), at: date)
+    }
+
+    /// "Departs in" or "Lands in", over the time left — and nothing once there is no time left.
+    /// "Lands in" over "Landed" read as a countdown to something that had already happened.
     static func countdownLabel(isDeparted: Bool, target: Date?, at date: Date) -> String? {
-        isDeparted ? "Lands in" : "Departs in"
+        guard let target, target > date else { return nil }
+        return isDeparted ? "Lands in" : "Departs in"
     }
 
     /// Mirrors `Flight.progress`, evaluated at an arbitrary moment rather than "now" — same
@@ -88,44 +159,10 @@ nonisolated enum FlightWidgetTimeline {
 
     // MARK: - Flight Countdown
 
-    /// Which flight a Flight Countdown widget counts down to: the picked one if it's still among
-    /// the couple's tracked flights, otherwise the soonest (an unconfigured widget, or one whose
-    /// picked flight has since landed or been removed, shows the nearest flight).
-    static func selectedFlight(_ snapshot: WidgetSnapshot?, preferring selectedID: UUID?) -> WidgetSnapshot.FlightInfo? {
-        let tracked = snapshot?.trackedFlights ?? []
-        if let selectedID, let match = tracked.first(where: { $0.id == selectedID }) {
-            return match
-        }
-        return tracked.first ?? snapshot?.nextFlight
-    }
-
-    /// A tiered run of entries, dense near the target, then `.atEnd`.
+    /// The user's picked flight while it's still showing, otherwise the soonest — so an
+    /// unconfigured widget, or one whose flight has landed or been removed, shows the nearest
+    /// flight. Counts to take-off, then on to touchdown, within the one timeline.
     static func countdownPlan(_ snapshot: WidgetSnapshot?, preferring selectedID: UUID?, from now: Date) -> Plan {
-        guard let flight = selectedFlight(snapshot, preferring: selectedID) else {
-            return Plan(moments: [Moment(date: now, flight: nil, status: nil, isDeparted: false, target: nil, delaySeconds: nil, progress: 0)], reloadAt: nil)
-        }
-        let isDeparted = (flight.bestDeparture ?? .distantFuture) <= now
-        let target = isDeparted ? flight.bestArrival : flight.bestDeparture
-        let moment = { (date: Date) in
-            Moment(date: date, flight: flight, status: flight.status, isDeparted: isDeparted, target: target, delaySeconds: flight.delaySeconds, progress: flight.progress)
-        }
-        guard let target else { return Plan(moments: [moment(now)], reloadAt: nil) }
-        return Plan(moments: tieredDates(from: now, to: target).map(moment), reloadAt: nil)
-    }
-
-    /// Dense near the target, sparse further out — 60s apart inside the final 10 minutes, 5
-    /// minutes apart inside the final hour, 30 minutes apart beyond that.
-    private static func tieredDates(from now: Date, to target: Date, cap: Int = 200) -> [Date] {
-        guard target > now else { return [now] }
-        var dates: [Date] = []
-        var cursor = now
-        while cursor < target, dates.count < cap {
-            dates.append(cursor)
-            let remaining = target.timeIntervalSince(cursor)
-            let step: TimeInterval = remaining <= 600 ? 60 : (remaining <= 3600 ? 300 : 1800)
-            cursor = cursor.addingTimeInterval(step)
-        }
-        dates.append(target)
-        return dates
+        plan(flights(in: snapshot), preferring: selectedID, from: now)
     }
 }

@@ -11,10 +11,10 @@
 //  Intents–configured widget — every other widget here uses plain StaticConfiguration.
 //
 //  Home Screen (.systemSmall) and, new, Lock Screen (.accessoryRectangular/.accessoryCircular).
-//  Still the app's first widget needing a ticking multi-entry timeline: WidgetKit's reload budget
-//  is limited, so rather than asking the OS to reload every minute, one timeline call generates a
-//  tiered run of future entries (dense near the target, sparse further out) and WidgetKit just
-//  walks through them.
+//  WidgetKit's reload budget is limited, so rather than asking the OS to reload every minute, one
+//  timeline call generates a run of future entries on the target's minute marks, across take-off,
+//  touchdown and on to the next flight (`FlightWidgetTimeline`), and WidgetKit just walks through
+//  them.
 //
 
 import AppIntents
@@ -53,9 +53,8 @@ struct FlightCountdownProvider: AppIntentTimelineProvider {
                 myName: snapshot?.myName ?? "You", partnerName: snapshot?.partnerName ?? "Partner"
             )
         }
-        // .atEnd re-invokes timeline(for:in:) once the run is exhausted, which re-reads whatever
-        // the main app has written to the snapshot by then.
-        return Timeline(entries: entries, policy: plan.reloadAt.map { .after($0) } ?? .atEnd)
+        // The reload re-reads whatever the main app has written to the snapshot by then.
+        return Timeline(entries: entries, policy: .after(plan.reloadAt))
     }
 }
 
