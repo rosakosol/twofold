@@ -75,7 +75,17 @@ extension BackendService {
         for row in tripRows { placeIDs.insert(row.originId); placeIDs.insert(row.destinationId) }
         let places = try await fetchPlaces(ids: Array(placeIDs))
 
-        return tripRows.compactMap { row in
+        return makeTrips(rows: tripRows, places: places)
+    }
+
+    /// Trips from their rows, with the places they name and, when given, their flights.
+    ///
+    /// The one place a `Trip` is built from the database. `fetchCoupleState` had its own copy, so a
+    /// field added to one (`notes`, the flights) had to be remembered in the other (CORE-24). A
+    /// trip whose origin or destination is missing from `places` is left out rather than shown
+    /// somewhere it is not.
+    static func makeTrips(rows: [TripRow], places: [UUID: Place], flightsByTrip: [UUID: [Flight]] = [:]) -> [Trip] {
+        rows.compactMap { row in
             guard let origin = places[row.originId], let destination = places[row.destinationId] else { return nil }
             return Trip(
                 id: row.id,
@@ -86,6 +96,7 @@ extension BackendService {
                 arrivalDate: row.arrivalAt,
                 category: row.category,
                 distanceKm: row.distanceKm,
+                flights: flightsByTrip[row.id] ?? [],
                 notes: row.notes
             )
         }

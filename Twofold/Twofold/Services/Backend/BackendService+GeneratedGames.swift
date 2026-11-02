@@ -65,6 +65,42 @@ extension BackendService {
         }
     }
 
+    /// One past game session as a history screen reads it: the session, its round (with whichever
+    /// columns that game keeps there) and whichever responses the caller is allowed to see.
+    ///
+    /// Shared by Sudoku and Word Guess, which used to declare the same row, response and select
+    /// shape each (CORE-23/24) and differed only in the round's columns.
+    struct GameHistoryRow<Round: Decodable>: Decodable {
+        struct Response: Decodable {
+            let responderId: UUID
+            let answer: GameAnswerPayload
+            enum CodingKeys: String, CodingKey { case answer, responderId = "responder_id" }
+        }
+        let id: UUID
+        let status: GameSessionStatus
+        let createdAt: Date
+        let rounds: [Round]
+        let responses: [Response]
+        enum CodingKeys: String, CodingKey {
+            case id, status
+            case createdAt = "created_at"
+            case rounds = "game_session_rounds"
+            case responses = "game_responses"
+        }
+    }
+
+    /// The couple's recent sessions of one game, newest first, in one request.
+    static func fetchGameHistoryRows<Round: Decodable>(_ gameType: GameType, roundColumns: String, limit: Int) async throws -> [GameHistoryRow<Round>] {
+        try await supabase
+            .from("game_sessions")
+            .select("id, status, created_at, game_session_rounds(\(roundColumns)), game_responses(responder_id, answer)")
+            .eq("game_type", value: gameType.rawValue)
+            .order("created_at", ascending: false)
+            .limit(limit)
+            .execute()
+            .value
+    }
+
     /// One past Sudoku, as the difficulty screen lists it.
     struct SudokuHistoryEntry: Identifiable, Hashable {
         let id: UUID
@@ -80,39 +116,13 @@ extension BackendService {
     /// The couple's recent puzzles, newest first, in one request: each session with its round (for
     /// the difficulty) and whichever responses the caller is allowed to see.
     static func fetchSudokuHistory(limit: Int = 30) async throws -> [SudokuHistoryEntry] {
-        struct Row: Decodable {
-            struct Round: Decodable { let difficulty: SudokuDifficulty? }
-            struct Response: Decodable {
-                let responderId: UUID
-                let answer: GameAnswerPayload
-                enum CodingKeys: String, CodingKey { case answer, responderId = "responder_id" }
-            }
-            let id: UUID
-            let status: GameSessionStatus
-            let createdAt: Date
-            let rounds: [Round]
-            let responses: [Response]
-            enum CodingKeys: String, CodingKey {
-                case id, status
-                case createdAt = "created_at"
-                case rounds = "game_session_rounds"
-                case responses = "game_responses"
-            }
-        }
-
-        let rows: [Row] = try await supabase
-            .from("game_sessions")
-            .select("id, status, created_at, game_session_rounds(difficulty), game_responses(responder_id, answer)")
-            .eq("game_type", value: GameType.sudoku.rawValue)
-            .order("created_at", ascending: false)
-            .limit(limit)
-            .execute()
-            .value
+        struct Round: Decodable { let difficulty: SudokuDifficulty? }
+        let rows: [GameHistoryRow<Round>] = try await fetchGameHistoryRows(.sudoku, roundColumns: "difficulty", limit: limit)
 
         let me = currentUserID
         // A time only for a grid that was completed: a saved board in progress has an elapsed time
         // too, and it is not a result.
-        func time(_ response: Row.Response?) -> TimeInterval? {
+        func time(_ response: GameHistoryRow<Round>.Response?) -> TimeInterval? {
             guard let response, let summary = SudokuPlayState.summary(from: response.answer.value),
                   summary.isComplete else { return nil }
             return summary.elapsed
@@ -147,37 +157,11 @@ extension BackendService {
     /// The couple's recent Word Guess games, newest first, in one request: each session with its
     /// round and whichever responses the caller is allowed to see.
     static func fetchWordGuessHistory(limit: Int = 30) async throws -> [WordGuessHistoryEntry] {
-        struct Row: Decodable {
-            struct Round: Decodable {
-                let contentId: UUID
-                enum CodingKeys: String, CodingKey { case contentId = "content_id" }
-            }
-            struct Response: Decodable {
-                let responderId: UUID
-                let answer: GameAnswerPayload
-                enum CodingKeys: String, CodingKey { case answer, responderId = "responder_id" }
-            }
-            let id: UUID
-            let status: GameSessionStatus
-            let createdAt: Date
-            let rounds: [Round]
-            let responses: [Response]
-            enum CodingKeys: String, CodingKey {
-                case id, status
-                case createdAt = "created_at"
-                case rounds = "game_session_rounds"
-                case responses = "game_responses"
-            }
+        struct Round: Decodable {
+            let contentId: UUID
+            enum CodingKeys: String, CodingKey { case contentId = "content_id" }
         }
-
-        let rows: [Row] = try await supabase
-            .from("game_sessions")
-            .select("id, status, created_at, game_session_rounds(content_id), game_responses(responder_id, answer)")
-            .eq("game_type", value: GameType.wordGuess.rawValue)
-            .order("created_at", ascending: false)
-            .limit(limit)
-            .execute()
-            .value
+        let rows: [GameHistoryRow<Round>] = try await fetchGameHistoryRows(.wordGuess, roundColumns: "content_id", limit: limit)
 
         let me = currentUserID
         return rows.compactMap { row in

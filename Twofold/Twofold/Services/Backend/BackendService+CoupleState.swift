@@ -198,25 +198,7 @@ extension BackendService {
         // routed through a layover) — group by trip rather than keeping only the first match.
         let flightsByTrip = Dictionary(grouping: flights.filter { $0.tripID != nil }, by: { $0.tripID! })
 
-        let trips: [Trip] = tripRows.compactMap { row in
-            guard let origin = places[row.originId],
-                  let destination = places[row.destinationId] else { return nil }
-
-            return Trip(
-                id: row.id,
-                travelerIDs: row.travelerIds,
-                origin: origin,
-                destination: destination,
-                departureDate: row.departureAt,
-                arrivalDate: row.arrivalAt,
-                category: row.category,
-                distanceKm: row.distanceKm,
-                flights: flightsByTrip[row.id] ?? [],
-                notes: row.notes
-            )
-        }
-
-        let photoRowsByMemory = Dictionary(grouping: memoryPhotoRows, by: \.memoryId)
+        let trips = makeTrips(rows: tripRows, places: places, flightsByTrip: flightsByTrip)
 
         // One request for every photo in the couple's history — see `memoryPhotoSignedURLs`.
         //
@@ -226,26 +208,7 @@ extension BackendService {
         // server all at once, and first paint waited for the slowest of them.
         let signedURLsByPath = await memoryPhotoSignedURLs(paths: memoryPhotoRows.map(\.photoPath))
 
-        var memories: [Memory] = []
-        for row in memoryRows {
-            let place = row.placeId.flatMap { places[$0] }
-            let photoRows = (photoRowsByMemory[row.id] ?? []).sorted { $0.position < $1.position }
-            let photos = photoRows.compactMap { photoRow -> MemoryPhoto? in
-                guard let url = signedURLsByPath[photoRow.photoPath] else { return nil }
-                return MemoryPhoto(id: photoRow.id, path: photoRow.photoPath, url: url)
-            }
-            memories.append(
-                Memory(
-                    id: row.id,
-                    title: row.title,
-                    place: place,
-                    date: row.occurredAt,
-                    note: row.note,
-                    photos: photos,
-                    tripID: row.tripId
-                )
-            )
-        }
+        let memories = makeMemories(rows: memoryRows, photoRows: memoryPhotoRows, places: places, signedURLs: signedURLsByPath)
 
         let effectiveTier = Self.effectiveTier([meProfile, partnerProfile].map { ($0.subscriptionActive, $0.subscriptionTier) })
 

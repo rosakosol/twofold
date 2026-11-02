@@ -198,17 +198,24 @@ extension BackendService {
         let placeIDs = Array(Set(memoryRows.compactMap(\.placeId)))
         let places = try await fetchPlaces(ids: placeIDs)
 
-        let photoRowsByMemory = Dictionary(grouping: memoryPhotoRows, by: \.memoryId)
         // One request for the whole set — see `memoryPhotoSignedURLs`. This path runs on every
         // foreground refresh, so it was re-signing every photo the couple has ever added each
         // time the app came back.
         let signedURLsByPath = await memoryPhotoSignedURLs(paths: memoryPhotoRows.map(\.photoPath))
+        return makeMemories(rows: memoryRows, photoRows: memoryPhotoRows, places: places, signedURLs: signedURLsByPath)
+    }
 
-        return memoryRows.map { row in
+    /// Memories from their rows, with their photos in order and the places they name.
+    ///
+    /// The one place a `Memory` is built from the database; `fetchCoupleState` had its own copy
+    /// (CORE-24). A photo with no signed URL is left out rather than shown broken.
+    static func makeMemories(rows: [MemoryRow], photoRows: [MemoryPhotoRow], places: [UUID: Place], signedURLs: [String: URL]) -> [Memory] {
+        let photoRowsByMemory = Dictionary(grouping: photoRows, by: \.memoryId)
+        return rows.map { row in
             let place = row.placeId.flatMap { places[$0] }
             let photoRows = (photoRowsByMemory[row.id] ?? []).sorted { $0.position < $1.position }
             let photos = photoRows.compactMap { photoRow -> MemoryPhoto? in
-                guard let url = signedURLsByPath[photoRow.photoPath] else { return nil }
+                guard let url = signedURLs[photoRow.photoPath] else { return nil }
                 return MemoryPhoto(id: photoRow.id, path: photoRow.photoPath, url: url)
             }
             return Memory(
