@@ -24,7 +24,10 @@
 // Requires the OPENAI_API_KEY secret: `supabase secrets set OPENAI_API_KEY=...`
 
 import { userSession } from "../_shared/auth.ts";
-import OpenAI from "openai";
+// Inline npm: specifier, like every other function here. The bare "openai" resolved only through
+// this directory's own deno.json, so `deno check` failed from anywhere else. Same major as the
+// lockfile (6.x), so the client that ships doesn't change.
+import OpenAI from "npm:openai@^6";
 import { enforceRateLimit } from "../_shared/rate-limit.ts";
 import {
   buildPrimaryText,
