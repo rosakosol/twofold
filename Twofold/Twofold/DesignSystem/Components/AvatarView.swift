@@ -10,10 +10,8 @@ import SwiftUI
 /// down and rebuilding the whole round subtree every turn) can resolve synchronously instead of
 /// flashing back to the placeholder each time.
 @MainActor
-private final class AvatarImageCache {
+private struct AvatarImageCache {
     static let shared = AvatarImageCache()
-    private let cache = NSCache<NSString, UIImage>()
-    private init() {}
 
     /// Keyed on the URL's path alone, not the full URL — `avatarURL` is a *signed* URL
     /// (`BackendService.avatarSignedURL`), and per that function's own doc comment "each signed
@@ -23,10 +21,10 @@ private final class AvatarImageCache {
     /// exactly what read as the avatar flickering back to its placeholder while navigating
     /// around the app. The storage path itself is stable across re-signs, so that's the real
     /// cache key.
-    private func cacheKey(for url: URL) -> NSString { url.path as NSString }
+    private func cacheKey(for url: URL) -> String { url.path }
 
-    func image(for url: URL) -> UIImage? { cache.object(forKey: cacheKey(for: url)) }
-    func store(_ image: UIImage, for url: URL) { cache.setObject(image, forKey: cacheKey(for: url)) }
+    func image(for url: URL) -> UIImage? { ImageMemoryCache.avatars.image(for: cacheKey(for: url)) }
+    func store(_ image: UIImage, for url: URL) { ImageMemoryCache.avatars.store(image, for: cacheKey(for: url)) }
 }
 
 extension AvatarView {

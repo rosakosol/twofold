@@ -423,13 +423,10 @@ private struct PhotoPager: View {
     var body: some View {
         TabView(selection: $selection) {
             ForEach(Array(photos.enumerated()), id: \.element.id) { index, photo in
-                AsyncImage(url: photo.url) { image in
-                    image.resizable().scaledToFill()
-                } placeholder: {
-                    Theme.surface
-                }
-                .clipped()
-                .tag(index)
+                // Through the memory photo caches, not `AsyncImage`: the URL is signed, so a plain
+                // load misses on every re-sign and draws nothing offline.
+                MemoryPhotoView(photo: photo, seed: index, cornerRadius: 0)
+                    .tag(index)
             }
         }
         .tabViewStyle(.page(indexDisplayMode: photos.count > 1 ? .automatic : .never))

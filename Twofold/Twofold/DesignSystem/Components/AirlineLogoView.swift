@@ -18,7 +18,6 @@ import SwiftUI
 @MainActor
 private final class AirlineLogoCache {
     static let shared = AirlineLogoCache()
-    private let cache = NSCache<NSURL, UIImage>()
     /// In-flight fetches keyed by URL — a list full of the same airline (the common case: most
     /// couples fly the same 1-2 carriers repeatedly) scrolling into view for the first time in a
     /// session used to fire one independent network request per row for the *identical* URL, so
@@ -28,8 +27,8 @@ private final class AirlineLogoCache {
     private var inFlight: [URL: Task<UIImage?, Never>] = [:]
     private init() {}
 
-    func image(for url: URL) -> UIImage? { cache.object(forKey: url as NSURL) }
-    func store(_ image: UIImage, for url: URL) { cache.setObject(image, forKey: url as NSURL) }
+    func image(for url: URL) -> UIImage? { ImageMemoryCache.airlineLogos.image(for: url.absoluteString) }
+    func store(_ image: UIImage, for url: URL) { ImageMemoryCache.airlineLogos.store(image, for: url.absoluteString) }
 
     /// Fetches (or joins an already-running fetch for) `url`, caching a success before returning.
     /// Never throws — a failure just resolves to `nil` for every awaiter.

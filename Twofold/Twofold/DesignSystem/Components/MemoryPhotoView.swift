@@ -9,29 +9,21 @@
 import ImageIO
 import SwiftUI
 
-/// In-memory only, keyed by the photo's stable storage `path` rather than its signed `url` — the
+/// Decoded photos are cached in memory, keyed by the stable storage `path` rather than the signed `url` — the
 /// `memory-photos` bucket is private, so `url` is re-resolved (and therefore a *different*
 /// string) on every `fetchCoupleState()` reload, which would make a plain url-keyed cache miss on
 /// every fresh data load, not just app relaunch. Keying on `path` means a `MemoryPhotoView` that
 /// scrolls off/on screen — or a whole new data fetch — still resolves from cache instead of
 /// re-downloading. Not-yet-synced local photos share the literal path `"pending"` (see
 /// `PendingMemoryStore`), so those fall back to keying on `url` instead to avoid one pending
-/// memory's image colliding with another's in the cache. Internal (not `private`) so other views
-/// that render an already-uploaded `MemoryPhoto` outside `MemoryPhotoView` itself — e.g.
-/// `AddMemoryView`'s existing-photo thumbnails — can share the same cache instead of each
-/// re-downloading independently.
-@MainActor
-final class MemoryPhotoImageCache {
-    static let shared = MemoryPhotoImageCache()
-    private let cache = NSCache<NSString, UIImage>()
-    private init() {}
-
-    func image(for key: String) -> UIImage? { cache.object(forKey: key as NSString) }
-    func store(_ image: UIImage, for key: String) { cache.setObject(image, forKey: key as NSString) }
-}
-
+/// memory's image colliding with another's in the cache. Other views that render an already-uploaded
+/// `MemoryPhoto` outside `MemoryPhotoView` itself — e.g. `AddMemoryView`'s existing-photo
+/// thumbnails — use the same `ImageMemoryCache.memoryPhotos` instead of each re-downloading.
 struct MemoryPhotoView: View {
-    let memory: Memory
+    /// The photo drawn, or nil for a memory with none (the placeholder alone).
+    private let photo: MemoryPhoto?
+    /// Picks the placeholder's gradient, so a memory keeps the same one wherever it appears.
+    private let seed: Int
     var cornerRadius: CGFloat = 16
     /// Decode the photo down to roughly this many pixels on its longest side, instead of at
     /// whatever size it was uploaded. `nil` keeps the full image, which is what a screen actually
@@ -39,15 +31,32 @@ struct MemoryPhotoView: View {
     ///
     /// Uploads are capped at 1600px (`MemoryEditingKit`), so a full decode is a ~10MB bitmap.
     /// Drawing that into a 64pt map pin means decoding about seventy times more pixels than end
-    /// up on screen, and holding all of them in `MemoryPhotoImageCache` afterwards — twenty pins
+    /// up on screen, and holding all of them in `ImageMemoryCache.memoryPhotos` afterwards — twenty pins
     /// is some 200MB of bitmaps to draw twenty thumbnails.
     var thumbnailPixelSize: CGFloat?
+
+    /// A memory's first photo: a row, a pin, a single-photo detail screen.
+    init(memory: Memory, cornerRadius: CGFloat = 16, thumbnailPixelSize: CGFloat? = nil) {
+        self.photo = memory.photos.first
+        self.seed = memory.photoSeed
+        self.cornerRadius = cornerRadius
+        self.thumbnailPixelSize = thumbnailPixelSize
+    }
+
+    /// One photo of a memory, for a pager that shows each in turn. Goes through the same memory
+    /// and disk caches as the first photo, so a page drawn once draws again offline (HOME-20).
+    init(photo: MemoryPhoto, seed: Int, cornerRadius: CGFloat = 16, thumbnailPixelSize: CGFloat? = nil) {
+        self.photo = photo
+        self.seed = seed
+        self.cornerRadius = cornerRadius
+        self.thumbnailPixelSize = thumbnailPixelSize
+    }
 
     /// Only ever set by `load()` on a cache miss — a cache hit is read straight into
     /// `resolvedImage` below without waiting on this, same pattern as `AvatarView`.
     @State private var loadedImage: UIImage?
 
-    private var primaryPhoto: MemoryPhoto? { memory.photos.first }
+    private var primaryPhoto: MemoryPhoto? { photo }
 
     private var cacheKey: String? {
         guard let photo = primaryPhoto else { return nil }
@@ -63,7 +72,7 @@ struct MemoryPhotoView: View {
     }
 
     private var resolvedImage: UIImage? {
-        loadedImage ?? cacheKey.flatMap { MemoryPhotoImageCache.shared.image(for: $0) }
+        loadedImage ?? cacheKey.flatMap { ImageMemoryCache.memoryPhotos.image(for: $0) }
     }
 
     private var gradientColors: [Color] {
@@ -73,7 +82,7 @@ struct MemoryPhotoView: View {
             [Theme.indigo, Theme.accent],
             [Theme.success, Theme.accent],
         ]
-        return palettes[memory.photoSeed % palettes.count]
+        return palettes[seed % palettes.count]
     }
 
     var body: some View {
@@ -123,7 +132,7 @@ struct MemoryPhotoView: View {
     /// placeholder gradients.
     private func load(_ photo: MemoryPhoto) async {
         guard let key = cacheKey else { return }
-        if let cached = MemoryPhotoImageCache.shared.image(for: key) {
+        if let cached = ImageMemoryCache.memoryPhotos.image(for: key) {
             loadedImage = cached
             return
         }
@@ -133,14 +142,14 @@ struct MemoryPhotoView: View {
         let isUploaded = photo.path != "pending"
 
         if isUploaded, let data = MemoryPhotoDiskCache.read(path: photo.path), let image = await decoded(data) {
-            MemoryPhotoImageCache.shared.store(image, for: key)
+            ImageMemoryCache.memoryPhotos.store(image, for: key)
             loadedImage = image
             return
         }
 
         guard let (data, _) = try? await URLSession.shared.data(from: photo.url), let image = await decoded(data) else { return }
         if isUploaded { MemoryPhotoDiskCache.write(data, path: photo.path) }
-        MemoryPhotoImageCache.shared.store(image, for: key)
+        ImageMemoryCache.memoryPhotos.store(image, for: key)
         loadedImage = image
     }
 

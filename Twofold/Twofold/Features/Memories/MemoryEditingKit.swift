@@ -343,7 +343,7 @@ struct MemoryPhotoThumbnail: View {
     @State private var loadedImage: UIImage?
 
     private var cacheKey: String { photo.path == "pending" ? photo.url.absoluteString : photo.path }
-    private var resolvedImage: UIImage? { loadedImage ?? MemoryPhotoImageCache.shared.image(for: cacheKey) }
+    private var resolvedImage: UIImage? { loadedImage ?? ImageMemoryCache.memoryPhotos.image(for: cacheKey) }
 
     var body: some View {
         Group {
@@ -356,12 +356,12 @@ struct MemoryPhotoThumbnail: View {
     }
 
     private func load() async {
-        if let cached = MemoryPhotoImageCache.shared.image(for: cacheKey) {
+        if let cached = ImageMemoryCache.memoryPhotos.image(for: cacheKey) {
             loadedImage = cached
             return
         }
         guard let (data, _) = try? await URLSession.shared.data(from: photo.url), let image = UIImage(data: data) else { return }
-        MemoryPhotoImageCache.shared.store(image, for: cacheKey)
+        ImageMemoryCache.memoryPhotos.store(image, for: cacheKey)
         loadedImage = image
     }
 }

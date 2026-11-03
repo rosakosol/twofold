@@ -4,13 +4,13 @@
 //
 //  On-disk copies of memory photos, so a couple can actually browse their memories on a plane.
 //
-//  `MemoryPhotoImageCache` (in MemoryPhotoView) is an `NSCache` — in-memory only, so it's empty on
+//  `ImageMemoryCache.memoryPhotos` is an `NSCache` — in-memory only, so it's empty on
 //  every cold launch, which is exactly the state someone opening the app mid-flight is in. And the
 //  photos can't be re-fetched then either: `memory-photos` is a private bucket, so `MemoryPhoto.url`
 //  is a *signed* URL that both expires and is re-issued differently on every `fetchCoupleState()`,
 //  which is also why URLSession's own cache never gets a hit on them.
 //
-//  Keyed on the photo's stable storage `path` for the same reason `MemoryPhotoImageCache` is: the
+//  Keyed on the photo's stable storage `path` for the same reason `ImageMemoryCache.memoryPhotos` is: the
 //  signed URL changes on every load, the path doesn't. Hashed because a real path
 //  ("{coupleID}/{memoryID}/{uuid}.jpg") contains separators that can't go in a filename.
 //

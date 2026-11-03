@@ -41,12 +41,12 @@ struct RoundPhotoPicker: View {
                         .resizable()
                         .scaledToFill()
                 } else if let initialImageURL {
-                    AsyncImage(url: initialImageURL) { phase in
-                        if let image = phase.image {
-                            image.resizable().scaledToFill()
-                        } else {
-                            placeholderContent
-                        }
+                    // A signed avatar URL: `CachedRemoteImage` keys its disk copy on the path, so
+                    // the photo already on this phone shows offline and across re-signs.
+                    CachedRemoteImage(url: initialImageURL) { image in
+                        image.resizable().scaledToFill()
+                    } placeholder: {
+                        placeholderContent
                     }
                 } else {
                     placeholderContent
