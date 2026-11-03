@@ -113,6 +113,9 @@ struct HappyBirthdayView: View {
                     .padding()
                     .background(.white.opacity(0.95), in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
                     .foregroundStyle(Theme.inkOnFixedLight)
+                    // The field is white in both appearances, so it is drawn as light: otherwise
+                    // the placeholder and caret follow dark mode and turn light grey on white.
+                    .environment(\.colorScheme, .light)
 
                 if sendFailed {
                     Text("That didn't send. Try again in a moment.")
@@ -139,7 +142,12 @@ struct HappyBirthdayView: View {
                         Text("Send").fontWeight(.semibold).frame(maxWidth: .infinity)
                     }
                 }
+                // Deliberately not `.twofoldPrimary`: this screen's background is its gradient,
+                // and a second one on the button would compete with it. White, like the field
+                // above it, in the house capsule shape.
                 .buttonStyle(.borderedProminent)
+                .buttonBorderShape(.capsule)
+                .controlSize(.large)
                 .tint(.white)
                 .foregroundStyle(Theme.inkOnFixedLight)
                 .disabled(isSending)
