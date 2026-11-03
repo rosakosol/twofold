@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Loader2, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -12,10 +13,13 @@ import { SegmentedControl } from "@/components/site/SegmentedControl";
 import { StatusPill } from "@/components/site/StatusPill";
 import { createClient } from "@/lib/supabase/client";
 import type { AccountSearchResult, ReportedAccount } from "@/lib/console/accountDetail";
+import { accountKeys, fetchAccountsUpTo } from "@/lib/console/accountQueries";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 
 const PAGE_SIZE = 20;
 /** How many accounts a filtered view loads to filter in the browser. admin_list_accounts pages but
- *  does not filter, so a filter reads this many and filters them here. */
+ *  does not filter, so a filter reads this many, 100 a call (the function's cap), and filters them
+ *  here. */
 const FILTER_LIMIT = 1000;
 
 const FILTERS = [
@@ -71,15 +75,63 @@ interface ListRow extends AccountSearchResult {
  * audited call because opening a row is still what turns it into a person.
  */
 export default function UsersPage() {
-  const [query, setQuery] = useState("");
-  const [page, setPage] = useState(0);
-  const [filter, setFilter] = useState<Filter>("all");
-  const trimmed = query.trim();
+  // useSearchParams needs a Suspense boundary above it.
+  return (
+    <Suspense>
+      <Users />
+    </Suspense>
+  );
+}
+
+function isFilter(value: string | null): value is Filter {
+  return FILTERS.some((f) => f.value === value);
+}
+
+/**
+ * Search, page and filter live in the URL (?q=, ?page=, ?filter=), as the public board's do, so
+ * opening an account and coming back lands where you were rather than on page 1 of All.
+ */
+function Users() {
+  const router = useRouter();
+  const params = useSearchParams();
+  const committedQuery = params.get("q") ?? "";
+  const page = Math.max(0, (Number.parseInt(params.get("page") ?? "1", 10) || 1) - 1);
+  const rawFilter = params.get("filter");
+  const filter: Filter = isFilter(rawFilter) ? rawFilter : "all";
+
+  function setParams(next: { q?: string; page?: number; filter?: Filter }) {
+    const updated = new URLSearchParams(params.toString());
+    const apply = (key: string, value: string | undefined) => (value ? updated.set(key, value) : updated.delete(key));
+    if (next.q !== undefined) apply("q", next.q.trim() || undefined);
+    if (next.filter !== undefined) apply("filter", next.filter === "all" ? undefined : next.filter);
+    if (next.page !== undefined) apply("page", next.page > 0 ? String(next.page + 1) : undefined);
+    const qs = updated.toString();
+    router.replace(qs ? `/admin/users?${qs}` : "/admin/users", { scroll: false });
+  }
+
+  // What is typed, and what has been searched for. Each lookup is a round trip and a new query key,
+  // so the search waits until typing pauses rather than firing for every character past the third.
+  const [query, setQuery] = useState(committedQuery);
+  const [syncedQuery, setSyncedQuery] = useState(committedQuery);
+  if (syncedQuery !== committedQuery) {
+    setSyncedQuery(committedQuery);
+    // Our own update just echoing back leaves the draft alone (a trailing space included); a URL
+    // changed from outside (back, forward) replaces it.
+    if (committedQuery !== query.trim()) setQuery(committedQuery);
+  }
+  const debouncedQuery = useDebouncedValue(query);
+  useEffect(() => {
+    if (debouncedQuery.trim() !== committedQuery.trim()) setParams({ q: debouncedQuery, page: 0 });
+    // Only when the typing settles; setParams reads the latest params itself.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedQuery]);
+
+  const trimmed = committedQuery.trim();
   const searching = trimmed.length >= 3;
   const filtering = !searching && filter !== "all";
 
   const list = useQuery({
-    queryKey: ["admin", "accounts", page],
+    queryKey: accountKeys.page(page),
     queryFn: async () => {
       const supabase = createClient();
       const { data, error } = await supabase.rpc("admin_list_accounts", {
@@ -95,12 +147,14 @@ export default function UsersPage() {
   });
 
   const everyone = useQuery({
-    queryKey: ["admin", "accounts", "all"],
-    queryFn: async () => {
+    queryKey: accountKeys.everyone(),
+    queryFn: () => {
       const supabase = createClient();
-      const { data, error } = await supabase.rpc("admin_list_accounts", { p_limit: FILTER_LIMIT, p_offset: 0 });
-      if (error) throw error;
-      return (data ?? []) as ListRow[];
+      return fetchAccountsUpTo(async (limit, offset) => {
+        const { data, error } = await supabase.rpc("admin_list_accounts", { p_limit: limit, p_offset: offset });
+        if (error) throw error;
+        return (data ?? []) as ListRow[];
+      }, FILTER_LIMIT);
     },
     enabled: filtering,
   });
@@ -108,7 +162,7 @@ export default function UsersPage() {
   // Every reported account, with counts: one small read, keyed by id, that both the Reports column
   // and the Reported filter look up in. Reporter identities stay on the account page.
   const reportCounts = useQuery({
-    queryKey: ["admin", "reported-accounts"],
+    queryKey: accountKeys.reported(),
     queryFn: async () => {
       const supabase = createClient();
       const { data, error } = await supabase.rpc("admin_reported_accounts", { p_limit: 5000 });
@@ -119,7 +173,7 @@ export default function UsersPage() {
   const reported = reportCounts.data ?? new Map<string, ReportedAccount>();
 
   const search = useQuery({
-    queryKey: ["admin", "lookup", trimmed],
+    queryKey: accountKeys.lookup(trimmed),
     queryFn: async () => {
       const supabase = createClient();
       const { data, error } = await supabase.rpc("admin_lookup_account", { p_query: trimmed });
@@ -168,10 +222,7 @@ export default function UsersPage() {
             className="pl-11"
             placeholder="Search email, profile id or invite code"
             value={query}
-            onChange={(e) => {
-              setQuery(e.target.value);
-              setPage(0);
-            }}
+            onChange={(e) => setQuery(e.target.value)}
             autoComplete="off"
             spellCheck={false}
           />
@@ -184,10 +235,7 @@ export default function UsersPage() {
             label="Show"
             options={FILTERS}
             value={filter}
-            onChange={(value) => {
-              setFilter(value);
-              setPage(0);
-            }}
+            onChange={(value) => setParams({ filter: value, page: 0 })}
           />
         )}
       </div>
@@ -256,7 +304,7 @@ export default function UsersPage() {
                     )}
                   </td>
                   <td className="num">
-                    <ReportCount row={reported.get(row.profile_id)} />
+                    <ReportCount row={reported.get(row.profile_id)} failed={reportCounts.isError} />
                   </td>
                 </tr>
               ))}
@@ -271,11 +319,11 @@ export default function UsersPage() {
             Showing {page * PAGE_SIZE + 1} to {Math.min((page + 1) * PAGE_SIZE, total)} of {total.toLocaleString()}
           </p>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" disabled={page === 0 || isFetching} onClick={() => setPage((p) => Math.max(0, p - 1))}>
+            <Button variant="outline" size="sm" disabled={page === 0 || isFetching} onClick={() => setParams({ page: Math.max(0, page - 1) })}>
               <ChevronLeft className="h-4 w-4" aria-hidden />
               Newer
             </Button>
-            <Button variant="outline" size="sm" disabled={page >= lastPage || isFetching} onClick={() => setPage((p) => p + 1)}>
+            <Button variant="outline" size="sm" disabled={page >= lastPage || isFetching} onClick={() => setParams({ page: page + 1 })}>
               Older
               <ChevronRight className="h-4 w-4" aria-hidden />
             </Button>
@@ -288,7 +336,15 @@ export default function UsersPage() {
 
 /** A reported account's report count, red once more than one person has reported them; a dash
  *  for everyone else. Block notices are not reports and are not counted here. */
-function ReportCount({ row }: { row: ReportedAccount | undefined }) {
+function ReportCount({ row, failed }: { row: ReportedAccount | undefined; failed: boolean }) {
+  // A dash means "no reports"; when the counts didn't load it would be a false one.
+  if (failed) {
+    return (
+      <span className="muted" title="Report counts didn't load">
+        ?
+      </span>
+    );
+  }
   if (!row || row.report_count === 0) return <span className="muted">-</span>;
   const title = `${row.report_count} ${row.report_count === 1 ? "report" : "reports"} from ${row.reporter_count} ${
     row.reporter_count === 1 ? "person" : "people"

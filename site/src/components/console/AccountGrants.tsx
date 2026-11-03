@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Gift, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,6 +10,7 @@ import { createClient } from "@/lib/supabase/client";
 import { nullableArg } from "@/lib/db/nullableArg";
 import { AccountSection, ActionRow } from "@/components/console/AccountLayout";
 import { ActionDialog, ReasonField } from "@/components/console/AccountDialog";
+import { useAccountChanged } from "@/lib/console/useAccountChanged";
 import { InfoTip } from "@/components/console/InfoTip";
 
 export type FlightOverride = { monthly_limit: number; note: string | null; created_at: string };
@@ -42,7 +42,7 @@ export function AccountGrants({
    *  override, else the tier's), shown beside "Tier default". Null when there is no couple. */
   tierLimit: number | null;
 }) {
-  const router = useRouter();
+  const accountChanged = useAccountChanged();
 
   return (
     <AccountSection
@@ -61,7 +61,7 @@ export function AccountGrants({
             description="For a streak lost to something on our side."
             detail="Adds one unused streak repair to this account. Use it when a streak was lost to something that was our fault."
             unused={credits.streak_repair_unused}
-            onDone={() => router.refresh()}
+            onDone={accountChanged}
           />
           <Grant
             profileId={profileId}
@@ -71,13 +71,13 @@ export function AccountGrants({
             description="One extra export, for someone on Plus."
             detail="Adds one Relationship Record export. Premium already has unlimited exports, so this is for somebody on Plus."
             unused={credits.record_export_unused}
-            onDone={() => router.refresh()}
+            onDone={accountChanged}
           />
           <FlightLimit
             profileId={profileId}
             override={override}
             tierLimit={tierLimit}
-            onDone={() => router.refresh()}
+            onDone={accountChanged}
           />
         </ul>
       </div>

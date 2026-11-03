@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Archive as ArchiveIcon, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -10,6 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 import { shortDate } from "@/lib/console/format";
 import { AccountCard, AccountSection, ActionRow, Fact, Facts } from "@/components/console/AccountLayout";
 import { ActionDialog, ConfirmField, DANGER_SUBMIT, ReasonField } from "@/components/console/AccountDialog";
+import { useAccountChanged } from "@/lib/console/useAccountChanged";
 import { InfoTip } from "@/components/console/InfoTip";
 
 export type CoupleArchive = {
@@ -30,7 +30,7 @@ export type CoupleArchive = {
  * condition itself. Hiding the button here is for clarity, not what keeps this safe.
  */
 export function AccountArchives({ archives }: { archives: CoupleArchive[] }) {
-  const router = useRouter();
+  const accountChanged = useAccountChanged();
   if (archives.length === 0) return null;
 
   return (
@@ -41,7 +41,7 @@ export function AccountArchives({ archives }: { archives: CoupleArchive[] }) {
       description="Deleted automatically when their 90 days are up."
     >
       {archives.map((archive) => (
-        <Archive key={archive.couple_id} archive={archive} onDone={() => router.refresh()} />
+        <Archive key={archive.couple_id} archive={archive} onDone={accountChanged} />
       ))}
     </AccountSection>
   );

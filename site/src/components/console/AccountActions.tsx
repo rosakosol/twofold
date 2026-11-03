@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Loader2, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,6 +10,7 @@ import { cancellability } from "@/lib/console/accountDetail";
 import { deletionBillingWarning, type DeletionBillingWarning } from "@/lib/account/subscription";
 import { AccountSection, ActionRow } from "@/components/console/AccountLayout";
 import { ActionDialog, ConfirmField, DANGER_SUBMIT, ReasonField } from "@/components/console/AccountDialog";
+import { useAccountChanged } from "@/lib/console/useAccountChanged";
 import { InfoTip } from "@/components/console/InfoTip";
 
 /**
@@ -51,7 +51,7 @@ export function AccountActions({
   subscriptionStore: string | null;
   subscriptionActive: boolean;
 }) {
-  const router = useRouter();
+  const accountChanged = useAccountChanged();
   const subscription = cancellability(subscriptionStore, subscriptionActive);
 
   return (
@@ -69,7 +69,7 @@ export function AccountActions({
                 profileId={profileId}
                 ours={subscription.ours}
                 label={subscription.label}
-                onDone={() => router.refresh()}
+                onDone={accountChanged}
               />
             )}
 
@@ -78,7 +78,7 @@ export function AccountActions({
                 profileId={profileId}
                 coupleId={couple.id}
                 partnerName={couple.partnerFirstName}
-                onDone={() => router.refresh()}
+                onDone={accountChanged}
               />
             )}
 
@@ -86,7 +86,7 @@ export function AccountActions({
               profileId={profileId}
               email={email}
               billingWarning={deletionBillingWarning({ active: subscriptionActive, store: subscriptionStore })}
-              onDone={() => router.refresh()}
+              onDone={accountChanged}
             />
           </ul>
         </>

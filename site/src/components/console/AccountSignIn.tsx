@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { KeyRound, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -9,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { requestPasswordReset } from "@/lib/marketing/auth";
 import { AccountSection, ActionRow } from "@/components/console/AccountLayout";
 import { ActionDialog, ReasonField } from "@/components/console/AccountDialog";
+import { useAccountChanged } from "@/lib/console/useAccountChanged";
 import { InfoTip } from "@/components/console/InfoTip";
 
 /**
@@ -36,7 +36,7 @@ export function AccountSignIn({
   providers: string[];
   deleted: boolean;
 }) {
-  const router = useRouter();
+  const accountChanged = useAccountChanged();
 
   return (
     <AccountSection
@@ -52,7 +52,7 @@ export function AccountSignIn({
             email={email}
             providers={providers}
             deleted={deleted}
-            onDone={() => router.refresh()}
+            onDone={accountChanged}
           />
         </ul>
       </div>
