@@ -69,7 +69,7 @@ struct MemoryDetailView: View {
                                 // Newsreader, 19pt (section 3): a note reads as something written by
                                 // hand, not as interface copy.
                                 Text(memory.note)
-                                    .font(.newsreader(size: 19, relativeTo: .body))
+                                    .newsreaderFont(size: 19, relativeTo: .body)
                                     .foregroundStyle(Theme.textPrimary)
                             }
 

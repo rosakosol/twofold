@@ -17,16 +17,55 @@ import SwiftUI
 import UIKit
 
 extension Font {
-    /// Newsreader at `size`, scaled with Dynamic Type as `textStyle` is when one is given.
-    static func newsreader(size: CGFloat, weight: Font.Weight = .regular, relativeTo textStyle: Font.TextStyle? = nil) -> Font {
-        let scaled = textStyle.map { UIFontMetrics(forTextStyle: $0.uiTextStyle).scaledValue(for: size) } ?? size
-        return Font(UIFont.newsreader(size: scaled, weight: weight))
+    /// Newsreader at a fixed `size`, for something drawn at an exact size: an exported image, the
+    /// PDF, the welcome screen's display wordmark. Text that should grow with Dynamic Type uses
+    /// `.newsreaderFont(_:)` instead.
+    static func newsreader(size: CGFloat, weight: Font.Weight = .regular) -> Font {
+        Font(UIFont.newsreader(size: size, weight: weight))
     }
 
+    /// The point size of `textStyle` at `dynamicTypeSize`, or of `size` scaled along that style's
+    /// curve when one is given.
+    ///
+    /// Taken from the size it is asked about, not from the device's setting. `UIFont.preferredFont`
+    /// and `UIFontMetrics.scaledValue(for:)` read the device, so a view pinned with
+    /// `.dynamicTypeSize(.large)` — every share card — still drew its wordmark at the sender's own
+    /// text size, and the exported image changed with it (UX-11).
+    static func newsreaderPointSize(
+        _ textStyle: Font.TextStyle,
+        size: CGFloat? = nil,
+        at dynamicTypeSize: DynamicTypeSize
+    ) -> CGFloat {
+        let traits = UITraitCollection(preferredContentSizeCategory: UIContentSizeCategory(dynamicTypeSize))
+        if let size {
+            return UIFontMetrics(forTextStyle: textStyle.uiTextStyle).scaledValue(for: size, compatibleWith: traits)
+        }
+        return UIFont.preferredFont(forTextStyle: textStyle.uiTextStyle, compatibleWith: traits).pointSize
+    }
+}
+
+extension View {
     /// Newsreader at a text style's own size, for the places that used `.system(style, design: .serif)`.
-    static func newsreader(_ textStyle: Font.TextStyle, weight: Font.Weight = .regular) -> Font {
-        let size = UIFont.preferredFont(forTextStyle: textStyle.uiTextStyle).pointSize
-        return Font(UIFont.newsreader(size: size, weight: weight))
+    /// Follows the view's `dynamicTypeSize`, so it grows with the reader's setting and holds still
+    /// under a pinned one.
+    func newsreaderFont(_ textStyle: Font.TextStyle, weight: Font.Weight = .regular) -> some View {
+        modifier(NewsreaderFont(textStyle: textStyle, size: nil, weight: weight))
+    }
+
+    /// Newsreader at `size`, scaled with Dynamic Type as `textStyle` is.
+    func newsreaderFont(size: CGFloat, weight: Font.Weight = .regular, relativeTo textStyle: Font.TextStyle) -> some View {
+        modifier(NewsreaderFont(textStyle: textStyle, size: size, weight: weight))
+    }
+}
+
+private struct NewsreaderFont: ViewModifier {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    let textStyle: Font.TextStyle
+    let size: CGFloat?
+    let weight: Font.Weight
+
+    func body(content: Content) -> some View {
+        content.font(.newsreader(size: Font.newsreaderPointSize(textStyle, size: size, at: dynamicTypeSize), weight: weight))
     }
 }
 

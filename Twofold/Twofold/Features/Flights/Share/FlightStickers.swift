@@ -55,7 +55,7 @@ private struct StickerBrand: View {
                 .scaledToFit()
                 .frame(width: size + 1, height: size)
             Text("twofold")
-                .font(.system(size: size, design: .serif))
+                .font(.newsreader(size: size))
                 .tracking(-0.01 * size)
         }
         .foregroundStyle(color)
@@ -741,7 +741,7 @@ private struct PassportStampSticker: View {
                     Text([data.arrivalYear, data.arrivalTime].compactMap { $0 }.joined(separator: " · "))
                         .font(.system(size: 14, weight: .semibold))
                     Text("twofold")
-                        .font(.system(size: 13, design: .serif))
+                        .font(.newsreader(size: 13))
                         .opacity(0.7)
                         .padding(.top, 4)
                 }

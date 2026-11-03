@@ -266,7 +266,7 @@ struct GameShareCard: View {
                         // Scales down to 14pt, then truncates: the card stays 4:5. The full answer
                         // is in "Copy as text".
                         Text(answer.text)
-                            .font(.system(size: 16, design: .serif))
+                            .font(.newsreader(size: 16))
                             .lineSpacing(5.6)
                             .lineLimit(3)
                             .minimumScaleFactor(0.875)
@@ -553,7 +553,7 @@ struct GameShareCard: View {
                     .scaledToFit()
                     .frame(width: 20, height: 19)
                 Text("twofold")
-                    .font(.system(size: 19, design: .serif))
+                    .font(.newsreader(size: 19))
                     .tracking(-0.19)
             }
         }

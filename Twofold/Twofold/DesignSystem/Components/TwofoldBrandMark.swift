@@ -21,7 +21,7 @@ struct TwofoldBrandMark: View {
                 .scaledToFit()
                 .frame(width: size, height: size)
             Text("twofold")
-                .font(.newsreader(textStyle))
+                .newsreaderFont(textStyle)
                 .foregroundStyle(color)
         }
     }
