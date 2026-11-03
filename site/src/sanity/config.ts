@@ -9,12 +9,11 @@ import { schemaTypes } from "@/sanity/schemaTypes";
 import { structure } from "@/sanity/deskStructure";
 import { FaqTool } from "@/sanity/tools/FaqTool";
 
-// Editing UI for twofoldapp.com.au's marketing copy — hero text, feature copy, and the two
-// legal pages — plus the "FAQ" tool below. Embedded at /studio (next-sanity) rather than a
-// separate Sanity Studio project, now that the marketing site lives in this same Next.js app.
-// Layout, nav, and all Stripe/RevenueCat pricing stay hardcoded in the site itself — see
-// src/lib/marketing/faqFallback.ts and featuresFallback.ts for the boundary between what's
-// editable here vs. what lives in code.
+// Editing UI for twofoldapp.com.au's marketing copy — plan cards, the quiz and the two legal
+// pages — plus the "FAQ" tool below. Embedded at /studio (next-sanity) rather than a separate
+// Sanity Studio project, now that the marketing site lives in this same Next.js app. The home
+// page, the features and the pricing comparison table are in code (docs/TWOFOLD_WEBSITE.md), as
+// are layout, nav and all Stripe/RevenueCat wiring.
 export default defineConfig({
   name: "default",
   title: "Twofold Website",

@@ -68,34 +68,6 @@ const PLUS_FEATURES = [
   'Home Screen & Lock Screen widgets',
 ]
 
-const COMPARISON_ROWS = [
-  {_type: 'comparisonRow', _key: 'trips', label: 'Trips & memories', plus: 'Unlimited', premium: 'Unlimited'},
-  {_type: 'comparisonRow', _key: 'flights', label: 'Live-tracked flights each month', plus: '2', premium: '5'},
-  {_type: 'comparisonRow', _key: 'flightssaved', label: 'Flights saved to your trips', plus: 'Unlimited', premium: 'Unlimited'},
-  {_type: 'comparisonRow', _key: 'games', label: 'Questions & conversation decks', plus: '500+', premium: '2000+'},
-  // The four puzzle/board games. Every one of these splits is enforced server-side (see the
-  // `start_*_session` RPCs), so the table can state them as facts.
-  {_type: 'comparisonRow', _key: 'puzzles', label: 'Sudoku & Word Guess', plus: 'Yes', premium: 'Yes'},
-  {_type: 'comparisonRow', _key: 'sudokudifficulty', label: 'Sudoku difficulties', plus: 'Easy & Medium', premium: 'All four'},
-  {_type: 'comparisonRow', _key: 'wordguess', label: 'Word Guess boards', plus: '1 a day', premium: 'Unlimited'},
-  // Premium outright since chess was withdrawn (20261111000700), so no theme split any more.
-  {_type: 'comparisonRow', _key: 'wordsearch', label: 'Word Search', plus: '', premium: 'Yes'},
-  {_type: 'comparisonRow', _key: 'connectfour', label: 'Connect 4', plus: '', premium: 'Yes'},
-  {_type: 'comparisonRow', _key: 'streakrepair', label: 'Streak repair', plus: '', premium: '1 a month'},
-  {_type: 'comparisonRow', _key: 'widgets', label: 'Home & Lock Screen widgets', plus: 'Yes', premium: 'Yes'},
-  // Gated by size in the widget extension: Small is Plus, Medium is Premium.
-  {_type: 'comparisonRow', _key: 'mediumwidgets', label: 'Drawing Pad & Time & Weather widgets', plus: 'Small', premium: 'Small & Medium'},
-  {_type: 'comparisonRow', _key: 'liveactivities', label: 'Live Activities for in-progress flights', plus: 'Yes', premium: 'Yes'},
-  // Available on both — not gated anywhere in the app, and deliberately staying that way: it has
-  // been free for the app's whole life, and taking it back from existing Plus subscribers costs
-  // more than listing it here would gain.
-  {_type: 'comparisonRow', _key: 'globe', label: 'Interactive 3D globe', plus: 'Yes', premium: 'Yes'},
-  {_type: 'comparisonRow', _key: 'delaystats', label: 'Flight delay analysis & gate details', plus: '', premium: 'Yes'},
-  // Singular. There is exactly one, and "styles" implied a set.
-  {_type: 'comparisonRow', _key: 'premiumwidgets', label: 'Smart Rotating widget', plus: '', premium: 'Yes'},
-  {_type: 'comparisonRow', _key: 'record', label: 'Relationship Record export', plus: '', premium: 'Yes'},
-]
-
 const QUIZ_PREMIUM_DESCRIPTION =
   'Everything in Plus, plus 5 live-tracked flights a month, 2000+ questions, Word Search, Connect 4 and the harder puzzles, flight delay analysis, and your Relationship Record.'
 
@@ -105,8 +77,8 @@ const QUIZ_PLUS_DESCRIPTION =
 // Compares by value, not by the order a JSON object happens to list its keys in.
 //
 // A plain `JSON.stringify` is key-order sensitive, and Sanity does not return an object's keys in
-// the order they were written: `comparisonRow` literals here start `{_type, _key, ...}` and come
-// back `{_key, _type, ...}`. So every run reported the comparison table as needing an update, had
+// the order they were written: object literals written `{_type, _key, ...}` come back
+// `{_key, _type, ...}`. So every run reported the (since removed) comparison table as needing an update, had
 // just written it, and reported it again — which makes `--dry` useless for the one thing it is
 // for, and makes a real pending change indistinguishable from the noise.
 //
@@ -126,7 +98,6 @@ function stableStringify(value) {
 const patches = [
   {id: 'plan-plus', fields: {features: PLUS_FEATURES}},
   {id: 'plan-premium', fields: {features: PREMIUM_FEATURES}},
-  {id: 'planComparison', fields: {rows: COMPARISON_ROWS}},
   {id: 'quizResult-plus', fields: {description: QUIZ_PLUS_DESCRIPTION}},
   {id: 'quizResult-premium', fields: {description: QUIZ_PREMIUM_DESCRIPTION}},
 ]

@@ -97,6 +97,4 @@ export const PLANS: Record<"plus" | "premium", Plan> = {
 };
 
 // FEATURE_SLUGS/FeatureSlug used to live here, back when the feature cards were a fixed
-// set of six slots. Features are now a free-form Sanity list (add/remove/rename/reorder
-// in Studio), so the list and its order come from the CMS — see
-// src/lib/marketing/featuresFallback.ts for the cold-start fallback copy.
+// set of six slots. The feature copy now lives in code, on the home and /features pages.

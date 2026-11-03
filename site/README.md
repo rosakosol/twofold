@@ -90,25 +90,22 @@ of the console entirely. Each page inside still checks the role it needs — `co
 Everything in Studio is either a **singleton** (one document at a fixed `_id`, wired up in
 `src/sanity/deskStructure.ts`) or a **free-form list** editors add to and remove from:
 
-| Content | Shape | Fallback when unpublished |
+| Content | Shape | Fallback when unpublished or Sanity is down |
 | --- | --- | --- |
-| Home hero | singleton `hero` | inline in `src/app/(marketing)/page.tsx` |
-| Features | **free-form list** (`feature`) | `src/lib/marketing/featuresFallback.ts` |
 | Pricing plans | singletons `plan-plus` / `plan-premium` | `PLANS` in `src/lib/marketing/config.ts` |
-| Plan comparison table | singleton `planComparison` | `src/lib/marketing/planComparisonFallback.ts` |
 | Quiz | free-form `quizQuestion` + 2 result singletons | quiz hidden if unplayable |
 | Privacy / Terms | singletons `legalPage-privacy` / `legalPage-terms` | inline JSX in each page |
 | FAQ | **not Sanity** — Supabase `faq_entries` | `src/lib/marketing/faqFallback.ts` |
 
-Features carry their own title, copy, bullets, icon, colour, and `order`, so adding,
-removing, renaming and reordering cards is entirely a Studio operation — both the home page
-grid and `/features` render whatever is published. The one piece still in code is the
-per-feature illustration on `/features` (`FeatureArt`, keyed by the feature's slug); a
-feature whose slug has no `case` there falls back to a generic mock card.
+The home hero, the feature cards and the pricing comparison table are not in Studio: their copy
+is in code (`src/app/(marketing)/page.tsx`, `features/page.tsx`, `pricing/page.tsx`), following
+`docs/TWOFOLD_WEBSITE.md`. Their old `hero`, `feature` and `planComparison` documents may still
+be in the dataset, but nothing reads them.
 
 Sanity reads go through the CDN with `useCdn: true` and a **60-second** `revalidate`
 (`SANITY_REVALIDATE_SECONDS`); `faq_entries` uses the same window. So published copy appears
-within a minute without a deploy, and a missing document falls back rather than breaking.
+within a minute without a deploy, and a missing document or a Sanity outage falls back rather
+than breaking (`fetchOrFallback` in `src/lib/marketing/sanity.ts`).
 
 FAQ is not a Sanity type because the iOS app reads the same rows (Settings → Support). The
 Studio's custom tool (`src/sanity/tools/FaqTool.tsx`) writes to `faq_entries` directly as the
@@ -123,10 +120,9 @@ one overwrites, so re-read `/studio` before running any of them.
 
 | Script | Writes | Flags |
 | --- | --- | --- |
-| `seed-sanity.mjs` | the feature cards | create-only; `--replace` to overwrite |
 | `seed-privacy-policy.mjs` | `legalPage-privacy` | dry-run by default; `--write` to publish |
 | `seed-terms.mjs` | `legalPage-terms` | dry-run by default; `--write` to publish |
-| `update-plan-copy.mjs` | plan + comparison copy, and the code fallbacks | `--dry` to preview |
+| `update-plan-copy.mjs` | plan card and quiz result copy | `--dry` to preview |
 | `warm-dev.mjs` | nothing — wraps `next dev`, see below | |
 
 `scripts/lib/` holds the shared Sanity write client (resolves a token from `SANITY_AUTH_TOKEN`,

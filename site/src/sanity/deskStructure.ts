@@ -1,10 +1,10 @@
 import type {StructureResolver} from 'sanity/structure'
 
-// "hero", the two legal pages, the two plans, and the two quiz results are singletons
-// (exactly one document per fixed ID) — the site has a fixed number of slots for each
-// (one hero, 2 legal pages, 2 plans, 2 quiz outcomes), so those are copy-only editing.
-// Features and quiz questions are free-form lists editors add to and remove from, so
-// they get a plain document list instead. FAQ moved to its own custom tool (see
+// The two legal pages, the two plans, and the two quiz results are singletons (exactly one
+// document per fixed ID) — the site has a fixed number of slots for each, so those are copy-only
+// editing. Quiz questions are a free-form list editors add to and remove from, so they get a plain
+// document list instead. The hero, feature cards and comparison table were removed: that copy is
+// in code now (see schemaTypes/index.ts). FAQ moved to its own custom tool (see
 // config.ts's `tools` entry), since it's no longer a Sanity document type at all.
 const LEGAL_PAGES = [
   {id: 'legalPage-privacy', title: 'Privacy Policy'},
@@ -21,20 +21,12 @@ const PLANS = [
   {id: 'plan-premium', title: 'Premium'},
 ]
 
-const MANAGED_TYPE_NAMES = new Set(['hero', 'feature', 'legalPage', 'quizQuestion', 'quizResult', 'plan', 'planComparison'])
+const MANAGED_TYPE_NAMES = new Set(['legalPage', 'quizQuestion', 'quizResult', 'plan'])
 
 export const structure: StructureResolver = (S) =>
   S.list()
     .title('Twofold Content')
     .items([
-      S.listItem()
-        .title('Home Hero')
-        .id('hero')
-        .child(S.document().schemaType('hero').documentId('hero')),
-      S.divider(),
-      S.listItem()
-        .title('Features')
-        .child(S.documentTypeList('feature').title('Features').defaultOrdering([{field: 'order', direction: 'asc'}])),
       S.listItem()
         .title('Pricing Plans')
         .child(
@@ -47,13 +39,6 @@ export const structure: StructureResolver = (S) =>
                   .id(id)
                   .child(S.document().schemaType('plan').documentId(id))
               ),
-              S.divider(),
-              // The row-by-row table under the cards on /pricing. Singleton, same fixed-id
-              // treatment as the hero and the legal pages.
-              S.listItem()
-                .title('Comparison Table')
-                .id('planComparison')
-                .child(S.document().schemaType('planComparison').documentId('planComparison')),
             ])
         ),
       S.divider(),
