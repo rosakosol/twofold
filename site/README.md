@@ -55,7 +55,7 @@ list row itself. The console has one (`admin/requests/[id]`) because editing nee
 | --- | --- |
 | `src/components/ui/` | shadcn primitives — built on `@base-ui/react`, not Radix |
 | `src/components/{marketing,feedback,account,console,admin,layout,auth}/` | feature components |
-| `src/lib/supabase/` | `@supabase/ssr` wiring: `client`, `server`, `middleware`, `functionError` |
+| `src/lib/supabase/` | `@supabase/ssr` wiring: `client`, `server`, `proxy`, `service`, `functionError`, `dbError` |
 | `src/lib/marketing/` | Sanity fetchers, in-code fallbacks, billing, auth helpers, price display |
 | `src/lib/account/` | `subscription.ts` — what a person may be told and offered about their own billing |
 | `src/lib/auth/` | `useUser`, `useAdminRoles`, `isAdmin`, `isConsoleAdmin`, `signOutAndGoHome` |
@@ -172,8 +172,13 @@ domain completes on another and loses its verifier.
 `next dev` also writes `AGENTS.md` and `CLAUDE.md` into this folder and re-creates them if
 removed. Both are gitignored at the repo root.
 
-There is no test suite here. The things worth pinning are pinned in the database
-(`supabase/tests/`, pgTAP) and in the iOS app's XCTest targets.
+`npm test` runs the unit tests (Vitest, node environment, no DOM): `src/**/*.test.ts`, beside
+the code they cover. They cover the lib layer and the API routes as plain functions, with
+Supabase and Zoho mocked: validation, subscription and cancellation rules, date formats, the
+Sanity fallbacks, the console's read and write checks, and `/api/support` and `/api/waitlist`.
+Run them from `site/`: the mail templates are read relative to the working directory. Database
+rules are pinned in pgTAP (repo-root `supabase/tests/`). There are no browser tests yet; the
+console's destructive flows are the first thing worth covering end to end.
 
 ### Database
 
