@@ -2,10 +2,11 @@
 //  DrawingPadOfflineTests.swift
 //  TwofoldTests
 //
-//  The drawing pads with no network (HOME-9).
+//  The drawing pads with no network (HOME-9, HOME-10).
 //
-//  Signing a pad's URL is a round trip, and a failed one used to assign nil over the URL already
-//  held, so both pads went blank offline although their drawings were on disk.
+//  HOME-9: signing a pad's URL is a round trip, and a failed one used to assign nil over the URL
+//  already held, so both pads went blank offline although their drawings were on disk.
+//  HOME-10: the full-screen viewer turned every failed load into "Nothing drawn yet".
 //
 
 import Testing
@@ -62,5 +63,32 @@ struct DrawingPadOfflineTests {
         #expect(restored.myDrawingURL?.path == mine.path)
         #expect(restored.partnerDrawingURL?.path == theirs.path)
         #expect(restored.myDrawingURL?.query == nil, "A signed URL's token was written to disk")
+    }
+
+    // MARK: - The full-screen viewer
+
+    @Test("a failed load is an error, not \"Nothing drawn yet\"")
+    func failedLoadIsError() {
+        guard case .failed = DrawingPadFullScreenView.content(for: .failed, cached: nil) else {
+            Issue.record("A pad that failed to load was shown as \(DrawingPadFullScreenView.content(for: .failed, cached: nil))")
+            return
+        }
+    }
+
+    @Test("nothing saved is still \"Nothing drawn yet\"")
+    func blankIsEmpty() {
+        guard case .nothingDrawn = DrawingPadFullScreenView.content(for: .blank, cached: nil) else {
+            Issue.record("A pad with nothing on it was not shown as empty")
+            return
+        }
+    }
+
+    @Test("while loading, the copy on disk shows at once")
+    func cachedShowsWhileLoading() {
+        let image = UIGraphicsImageRenderer(size: CGSize(width: 2, height: 2)).image { _ in }
+        guard case .drawing = DrawingPadFullScreenView.content(for: nil, cached: image) else {
+            Issue.record("The disk copy was not shown while the fetch was out")
+            return
+        }
     }
 }
