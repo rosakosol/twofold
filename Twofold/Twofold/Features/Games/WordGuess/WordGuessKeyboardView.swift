@@ -27,6 +27,8 @@ struct WordGuessKeyboardView: View {
     var keyHeight: CGFloat = WordGuessKeyboardView.defaultKeyHeight
 
     static let defaultKeyHeight: CGFloat = 46
+    /// The tallest a key gets, however much height is going: past this they stop reading as keys.
+    static let maxKeyHeight: CGFloat = 76
 
     /// The height this keyboard occupies for a given key height — so a caller can subtract it from
     /// the screen before deciding what is left for the board, without re-deriving the row maths.
@@ -53,7 +55,7 @@ struct WordGuessKeyboardView: View {
 
     var body: some View {
         GeometryReader { proxy in
-            let unit = (proxy.size.width - Self.keySpacing * (Self.unitsPerRow - 1)) / Self.unitsPerRow
+            let unit = Self.keyUnit(forWidth: proxy.size.width)
             let action = unit * Self.actionKeyUnits + Self.keySpacing * (Self.actionKeyUnits - 1)
 
             VStack(spacing: Theme.Spacing.xs) {
@@ -78,7 +80,9 @@ struct WordGuessKeyboardView: View {
             }
         }
         // A `GeometryReader` fills whatever it is offered, so the keyboard has to state its own
-        // height or it takes the rest of the screen and pushes the board off the top.
+        // height or it takes the rest of the screen and pushes the board off the top. Its width
+        // stops at the same column width `keyUnit` does, centred in anything wider.
+        .frame(maxWidth: Theme.Layout.columnMaxWidth)
         .frame(height: Self.height(forKeyHeight: keyHeight))
     }
 
@@ -89,7 +93,21 @@ struct WordGuessKeyboardView: View {
     /// what "the keyboard is too small" actually looks like: the keys were already large, the
     /// writing on them was not. Scaled off width because width is the binding dimension; the
     /// system keyboard's own letters sit at a similar fraction of their key.
-    private func glyphSize(forKeyWidth width: CGFloat) -> CGFloat { max(13, width * 0.62) }
+    ///
+    /// Capped, for the same reason the keyboard's width is: past a phone-sized key the letter only
+    /// gets louder, not easier to hit.
+    static func glyphSize(forKeyWidth width: CGFloat) -> CGFloat { min(30, max(13, width * 0.62)) }
+
+    /// The width of one letter key when the keyboard is offered `width`.
+    ///
+    /// The keyboard is never wider than `Theme.Layout.columnMaxWidth`. It used to take whatever it
+    /// was given, which is right on a phone and was not on iPhone Duo's inner display: keys about
+    /// 86pt wide with 53pt letters, stretched across the fold under a board that had shrunk to make
+    /// room for them (DUO-9).
+    static func keyUnit(forWidth width: CGFloat) -> CGFloat {
+        let width = min(width, Theme.Layout.columnMaxWidth)
+        return (width - keySpacing * (unitsPerRow - 1)) / unitsPerRow
+    }
 
     /// Corners scale too. A 5pt radius reads as sharp on a 46pt key and as an accident on a 70pt
     /// one, because the curve stops being a noticeable share of the edge.
@@ -102,7 +120,7 @@ struct WordGuessKeyboardView: View {
             onLetter(letter)
         } label: {
             Text(String(letter).uppercased())
-                .font(.system(size: glyphSize(forKeyWidth: width), weight: .semibold))
+                .font(.system(size: Self.glyphSize(forKeyWidth: width), weight: .semibold))
                 .minimumScaleFactor(0.6)
                 .lineLimit(1)
                 .foregroundStyle(mark?.tileTextColor ?? Theme.textPrimary)
@@ -126,7 +144,7 @@ struct WordGuessKeyboardView: View {
         let radius = cornerRadius(forKeyWidth: width)
         return Button(action: onBackspace) {
             Image(systemName: "delete.backward")
-                .font(.system(size: glyphSize(forKeyWidth: width) * 0.85, weight: .semibold))
+                .font(.system(size: Self.glyphSize(forKeyWidth: width) * 0.85, weight: .semibold))
                 .foregroundStyle(isEnabled ? Theme.textPrimary : Theme.textSecondary)
                 .frame(width: width, height: keyHeight)
                 .background(Theme.surface, in: RoundedRectangle(cornerRadius: radius))
