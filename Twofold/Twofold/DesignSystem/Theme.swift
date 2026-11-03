@@ -176,6 +176,17 @@ enum Theme {
         /// A card exported as an image.
         static let shareCard: CGFloat = 32
     }
+
+    /// Widths for displays wider than a phone — iPhone Duo's inner display. See `AdaptiveLayout.swift`.
+    enum Layout {
+        /// The widest one column of cards, a side panel or the Word Guess keyboard gets: about a
+        /// phone and a half. Two of them and the gap between fit the Duo's inner display opened
+        /// like a book, with the gap on the fold.
+        static let columnMaxWidth: CGFloat = 520
+        /// The width full-width content gets on a phone: a 390pt screen less `Spacing.md` each
+        /// side. Heights chosen on a phone were chosen against this.
+        static let phoneContentWidth: CGFloat = 358
+    }
 }
 
 extension View {

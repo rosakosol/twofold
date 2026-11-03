@@ -33,6 +33,7 @@ struct HomeView: View {
 
     @Environment(AppModel.self) private var appModel
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var distanceShareContext: DistanceShareContext?
     @State private var globeFullScreenContext: GlobeFullScreenContext?
     @State private var showingSettings = false
@@ -80,13 +81,19 @@ struct HomeView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: Theme.Spacing.md) {
-                    statusCards
-                    timeZoneCard
-                    travelCard
-                    distanceCard
-                    drawingPadCard
-                    gamesSection
+                Group {
+                    if horizontalSizeClass == .regular {
+                        twoColumnCards
+                    } else {
+                        VStack(spacing: Theme.Spacing.md) {
+                            statusCards
+                            timeZoneCard
+                            travelCard
+                            distanceCard
+                            drawingPadCard
+                            gamesSection
+                        }
+                    }
                 }
                 .padding(Theme.Spacing.md)
             }
@@ -220,6 +227,34 @@ struct HomeView: View {
     }
 
     // MARK: - Cards
+
+    /// Home on a regular-width display — iPhone Duo's inner display, upright or opened like a book.
+    ///
+    /// One column there was a phone's stack stretched to ~900pt: the time on the far left of a card
+    /// and the temperature on the far right, the globe a small earth in a wide band, and every card
+    /// crossing the fold. Two columns of at most `Theme.Layout.columnMaxWidth`, the two of you on
+    /// one side (time, distance, drawing pad) and what you are doing on the other (travel, games),
+    /// with the gap between them on the fold. Anything asking for attention stays across the top.
+    private var twoColumnCards: some View {
+        VStack(spacing: Theme.Spacing.md) {
+            statusCards
+            HStack(alignment: .top, spacing: Theme.Spacing.md) {
+                VStack(spacing: Theme.Spacing.md) {
+                    timeZoneCard
+                    distanceCard
+                    drawingPadCard
+                }
+                .frame(maxWidth: Theme.Layout.columnMaxWidth)
+                VStack(spacing: Theme.Spacing.md) {
+                    travelCard
+                    gamesSection
+                }
+                .frame(maxWidth: Theme.Layout.columnMaxWidth)
+            }
+        }
+        .frame(maxWidth: Theme.Layout.columnMaxWidth * 2 + Theme.Spacing.md)
+        .frame(maxWidth: .infinity)
+    }
 
     /// The cards that ask for something: a lapsed subscription, the partner's status, the setup
     /// checklist, flight shares waiting for review. Each draws nothing when there is nothing to ask.
