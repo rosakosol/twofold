@@ -1,5 +1,5 @@
 // Mirrors the DB enums public.feedback_request_status / public.feedback_request_category
-// (supabase/migrations/20260719000100_feedback_enums.sql) — keep these in sync if the
+// (repo-root supabase/migrations/20261109000600_feedback_board_schema.sql) — keep these in sync if the
 // enum ever changes.
 
 export const STATUS_VALUES = [
@@ -53,12 +53,4 @@ export const CATEGORY_LABELS: Record<FeatureCategory, string> = {
   notifications: "Notifications",
   relationship: "Relationship",
   general: "General",
-};
-
-export type SortOption = "top" | "new" | "recently_updated";
-
-export const SORT_LABELS: Record<SortOption, string> = {
-  top: "Most Upvoted",
-  new: "Newest",
-  recently_updated: "Recently Updated",
 };

@@ -19,9 +19,3 @@ export const createFeatureRequestSchema = z.object({
 });
 
 export type CreateFeatureRequestInput = z.infer<typeof createFeatureRequestSchema>;
-
-// Only the fields a non-admin owner may change within the 15-minute edit window —
-// mirrors what the DB trigger enforce_feature_request_owner_edit_scope() actually
-// allows (see supabase/migrations/20260719000400_feature_requests.sql).
-export const updateOwnFeatureRequestSchema = createFeatureRequestSchema;
-export type UpdateOwnFeatureRequestInput = z.infer<typeof updateOwnFeatureRequestSchema>;

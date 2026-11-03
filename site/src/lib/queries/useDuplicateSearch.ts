@@ -12,7 +12,7 @@ export interface SimilarFeature {
 }
 
 /** Backed by the search_similar_feature_requests() RPC (trigram similarity on title) —
- * see supabase/migrations/20260719000900_search_similar_feature_requests.sql. Caller
+ * see the repo-root supabase/migrations/20261109000600_feedback_board_schema.sql. Caller
  * is expected to debounce `query` itself (see FeatureSubmitDialog). */
 export function useDuplicateSearch(query: string) {
   const trimmed = query.trim();

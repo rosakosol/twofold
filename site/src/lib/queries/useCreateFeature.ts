@@ -44,10 +44,8 @@ export function useCreateFeature() {
           body: JSON.stringify({ featureId: created.id }),
         }).catch(() => {});
       }
-      // "list" (the old infinite-scroll query) and "roadmap" (what the board's flat
-      // list + roadmap sections actually render from) both need invalidating so a new
-      // request shows up immediately without a manual refresh.
-      queryClient.invalidateQueries({ queryKey: ["features", "list"] });
+      // The roadmap is what the board renders from, so a new request shows up immediately
+      // without a manual refresh.
       queryClient.invalidateQueries({ queryKey: ["features", "roadmap"] });
     },
   });

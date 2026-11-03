@@ -161,14 +161,3 @@ export function evaluatePassword(password: string, name?: string, email?: string
 export function isAcceptablePassword(password: string, name?: string, email?: string): boolean {
   return RANK[evaluatePassword(password, name, email)] > RANK.weak;
 }
-
-export function passwordStrengthLabel(password: string, name?: string, email?: string): string {
-  switch (evaluatePassword(password, name, email)) {
-    case "strong":
-      return "Strong";
-    case "fair":
-      return "Fair";
-    default:
-      return "Weak";
-  }
-}
