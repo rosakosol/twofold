@@ -164,7 +164,7 @@ struct MemoryDetailView: View {
     /// you meant — and the first tap looks like it did nothing.
     private func titleField(for memory: Memory) -> some View {
         TextField("Title", text: $draftTitle)
-            .font(.system(size: 28, weight: .bold))
+            .font(.title.bold())
             .foregroundStyle(Theme.textPrimary)
             .focused($titleFocused)
             .submitLabel(.done)
@@ -317,7 +317,7 @@ struct MemoryDetailView: View {
         .padding(.horizontal, Theme.Spacing.lg)
         .padding(.bottom, Theme.Spacing.md)
         .accessibilityElement()
-        .accessibilityLabel(memory.photos.isEmpty ? "Add photos" : "Photos. \(memory.photos.count) of them")
+        .accessibilityLabel(memory.photos.isEmpty ? "Add photos" : memory.photos.count == 1 ? "1 photo" : "\(memory.photos.count) photos")
         .accessibilityHint("Tap to add or remove photos")
         .accessibilityAddTraits(.isButton)
     }

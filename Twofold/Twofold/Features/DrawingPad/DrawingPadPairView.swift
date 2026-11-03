@@ -55,8 +55,8 @@ struct DrawingPadPairView: View {
                 ScreenBackground()
 
                 HStack(alignment: .top, spacing: Theme.Spacing.md) {
-                    pane(name: "You", screenTitle: "Your pad", url: myURL, owner: appModel.currentUser)
-                    pane(name: partnerName, screenTitle: "\(partnerName)'s pad", url: partnerURL, owner: appModel.partner)
+                    pane(name: "You", screenTitle: "Your pad", drawingLabel: "Your drawing", url: myURL, owner: appModel.currentUser)
+                    pane(name: partnerName, screenTitle: "\(partnerName)'s pad", drawingLabel: "\(partnerName)'s drawing", url: partnerURL, owner: appModel.partner)
                 }
                 .padding(Theme.Spacing.md)
             }
@@ -89,7 +89,9 @@ struct DrawingPadPairView: View {
         .postHogScreenView("Drawing Pad: Both")
     }
 
-    private func pane(name: String, screenTitle: String, url: URL?, owner: Person) -> some View {
+    /// `drawingLabel` is VoiceOver's name for the pane, carried for the same reason as `screenTitle`:
+    /// composed from `name` it read "You's drawing" for your own.
+    private func pane(name: String, screenTitle: String, drawingLabel: String, url: URL?, owner: Person) -> some View {
         VStack(spacing: Theme.Spacing.sm) {
             Button {
                 focused = FocusedPad(name: name, screenTitle: screenTitle, url: url, owner: owner)
@@ -132,7 +134,7 @@ struct DrawingPadPairView: View {
                     .shadow(color: .black.opacity(0.1), radius: 8, y: 4)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("\(name)'s drawing")
+            .accessibilityLabel(drawingLabel)
             .accessibilityHint("Opens this drawing on its own")
 
             Text(name)
