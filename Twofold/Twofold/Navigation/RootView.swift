@@ -104,7 +104,7 @@ struct RootView: View {
     /// mean a device holding a subscription rather than an account.
     ///
     /// A test run's store answer stands for this account's own, the way a signed-in customer's
-    /// would — see `AppModel.deviceTier()`.
+    /// would — see `SubscriptionState.deviceTier()`.
     private var deviceHoldsEntitlement: Bool {
         if E2ELaunch.isOn { return subscriptionStore.isSubscribed }
         return Purchases.isConfigured && !Purchases.shared.isAnonymous && subscriptionStore.isSubscribed

@@ -41,9 +41,6 @@ extension AppModel {
     static func isSubscribed(backendSaysActive: Bool, deviceTier: SubscriptionTier?) -> Bool {
         SubscriptionState.isSubscribed(backendSaysActive: backendSaysActive, deviceTier: deviceTier)
     }
-    static func deviceTier() async -> SubscriptionTier? {
-        await SubscriptionState.deviceTier()
-    }
     static func isWebManagedStore(_ store: String?) -> Bool {
         SubscriptionState.isWebManagedStore(store)
     }

@@ -18,7 +18,6 @@ import SwiftUI
 
 struct FlightTrackingView: View {
     @Environment(AppModel.self) private var appModel
-    @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
 
     @State private var flight: Flight
