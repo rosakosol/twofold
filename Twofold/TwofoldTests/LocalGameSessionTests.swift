@@ -146,7 +146,7 @@ struct LocalGameSessionTests {
     }
 
     @Test("a queued answer remembers which question it was for")
-    func queuedAnswerCarriesContent() throws {
+    @MainActor func queuedAnswerCarriesContent() throws {
         let contentID = UUID()
         let pending = PendingGameResponse(
             sessionID: UUID(), roundNumber: 2, responderID: UUID(),
@@ -160,7 +160,7 @@ struct LocalGameSessionTests {
     /// Answers queued by a build that predates the content id are all for real sessions, where the
     /// round number is already right — they must keep decoding rather than being dropped.
     @Test("answers queued before content ids existed still decode")
-    func olderQueuedAnswersStillDecode() throws {
+    @MainActor func olderQueuedAnswersStillDecode() throws {
         let json = """
         {"id":"\(UUID().uuidString)","sessionID":"\(UUID().uuidString)","roundNumber":3,\
         "responderID":"\(UUID().uuidString)","answerValue":"blue","queuedAt":760000000}

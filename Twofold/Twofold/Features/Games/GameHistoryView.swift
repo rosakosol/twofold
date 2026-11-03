@@ -334,8 +334,8 @@ struct GameHistoryView: View {
     /// Whoever finished, with a dash for whoever didn't — an unfinished side is part of the story
     /// of that puzzle, not something to hide.
     private func sudokuTimesText(_ result: (difficulty: SudokuDifficulty?, mine: TimeInterval?, partner: TimeInterval?)) -> String {
-        let mine = result.mine.map(PuzzleClock.text) ?? "—"
-        let theirs = result.partner.map(PuzzleClock.text) ?? "—"
+        let mine = result.mine.map { PuzzleClock.text($0) } ?? "—"
+        let theirs = result.partner.map { PuzzleClock.text($0) } ?? "—"
         return "\(appModel.currentUser.name) \(mine) · \(appModel.partner.name) \(theirs)"
     }
 
@@ -375,7 +375,7 @@ struct GameHistoryView: View {
                 if session.gameType == .sudoku {
                     // `summary`, not `decoded` — the grid itself is never shown here, and `decoded`
                     // would mean regenerating the whole puzzle from its content id to read a time.
-                    func time(for responderID: UUID) -> TimeInterval? {
+                    @MainActor func time(for responderID: UUID) -> TimeInterval? {
                         guard let response = detail.responses.first(where: { $0.responderID == responderID }),
                               let summary = SudokuPlayState.summary(from: response.answerValue),
                               summary.isComplete

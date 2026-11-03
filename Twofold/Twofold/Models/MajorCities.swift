@@ -11,7 +11,7 @@
 
 import CoreLocation
 
-struct MajorCity {
+nonisolated struct MajorCity {
     let name: String
     let country: String
     let latitude: Double
@@ -21,7 +21,7 @@ struct MajorCity {
 }
 
 extension Geo {
-    static let majorCities: [MajorCity] = [
+    nonisolated static let majorCities: [MajorCity] = [
         // North America — United States
         MajorCity(name: "New York", country: "United States", latitude: 40.7128, longitude: -74.0060),
         MajorCity(name: "Los Angeles", country: "United States", latitude: 34.0522, longitude: -118.2437),

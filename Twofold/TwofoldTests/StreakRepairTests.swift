@@ -35,7 +35,7 @@ struct StreakRepairTests {
     /// production with nothing on screen to explain it. Exactly the trap `CoupleRow` documents,
     /// walked into again. It is a string now, parsed separately.
     @Test("the RPC's row decodes, date and all")
-    func decodes() throws {
+    @MainActor func decodes() throws {
         let json = #"""
         {"repairable":true,"streak_at_risk":27,"credits":1,"missed_date":"2026-09-09"}
         """#
@@ -50,7 +50,7 @@ struct StreakRepairTests {
 
     /// And a null one is fine — the offer does not depend on it.
     @Test("a missing date does not sink the row")
-    func nullDateIsTolerated() throws {
+    @MainActor func nullDateIsTolerated() throws {
         let json = #"{"repairable":true,"streak_at_risk":5,"credits":0,"missed_date":null}"#
         let decoded = try JSONDecoder().decode(BackendService.StreakRepairState.self, from: Data(json.utf8))
         #expect(decoded.repairable)

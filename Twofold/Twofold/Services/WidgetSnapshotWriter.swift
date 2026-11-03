@@ -42,7 +42,7 @@ enum WidgetSnapshotWriter {
         appModel: AppModel,
         alsoReload: Set<WidgetKind> = [],
         write: (WidgetSnapshot) -> Void = WidgetSnapshot.write,
-        reload: (Set<WidgetKind>) -> Void = WidgetReloadPlan.reload
+        reload: @MainActor (Set<WidgetKind>) -> Void = WidgetReloadPlan.reload
     ) async {
         guard appModel.session.partnerConnected else {
             let unpaired = WidgetSnapshot(

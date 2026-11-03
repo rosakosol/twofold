@@ -49,7 +49,7 @@ struct ResumeSetupView: View {
     private var plan: OnboardingResume.Plan {
         OnboardingResume.plan(
             pendingRequestInviterName: appModel.session.pendingOutgoingConnectionRequest?.inviterFirstName,
-            savedInvite: BackendService.currentUserID.flatMap(OnboardingResume.savedInvite(for:))
+            savedInvite: BackendService.currentUserID.flatMap { OnboardingResume.savedInvite(for: $0) }
         )
     }
 

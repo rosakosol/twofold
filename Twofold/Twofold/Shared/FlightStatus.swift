@@ -10,7 +10,7 @@
 
 import Foundation
 
-enum FlightStatus: String, Hashable, Codable, CaseIterable {
+nonisolated enum FlightStatus: String, Hashable, Codable, CaseIterable {
     case scheduled
     case boarding
     case departed

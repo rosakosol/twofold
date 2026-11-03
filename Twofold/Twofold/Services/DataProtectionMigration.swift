@@ -21,8 +21,8 @@ import UIKit
 
 enum DataProtectionMigration {
     /// Bump when a tree is added below, so the walk runs again for the new one.
-    private static let currentVersion = 1
-    private static let versionKey = "dataProtection.migratedVersion"
+    private nonisolated static let currentVersion = 1
+    private nonisolated static let versionKey = "dataProtection.migratedVersion"
 
     static func runIfNeeded() {
         guard UserDefaults.standard.integer(forKey: versionKey) < currentVersion else { return }
@@ -110,7 +110,7 @@ enum DataProtectionMigration {
     /// Both halves are needed. `setAttributes` does not recurse, so the files have to be walked;
     /// and a directory carries a class of its own which is what a file created inside it without
     /// one inherits, so the directory has to be set too or the next write lands at the old class.
-    private static func apply(_ protection: FileProtectionType, to url: URL) {
+    private nonisolated static func apply(_ protection: FileProtectionType, to url: URL) {
         let fm = FileManager.default
         guard fm.fileExists(atPath: url.path) else { return }
         set(protection, at: url)
@@ -120,7 +120,7 @@ enum DataProtectionMigration {
         }
     }
 
-    private static func set(_ protection: FileProtectionType, at url: URL) {
+    private nonisolated static func set(_ protection: FileProtectionType, at url: URL) {
         // Reading the current class first is what makes a resumed run cheap: a walk interrupted by
         // the app being killed repeats the enumeration but not the rewraps.
         if let current = try? url.resourceValues(forKeys: [.fileProtectionKey]).fileProtection,

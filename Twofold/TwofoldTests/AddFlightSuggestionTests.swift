@@ -110,8 +110,8 @@ struct AddFlightSuggestionTests {
         let top = ranked.prefix(3).map(\.iata)
         #expect(top == ["CBR", "HBA", "SYD"], "got \(ranked.map(\.iata))")
         // Named-city airstrips still appear, below the real airports rather than above them.
-        let goulburn = try? #require(ranked.firstIndex { $0.iata == "GUL" })
-        let sydney = try? #require(ranked.firstIndex { $0.iata == "SYD" })
+        let goulburn = ranked.firstIndex { $0.iata == "GUL" }
+        let sydney = ranked.firstIndex { $0.iata == "SYD" }
         #expect((goulburn ?? 0) > (sydney ?? 0))
     }
 

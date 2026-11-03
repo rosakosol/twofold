@@ -15,6 +15,7 @@ import Testing
 import Foundation
 @testable import Twofold
 
+@MainActor
 struct RedundantSubscriptionTests {
 
     private func decode(_ json: String) throws -> BackendService.RedundantSubscription {

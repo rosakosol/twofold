@@ -9,6 +9,7 @@
 //
 
 import Testing
+import os
 import Foundation
 @testable import Twofold
 
@@ -108,14 +109,15 @@ struct AirportTimeZoneResolverTests {
         AirportTimeZoneResolver.resetForTesting()
         defer { AirportTimeZoneResolver.resetForTesting() }
 
-        var calls = 0
+        let calls = OSAllocatedUnfairLock(initialState: 0)
         AirportTimeZoneResolver.fetchOverride = { _ in
-            calls += 1
+            calls.withLock { $0 += 1 }
             return [:]   // a real answer: the table knows nothing about this code
         }
         _ = await AirportTimeZoneResolver.resolve(iataCodes: ["ZZZZ"])
         _ = await AirportTimeZoneResolver.resolve(iataCodes: ["ZZZZ"])
-        #expect(calls == 1, "asked \(calls) times — a known-empty answer should only be fetched once")
+        let count = calls.withLock { $0 }
+        #expect(count == 1, "asked \(count) times — a known-empty answer should only be fetched once")
     }
 
     /// Nothing to look up must not become a query.

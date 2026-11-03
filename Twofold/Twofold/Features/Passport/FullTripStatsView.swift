@@ -67,7 +67,7 @@ struct FullTripStatsView: View {
     /// the currently-scoped ones, so switching between kinds doesn't make the year you're looking
     /// at disappear out from under you.
     private var availableYears: [Int] {
-        Array(Set(appModel.travel.trips.map(Self.year))).sorted(by: >)
+        Array(Set(appModel.travel.trips.map { Self.year(of: $0) })).sorted(by: >)
     }
 
     private var stats: TripStats { TripStats(trips: scopedTrips) }

@@ -35,7 +35,7 @@ extension Color {
     }
 }
 
-enum TimeMath {
+nonisolated enum TimeMath {
     static func hourFraction(in timeZone: TimeZone, at date: Date) -> Double {
         var calendar = Calendar.current
         calendar.timeZone = timeZone

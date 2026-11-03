@@ -103,7 +103,7 @@ enum Geo {
     /// below runs one comparison per city — so a single `nearestMajorCity` allocated two hundred
     /// and fifty pairs of objects, half of which were the same fixed coordinates as the call
     /// before it. This is that half, hoisted. Lazy and immutable, like every other `static let`.
-    private static let majorCityLocations: [CLLocation] = majorCities.map {
+    private nonisolated static let majorCityLocations: [CLLocation] = majorCities.map {
         CLLocation(latitude: $0.coordinate.latitude, longitude: $0.coordinate.longitude)
     }
 
@@ -118,7 +118,7 @@ enum Geo {
     ///
     /// Same arithmetic as before: the same `CLLocation.distance(from:)` between the same two
     /// coordinates. Only the allocation is gone — one object per call rather than two per city.
-    static func nearestMajorCity(to coordinate: CLLocationCoordinate2D, maxDistanceKm: Double = 90) -> MajorCity? {
+    nonisolated static func nearestMajorCity(to coordinate: CLLocationCoordinate2D, maxDistanceKm: Double = 90) -> MajorCity? {
         let query = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
         var bestIndex: Int?
         var bestDistanceKm = Double.greatestFiniteMagnitude

@@ -60,7 +60,7 @@ final class SwipeCardUITests: E2ETestCase {
         start.press(forDuration: 0.05, thenDragTo: end)
 
         // Give the spring time to settle.
-        Thread.sleep(forTimeInterval: 1.0)
+        try await Task.sleep(for: .seconds(1))
 
         let after = card.frame
         let drift = abs(after.midX - before.midX)
@@ -87,7 +87,7 @@ final class SwipeCardUITests: E2ETestCase {
             let start = card.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
             let end = start.withOffset(CGVector(dx: attempt.isMultiple(of: 2) ? -70 : 70, dy: 0))
             start.press(forDuration: 0.05, thenDragTo: end)
-            Thread.sleep(forTimeInterval: 1.0)
+            try await Task.sleep(for: .seconds(1))
 
             let drift = abs(card.frame.midX - origin)
             XCTAssertLessThan(drift, 8, "Card did not return to rest after drag \(attempt) (off by \(drift)pt)")
@@ -114,7 +114,7 @@ final class SwipeCardUITests: E2ETestCase {
         let edge = app.coordinate(withNormalizedOffset: CGVector(dx: 0.004, dy: cardMidYFraction))
         edge.press(forDuration: 0.05, thenDragTo: edge.withOffset(CGVector(dx: 70, dy: 0)))
 
-        Thread.sleep(forTimeInterval: 1.2)
+        try await Task.sleep(for: .seconds(1.2))
 
         guard card.exists else {
             throw XCTSkip("The edge drag popped the screen rather than being cancelled — nothing to assert.")

@@ -45,7 +45,7 @@ struct DrawingPadFullScreenView: View {
         }
     }
 
-    private var cached: UIImage? { url.flatMap(RemoteImageDiskCache.image(for:)) }
+    private var cached: UIImage? { url.flatMap { RemoteImageDiskCache.image(for: $0) } }
 
     private func load() async {
         result = await DrawingPadLoader.load(url)

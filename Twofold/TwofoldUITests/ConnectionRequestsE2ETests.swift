@@ -37,7 +37,7 @@ final class ConnectionRequestsE2ETests: E2ETestCase {
         require(app.buttons["Review Alex's request"], timeout: 20, "The request is not on the Settings card").tap()
         let accept = require(app.buttons["Accept"], timeout: 10, "The card did not open the review screen")
         let enabled = expectation(for: NSPredicate(format: "isEnabled == true"), evaluatedWith: accept)
-        wait(for: [enabled], timeout: 15)
+        await fulfillment(of: [enabled], timeout: 15)
         accept.tap()
 
         require(app.staticTexts["You have history with Alex"], timeout: 10, "Accepting from Settings did not offer to bring the archive back")

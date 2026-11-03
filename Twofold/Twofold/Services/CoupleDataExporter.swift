@@ -45,11 +45,11 @@ enum CoupleDataExporter {
     /// produced — so `ArchivedDataView`, which is running against a deletion deadline and should
     /// not be asking anyone to make choices, keeps its existing behaviour by passing nothing.
     /// `ExportDataView` is the screen that fills this in.
-    struct Options: Equatable {
+    nonisolated struct Options: Equatable {
         /// How the tables are written. CSV opens in a spreadsheet; JSON is the "structured,
         /// commonly used and machine-readable" form a portability request is entitled to, which a
         /// CSV per table is arguably not.
-        enum DataFormat: String, CaseIterable, Identifiable {
+        nonisolated enum DataFormat: String, CaseIterable, Identifiable {
             case csv, json
             var id: String { rawValue }
             var label: String { self == .csv ? "Spreadsheets (CSV)" : "Data file (JSON)" }
@@ -57,7 +57,7 @@ enum CoupleDataExporter {
         }
 
         /// The readable copy alongside the data, if any.
-        enum Document: String, CaseIterable, Identifiable {
+        nonisolated enum Document: String, CaseIterable, Identifiable {
             case none, pdf, word
             var id: String { rawValue }
             var label: String {
@@ -148,7 +148,7 @@ enum CoupleDataExporter {
             throw ExportError.couldNotCreateFolder
         }
 
-        await progress("Gathering your history…")
+        progress("Gathering your history…")
 
         // Each of these is allowed to fail without sinking the export: a missing table is better
         // than no export at all when the alternative is losing everything to a deadline.
@@ -200,7 +200,7 @@ enum CoupleDataExporter {
         // Memories last of the four, because their rows carry the names of the files written
         // alongside them and those only exist once the photos are down.
         let wantsPhotos = options.memories && options.photos
-        if wantsPhotos { await progress("Saving photos…") }
+        if wantsPhotos { progress("Saving photos…") }
         var memoryRows: [[String]] = []
         var photoCount = 0
         var missingPhotoCount = 0
@@ -237,8 +237,8 @@ enum CoupleDataExporter {
         // deadline. Its absence is noted in the README rather than thrown.
         var pdfIncluded = false
         if options.document != .none {
-            await progress("Writing the relationship record…")
-            let items = await RelationshipRecord.timeline(trips: trips, memories: memories, flights: flights)
+            progress("Writing the relationship record…")
+            let items = RelationshipRecord.timeline(trips: trips, memories: memories, flights: flights)
             let source: URL? = switch options.document {
             case .pdf:
                 await relationshipRecord(
@@ -266,7 +266,7 @@ enum CoupleDataExporter {
             to: folder.appendingPathComponent("README.txt")
         )
 
-        await progress("Packaging…")
+        progress("Packaging…")
         let zip = try zipped(folder, named: folderName(for: title))
 
         return Result(
@@ -393,7 +393,7 @@ enum CoupleDataExporter {
         partnerPhotoURL: URL?,
         progress: @MainActor (String) -> Void = { _ in }
     ) async -> URL? {
-        await progress("Gathering your history…")
+        progress("Gathering your history…")
 
         // Same tolerance as `export`: one failed fetch should cost that section, not the document.
         async let tripsTask = (try? await BackendService.fetchTrips(coupleID: coupleID)) ?? []
@@ -404,7 +404,7 @@ enum CoupleDataExporter {
         let memories = await memoriesTask
         let flights = await flightsTask
 
-        await progress("Writing your record…")
+        progress("Writing your record…")
         return await relationshipRecord(
             trips: trips,
             memories: memories,

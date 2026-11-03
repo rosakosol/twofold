@@ -372,7 +372,7 @@ struct PendingPuzzleResultStoreTests {
     }
 
     @Test("answers queued before results carried a game type still decode")
-    func olderEntriesDecode() throws {
+    @MainActor func olderEntriesDecode() throws {
         let json = """
         {"id":"\(UUID().uuidString)","sessionID":"\(UUID().uuidString)","roundNumber":1,\
         "responderID":"\(UUID().uuidString)","answerValue":"blue","queuedAt":760000000}

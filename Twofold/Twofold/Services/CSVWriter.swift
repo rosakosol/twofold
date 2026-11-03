@@ -51,7 +51,7 @@ enum CSVWriter {
     /// One row, terminated. CRLF because RFC 4180 says so and because Excel on Windows is the
     /// least forgiving reader of the three.
     static func row(_ fields: [String]) -> String {
-        fields.map(field).joined(separator: ",") + "\r\n"
+        fields.map { field($0) }.joined(separator: ",") + "\r\n"
     }
 
     /// A whole file: header row then body rows.

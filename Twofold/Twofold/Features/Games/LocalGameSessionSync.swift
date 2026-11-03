@@ -28,11 +28,13 @@ enum LocalGameSessionSync {
     /// changed, so the caller can refresh the deck list it just made stale.
     @discardableResult
     static func flush() async -> Bool {
-        lock.lock()
-        if isFlushing { lock.unlock(); return false }
-        isFlushing = true
-        lock.unlock()
-        defer { lock.lock(); isFlushing = false; lock.unlock() }
+        let claimed = lock.withLock {
+            if isFlushing { return false }
+            isFlushing = true
+            return true
+        }
+        guard claimed else { return false }
+        defer { lock.withLock { isFlushing = false } }
 
         var changed = false
         for local in LocalGameSessionStore.all() {

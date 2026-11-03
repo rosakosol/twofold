@@ -174,7 +174,7 @@ final class InviteFlowE2ETests: E2ETestCase {
         app.switches["I'm 16 or over, and I agree to the Terms of Use and Privacy Policy"].tap()
         let continueButton = app.buttons["Continue"]
         let enabled = expectation(for: NSPredicate(format: "isEnabled == true"), evaluatedWith: continueButton)
-        wait(for: [enabled], timeout: 5)
+        await fulfillment(of: [enabled], timeout: 5)
         continueButton.tap()
 
         require(app.staticTexts["Where are you based?"], timeout: 30, "Creating the account did not move on to Home City")

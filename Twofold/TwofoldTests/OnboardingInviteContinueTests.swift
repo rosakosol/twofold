@@ -37,8 +37,8 @@ struct OnboardingInviteContinueTests {
             appModel: AppModel(),
             inviteCode: .constant("ABCD-EFGH")
         )
-        let onInviteShared = try? #require(card.onInviteShared)
-        onInviteShared?()
+        // Nil would leave the path where it started, which the expectation below catches.
+        card.onInviteShared?()
 
         #expect(onboarding.path == [.invitePartner, .trialTrust], "got \(onboarding.path)")
     }

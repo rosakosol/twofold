@@ -84,7 +84,7 @@ struct RestorableArchiveTests {
     /// Straight from the RPC, snake_case. Wrong keys here would silently produce zero counts,
     /// which reads as "an empty archive" and means the prompt never appears at all.
     @Test("the RPC's row decodes")
-    func decodes() throws {
+    @MainActor func decodes() throws {
         let json = #"""
         {"couple_id":"5A1E6C7E-0000-0000-0000-00000000000A","dissolved_at":null,
          "scheduled_purge_at":null,"memory_count":12,"trip_count":3,"flight_count":2}

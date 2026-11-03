@@ -38,8 +38,8 @@ enum DrawingPadLoader {
     static func load(
         _ url: URL?,
         fetch: Fetch = { try await URLSession.shared.data(from: $0) },
-        cached: (URL) -> UIImage? = RemoteImageDiskCache.image(for:),
-        store: (Data, URL) -> Void = RemoteImageDiskCache.store
+        cached: @MainActor (URL) -> UIImage? = RemoteImageDiskCache.image(for:),
+        store: @MainActor (Data, URL) -> Void = RemoteImageDiskCache.store
     ) async -> DrawingPadLoadResult {
         guard let url else { return .blank }
         do {

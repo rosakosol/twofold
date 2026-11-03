@@ -11,7 +11,7 @@ import WidgetKit
 
 /// The images the app caches for the widgets in the app group (see `WidgetImageCache`). The
 /// widgets read them at render time, so a new image only shows once its widgets reload.
-enum WidgetImage: Hashable {
+nonisolated enum WidgetImage: Hashable {
     case myAvatar
     case partnerAvatar
     case airlineLogo
@@ -106,10 +106,10 @@ enum WidgetReloadPlan {
     ///   its own half-hourly reload, well inside the signature's twelve hours.
     private static func fields(of snapshot: WidgetSnapshot) -> [String: Any]? {
         var comparable = snapshot
-        comparable.nextFlight = snapshot.nextFlight.map(comparableFlight)
-        comparable.trackedFlights = snapshot.trackedFlights.map(comparableFlight)
-        comparable.mySignedDrawingPadURL = snapshot.mySignedDrawingPadURL.map(withoutQuery)
-        comparable.partnerSignedDrawingPadURL = snapshot.partnerSignedDrawingPadURL.map(withoutQuery)
+        comparable.nextFlight = snapshot.nextFlight.map { comparableFlight($0) }
+        comparable.trackedFlights = snapshot.trackedFlights.map { comparableFlight($0) }
+        comparable.mySignedDrawingPadURL = snapshot.mySignedDrawingPadURL.map { withoutQuery($0) }
+        comparable.partnerSignedDrawingPadURL = snapshot.partnerSignedDrawingPadURL.map { withoutQuery($0) }
         guard let data = try? JSONEncoder().encode(comparable) else { return nil }
         return (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
     }

@@ -118,7 +118,7 @@ final class FlightsAndTripsE2ETests: E2ETestCase {
         XCTAssertTrue(first.hasPrefix("Departs in"), "got '\(first)'")
 
         let moved = NSPredicate(format: "label != %@", first)
-        let result = XCTWaiter.wait(for: [expectation(for: moved, evaluatedWith: countdown)], timeout: 100)
+        let result = await XCTWaiter.fulfillment(of: [expectation(for: moved, evaluatedWith: countdown)], timeout: 100)
         XCTAssertEqual(result, .completed, "The countdown sat at '\(first)' for over a minute and a half")
         capture(app, "Flight - countdown moved")
     }
