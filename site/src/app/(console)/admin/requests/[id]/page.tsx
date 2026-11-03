@@ -8,10 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DeveloperUpdateComposer } from "@/components/admin/DeveloperUpdateComposer";
 import { useAdminFeature } from "@/lib/queries/useAdminFeatures";
 import { useUpdateFeatureDetails } from "@/lib/queries/useAdminMutations";
 import { CATEGORY_LABELS, CATEGORY_VALUES, type FeatureCategory } from "@/lib/utils/constants";
@@ -101,18 +99,6 @@ export default function AdminEditFeaturePage({ params }: { params: Promise<{ id:
           {updateDetails.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
           Save changes
         </Button>
-      </div>
-
-      <Separator className="my-8" />
-
-      <div className="max-w-lg">
-        <h2 className="text-sm font-semibold">Post a developer update</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Visible to everyone, and notifies voters/subscribers once notifications are wired up.
-        </p>
-        <div className="mt-4">
-          <DeveloperUpdateComposer featureId={feature.id} />
-        </div>
       </div>
     </div>
   );

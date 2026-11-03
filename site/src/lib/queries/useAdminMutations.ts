@@ -72,19 +72,3 @@ export function useUpdateFeatureDetails(id: string) {
     onSuccess: () => invalidateFeatureQueries(queryClient),
   });
 }
-
-export function usePostDeveloperUpdate(featureId: string) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ body, authorId }: { body: string; authorId: string }) => {
-      const supabase = createClient();
-      const { error } = await supabase
-        .from("developer_updates")
-        .insert({ feature_id: featureId, author_id: authorId, body });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["features", featureId, "developer-updates"] });
-    },
-  });
-}

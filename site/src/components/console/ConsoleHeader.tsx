@@ -29,7 +29,7 @@ import { Wordmark } from "@/components/layout/Wordmark";
  * under a deck editor.
  */
 const CONSOLE_LINKS = [
-  // The admin view of the public feedback board — status, merge, pin, developer updates. Named
+  // The admin view of the public feedback board — status, merge, pin, edit. Named
   // "Feedback" rather than "Requests" because it sat beside "Support" and both read as inbound
   // asks; this one is the public board people vote on, Support is private correspondence.
   //

@@ -1,6 +1,5 @@
 /* ============================================================
-   The feedback board (docs/TWOFOLD_WEBSITE.md, section 8) and the bookmarks page, which shares
-   its request cards. Buttons, pills and fields are the shared components
+   The feedback board (docs/TWOFOLD_WEBSITE.md, section 8). Buttons, pills and fields are the shared components
    (src/styles/components.css); this is the board's own layout.
    ============================================================ */
 

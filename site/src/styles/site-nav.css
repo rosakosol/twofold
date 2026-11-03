@@ -221,7 +221,7 @@
   flex: none;
 }
 
-/* Rows that only appear in the folded menu: Account and Bookmarks, or Sign in. */
+/* Rows that only appear in the folded menu: Account, or Sign in. */
 .site-nav-signed-in {
   display: none;
 }

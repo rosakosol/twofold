@@ -75,7 +75,7 @@ export function SiteHeader() {
                 </li>
               );
             })}
-            {/* Account, Bookmarks or Sign in: only in the folded menu, see SignedInNavItems. */}
+            {/* Account or Sign in: only in the folded menu, see SignedInNavItems. */}
             <SignedInNavItems />
             <ThemeToggle variant="menu-row" />
           </ul>

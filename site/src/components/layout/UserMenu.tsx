@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Bookmark, LogOut, Settings, User as UserIcon } from "lucide-react";
+import { LogOut, Settings, User as UserIcon } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -79,14 +79,6 @@ export function UserMenu() {
               <Link href="/account">
                 <Settings className="h-4 w-4" />
                 Your account
-              </Link>
-            }
-          />
-          <DropdownMenuItem
-            render={
-              <Link href="/feedback/bookmarks">
-                <Bookmark className="h-4 w-4" />
-                Your bookmarks
               </Link>
             }
           />

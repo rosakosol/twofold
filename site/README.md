@@ -37,7 +37,7 @@ Nothing here touches `Twofold/` (the iOS app). See **Database** for what is safe
 | Path | What |
 | --- | --- |
 | `src/app/(marketing)/` | home, features, pricing, quiz, FAQ, support, privacy, terms |
-| `src/app/(board)/feedback/` | the board (list, filters, search, submit) + `bookmarks/` |
+| `src/app/(board)/feedback/` | the board (list, filters, search, submit) |
 | `src/app/(board)/account/` | the account portal — subscription, partner, password, deletion |
 | `src/app/(board)/auth/` | `sign-in`, `reset-password`, `callback` |
 | `src/app/(console)/admin/` | console: moderation, support queue, users, requests, games, usage |
@@ -73,7 +73,8 @@ other's half of the app. `PasswordStrengthMeter` makes the same compromise a dif
 everything it styles itself is inline and system-neutral.
 
 `.board-page-title` in `globals.css` is the one type token both groups read — the page titles on
-`/feedback`, `/account` and `/feedback/bookmarks` were three different sizes until they shared it.
+`/feedback` and `/account` (and a since-removed bookmarks page) were three different sizes until they
+shared it.
 
 ### The console is a separate shell
 

@@ -5,14 +5,11 @@ import { usePathname } from "next/navigation";
 import { useUser } from "@/lib/auth/useUser";
 
 /** The destinations that only exist for a signed-in visitor, by name in the folded menu: the
- *  same two the account chip's menu lists, in the same order. */
-const LINKS = [
-  { href: "/account", label: "Account" },
-  { href: "/feedback/bookmarks", label: "Bookmarks" },
-];
+ *  same ones the account chip's menu lists, in the same order. */
+const LINKS = [{ href: "/account", label: "Account" }];
 
 /**
- * "Account" and "Bookmarks" in the collapsed nav menu, for someone who is signed in.
+ * "Account" in the collapsed nav menu, for someone who is signed in.
  *
  * All three navbars put these behind the avatar's dropdown, which reads fine on a wide screen
  * where the avatar sits beside your email address. Collapsed, `.site-nav-email` is hidden and the

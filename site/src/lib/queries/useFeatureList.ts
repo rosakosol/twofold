@@ -1,8 +1,8 @@
 // This file used to also export useInfiniteFeatureList, a scroll-triggered query
 // for the main board — removed as dead code once the feedback board's redesign
 // (matching site/design_handoff_twofold_site) switched the board to useRoadmap's
-// single fetch instead. FeatureListItem stays: useBookmarks.ts and useAdminFeatures.ts
-// (as FeatureDetail) still shape their rows this way.
+// single fetch instead. FeatureListItem stays: useAdminFeatures.ts (as FeatureDetail)
+// still shapes its rows this way.
 export interface FeatureListItem {
   id: string;
   title: string;

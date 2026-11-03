@@ -37,7 +37,7 @@ describe("safeNext", () => {
   });
 
   it("works with a placeholder origin, as the client-rendered sign-in page uses", () => {
-    expect(safeNext("/feedback/bookmarks", "https://twofold.invalid")).toBe("/feedback/bookmarks");
+    expect(safeNext("/account#email", "https://twofold.invalid")).toBe("/account#email");
     expect(safeNext("/\\evil.com", "https://twofold.invalid")).toBe("/feedback");
   });
 });
