@@ -405,8 +405,8 @@ struct SettingsView: View {
         case paywall
     }
 
-    /// Pulled out as a static pure function for the same reason `RootView.hasAccess` is: the
-    /// interesting cases are only reachable through `Purchases.shared`, which traps under XCTest.
+    /// Pulled out as a static pure function because the interesting cases are only reachable
+    /// through `Purchases.shared`, which traps under XCTest.
     ///
     /// Order matters. The device's own entitlement is checked first because it is the only one of
     /// these that can actually be changed in-app, and somebody holding both an App Store

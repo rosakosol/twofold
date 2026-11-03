@@ -42,8 +42,8 @@ final class SubscriptionState: AccountScopedStore {
     /// `isActive` is a plain Bool that starts `false`, so before the first answer lands "we do not
     /// know" is indistinguishable from "they have not paid" — and Home rendered the second. The
     /// card stopped *persisting* once the value stopped being clobbered by later refreshes, but it
-    /// still flashed on every launch, which is the same third-state problem the paywall gate solved
-    /// with `hasCheckedSubscription` and the invite card with `hasResolvedOutgoingConnectionRequest`.
+    /// still flashed on every launch, which is the same third-state problem the invite card solved
+    /// with `hasResolvedOutgoingConnectionRequest`.
     ///
     /// Set wherever a real answer is applied, including the ones that fail — an offline launch
     /// resolves from cache, and `RootView.checkSubscription` resolves in a `defer` so a thrown

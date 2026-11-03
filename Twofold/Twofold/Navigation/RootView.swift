@@ -34,15 +34,6 @@ struct RootView: View {
     @State private var pendingInviteCode: String?
     @State private var showingPartnerConnectedCelebration = false
     @State private var showingPaywallFromWidget = false
-    /// False until `checkSubscription()` has run once this launch.
-    ///
-    /// Nothing before it can answer "is this person subscribed". `restoreSession` applies the
-    /// cached answer and then `loadSignedInState` overwrites it with the bare profile row — which
-    /// is `false` for anyone whose webhook is behind, or whose entitlement RevenueCat still holds
-    /// but Supabase has not caught up on. `checkSubscription` is the first thing to OR those two
-    /// together, and it runs last. In the window between, the gate below would otherwise show a
-    /// forced paywall to a paying subscriber and then take it away again a round trip later.
-    @State private var hasCheckedSubscription = false
     /// A broken streak this person has already been offered a repair for, as the missed date.
     ///
     /// Keyed on the date rather than a bare flag so a *later* break offers again — the point is one
@@ -375,9 +366,9 @@ struct RootView: View {
             NavigationStack { RelationshipTimelineView() }
         }
         // `isDismissable: true`, which is how Settings and the upsells present it. The other value
-        // is `RootView`'s own lapsed-subscription gate, and that variant puts a "Sign Out" button
-        // in the top-left — the one exit from a forced wall. Correct there, and misleading in a
-        // store listing, where it reads as an app asking you to sign out rather than to subscribe.
+        // is for a forced wall, and that variant puts a "Sign Out" button in the top-left — the one
+        // exit from it. Misleading in a store listing, where it reads as an app asking you to sign
+        // out rather than to subscribe.
         .fullScreenCover(item: $paywallScreenshotPlan) { plan in
             NavigationStack {
                 PaywallView(initialTier: plan.tier, initialPeriod: plan.period)
@@ -425,10 +416,9 @@ struct RootView: View {
             // Re-check access the moment a couple exists, because until now nothing did.
             //
             // `checkSubscription()` opens with `guard appModel.hasCouple`, so for a brand-new
-            // account it returns immediately at launch — and sets `hasCheckedSubscription`, which
-            // is what the loading branch waits on. Pairing a minute later makes the couple-wide
-            // lookup meaningful for the first time, and nothing ran it again until the next
-            // foreground.
+            // account it returns immediately at launch. Pairing a minute later makes the
+            // couple-wide lookup meaningful for the first time, and nothing ran it again until the
+            // next foreground.
             //
             // So somebody who joined a partner already paying for Premium was shown the
             // non-dismissable lapsed-subscription paywall the instant they connected: their own
@@ -499,14 +489,6 @@ struct RootView: View {
             ScreenBackground()
             BrandLoadingView()
         }
-    }
-
-    /// Kept as a named decision rather than an inline condition because the middle term is the one
-    /// that is easy to drop and expensive to lose — see the comment at the call site. A forced
-    /// paywall shown to someone who already holds an entitlement is a dead end, not a prompt: it has
-    /// nothing to sell them, so it disables its own CTA and traps them.
-    static func hasAccess(backendSaysActive: Bool, deviceHoldsEntitlement: Bool, awaitingPartnerDecision: Bool) -> Bool {
-        backendSaysActive || deviceHoldsEntitlement || awaitingPartnerDecision
     }
 
     /// Handles a held link once it can be, and holds it a little longer when it cannot yet. See
@@ -969,23 +951,15 @@ struct RootView: View {
     /// couple-adoption time — without this, a mid-session upgrade/downgrade left every
     /// `isPremiumLocked`/`isDeckLocked` check reading a stale tier until the next full relaunch.
     private func checkSubscription() async {
-        // `defer`, and before the guard: every path out of here has to release the loading state
-        // the gate holds on it. An early return, a thrown fetch, or no connectivity at all must end
-        // in a real screen — a paywall this cannot decide against is still better than a spinner
-        // that never resolves.
-        defer { hasCheckedSubscription = true }
         guard appModel.hasCouple else { return }
         // -demoMode is Premium by fiat; there is no account here to check.
         if DemoMode.isOn { return }
 
-        // After the guard, deliberately, and this is the opposite requirement to the one above.
+        // After the guard, deliberately. `hasResolvedSubscription` must be set only when something
+        // was actually learned, because its job is to let Home say "no subscription" — and saying
+        // that having learned nothing is the whole bug it exists to prevent.
         //
-        // `hasCheckedSubscription` must be set on every path, because its job is to stop holding a
-        // spinner. `hasResolvedSubscription` must be set only when something was actually learned,
-        // because its job is to let Home say "no subscription" — and saying that having learned
-        // nothing is the whole bug it exists to prevent.
-        //
-        // Sharing the first defer broke exactly that. This runs from a `.task` at launch, when
+        // A `defer` ahead of the guard broke exactly that. This runs from a `.task` at launch, when
         // `hasCouple` is still false because the session is mid-load, so it returned here and
         // marked the subscription resolved with `isSubscriptionActive` untouched at its `false`
         // default. Home then mounted, read resolved-and-false, and showed the card to a paying
