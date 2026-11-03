@@ -12,6 +12,7 @@ import SwiftUI
 
 struct SudokuGameView: View {
     @Environment(AppModel.self) private var appModel
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     /// The puzzle on screen. `var`, not a fixed value built once from the initialiser, because
     /// "play another" swaps this screen's puzzle in place rather than pushing a second copy of the
     /// screen on top of the first — see `rematch()`.
@@ -338,13 +339,19 @@ struct SudokuGameView: View {
         Button(action: action) {
             VStack(spacing: 2) {
                 Image(systemName: icon).font(.title3)
-                Text(label).font(.caption2)
+                // Five words across one row cannot fit at accessibility sizes: they were cut to
+                // "Un…", "Era…". There the row keeps its icons, the way a tab bar does, and a long
+                // press shows the name in the large content viewer.
+                if !dynamicTypeSize.isAccessibilitySize {
+                    Text(label).font(.caption2).lineLimit(1).minimumScaleFactor(0.8)
+                }
             }
             .foregroundStyle(isActive ? Theme.accent : Theme.textPrimary)
             // Flexible rather than fixed: five buttons share whatever the row has, so adding a
-            // sixth later narrows them instead of overflowing.
+            // sixth later narrows them instead of overflowing. At least 52pt tall, and taller
+            // when the icon has grown with the text size.
             .frame(maxWidth: .infinity)
-            .frame(height: 52)
+            .frame(minHeight: 52)
             .background(
                 Theme.surface,
                 in: RoundedRectangle(cornerRadius: Theme.Spacing.sm, style: .continuous)
@@ -354,6 +361,7 @@ struct SudokuGameView: View {
         .disabled(!enabled)
         .opacity(enabled ? 1 : 0.4)
         .accessibilityLabel(label)
+        .accessibilityShowsLargeContentViewer { Label(label, systemImage: icon) }
     }
 
     // MARK: - Keypad

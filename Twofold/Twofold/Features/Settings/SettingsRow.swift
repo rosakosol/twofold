@@ -22,25 +22,26 @@ struct SettingsRow: View {
     /// chevron, since there's nowhere to navigate to yet.
     var unavailableBadge: String?
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     var body: some View {
         HStack {
             if isLoading {
                 ProgressView().frame(maxWidth: .infinity)
-            } else {
-                Label(title, systemImage: systemImage)
-                    .foregroundStyle(isDestructive ? Theme.error : Theme.textPrimary)
-                Spacer()
-                if let unavailableBadge {
-                    PillBadge(text: unavailableBadge, tint: Theme.textSecondary)
-                } else {
-                    if let value {
-                        Text(value).foregroundStyle(Theme.textSecondary)
-                    }
-                    if showsChevron {
-                        Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.textSecondary)
-                            .accessibilityHidden(true)
-                    }
+            } else if dynamicTypeSize.isAccessibilitySize {
+                // The value under the title rather than beside it: side by side at these sizes,
+                // "Measurements" and "Metric (km)" broke into a few letters a line each.
+                VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+                    titleLabel
+                    trailingValue
                 }
+                Spacer(minLength: 0)
+                chevron
+            } else {
+                titleLabel
+                Spacer()
+                trailingValue
+                chevron
             }
         }
         .opacity(unavailableBadge != nil ? 0.5 : 1)
@@ -54,5 +55,28 @@ struct SettingsRow: View {
         // with a trailing `value` (e.g. "Measurements" + "Metric") or `unavailableBadge` read as
         // two or three separate VoiceOver stops instead of one coherent "Measurements, Metric".
         .accessibilityElement(children: .combine)
+    }
+
+    private var titleLabel: some View {
+        Label(title, systemImage: systemImage)
+            .foregroundStyle(isDestructive ? Theme.error : Theme.textPrimary)
+    }
+
+    @ViewBuilder
+    private var trailingValue: some View {
+        if let unavailableBadge {
+            PillBadge(text: unavailableBadge, tint: Theme.textSecondary)
+        } else if let value {
+            Text(value).foregroundStyle(Theme.textSecondary)
+        }
+    }
+
+    /// Hidden with a badge: there's nowhere to navigate to yet.
+    @ViewBuilder
+    private var chevron: some View {
+        if unavailableBadge == nil, showsChevron {
+            Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.textSecondary)
+                .accessibilityHidden(true)
+        }
     }
 }

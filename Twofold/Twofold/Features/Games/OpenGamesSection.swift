@@ -62,6 +62,9 @@ struct OpenGamesSection: View {
         }
     }
 
+    @ScaledMetric(relativeTo: .subheadline) private var cardWidth: CGFloat = 150
+    @ScaledMetric(relativeTo: .subheadline) private var cardHeight: CGFloat = 96
+
     private var yourTurnCount: Int { games.count { $0.isMyTurn } }
 
     private func card(_ game: BackendService.OpenGame) -> some View {
@@ -96,7 +99,10 @@ struct OpenGamesSection: View {
                 .truncationMode(.tail)
         }
         .padding(Theme.Spacing.sm)
-        .frame(width: 150, height: 96, alignment: .leading)
+        // Sized with the text rather than fixed at 150 x 96, which clipped all three lines at
+        // accessibility sizes. Capped so one card never fills more than most of the screen.
+        .frame(width: min(cardWidth, 300), alignment: .leading)
+        .frame(minHeight: cardHeight, alignment: .topLeading)
         .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14))
         // A ring rather than a fill on the ones that need you: a card whose whole background
         // changes colour reads as a different kind of card, where this is the same card with

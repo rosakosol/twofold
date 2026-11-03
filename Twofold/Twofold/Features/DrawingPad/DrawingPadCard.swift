@@ -30,22 +30,34 @@ struct DrawingPadCard: View {
         var id: Self { self }
     }
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    private var headerLayout: AnyLayout {
+        dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: Theme.Spacing.sm))
+            : AnyLayout(HStackLayout(spacing: Theme.Spacing.sm))
+    }
+
     var body: some View {
         SectionCard {
-            HStack(spacing: Theme.Spacing.sm) {
+            // Title and buttons share a row until an accessibility text size, where the row
+            // split "Drawing pad" and "Draw" mid-word; there the buttons go under the title.
+            headerLayout {
                 Text("Drawing pad")
                     .font(.headline)
                     .foregroundStyle(Theme.textPrimary)
-                Spacer()
-                // A real button, not just the card's tap gesture: a gesture on a container is
-                // invisible to VoiceOver and undiscoverable to everyone else.
-                CircularNavButton(systemImage: "arrow.up.left.and.arrow.down.right", accessibilityLabel: "See both drawings side by side") {
-                    fullScreen = .bothPads
+                HStack(spacing: Theme.Spacing.sm) {
+                    Spacer()
+                    // A real button, not just the card's tap gesture: a gesture on a container is
+                    // invisible to VoiceOver and undiscoverable to everyone else.
+                    CircularNavButton(systemImage: "arrow.up.left.and.arrow.down.right", accessibilityLabel: "See both drawings side by side") {
+                        fullScreen = .bothPads
+                    }
+                    // The card's primary action (section 6, Home). Opens your own pad, the same place
+                    // tapping your preview goes.
+                    Button("Draw") { showingEditor = true }
+                        .buttonStyle(.twofoldPrimaryCompact)
                 }
-                // The card's primary action (section 6, Home). Opens your own pad, the same place
-                // tapping your preview goes.
-                Button("Draw") { showingEditor = true }
-                    .buttonStyle(.twofoldPrimaryCompact)
             }
             HStack(spacing: Theme.Spacing.md) {
                 padPreview(title: "You", url: appModel.myDrawingURL, isMine: true)
