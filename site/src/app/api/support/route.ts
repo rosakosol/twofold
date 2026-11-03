@@ -137,6 +137,7 @@ export async function POST(request: Request) {
   // visitor's request still reaches somebody even if this fails. It runs as the service role, with
   // no user, so `submit_support_request` records a null profile and the address typed, which the
   // console matches to an account at read time.
+  let recorded = false;
   try {
     const { error } = await supabase.rpc("submit_support_request", {
       p_category: category,
@@ -146,22 +147,32 @@ export async function POST(request: Request) {
       p_source: "web",
     });
     if (error) console.error("[support] could not record the request:", error.message);
+    else recorded = true;
   } catch (err) {
     console.error("[support] could not record the request:", (err as Error).message);
   }
 
-  try {
-    // `sendReceipt` is what makes this an amplifier: the internal alert goes to our own address
-    // and is harmless, while the receipt goes wherever the caller said. When the limiter could
-    // not be consulted at all we still want a visitor's message to reach support, so the alert is
-    // sent and the receipt is not — the degraded mode drops the convenience, never the report,
-    // and never leaves the relay open.
-    await sendSupportEmails({ name, email, category, message, sendReceipt: allowed === "allowed" });
-  } catch (err) {
-    console.error("[support] Zoho SMTP send failed:", (err as Error).message);
+  // `sendReceipt` is what makes this an amplifier: the internal alert goes to our own address
+  // and is harmless, while the receipt goes wherever the caller said. When the limiter could
+  // not be consulted at all we still want a visitor's message to reach support, so the alert is
+  // sent and the receipt is not — the degraded mode drops the convenience, never the report,
+  // and never leaves the relay open.
+  const { alerted } = await sendSupportEmails({
+    name,
+    email,
+    category,
+    message,
+    sendReceipt: allowed === "allowed",
+    recorded,
+  });
+
+  // Success means support has it: the row is in the console's queue, or the alert is in the
+  // inbox. Only when neither happened is "try again" the right answer. This used to return 502
+  // whenever any email failed, the visitor's own receipt included, after the row was stored and
+  // the alert sent, so a retry filed the same request twice and spent the address's rate limit.
+  if (!recorded && !alerted) {
     return NextResponse.json({ error: "Something went wrong. Please try again." }, { status: 502 });
   }
-
   return NextResponse.json({ ok: true });
 }
 
@@ -206,8 +217,20 @@ async function sendSupportEmails(input: {
   /// The receipt to the address the caller typed. The only one of the two that can be aimed at
   /// somebody else, so it is the only one with a switch.
   sendReceipt: boolean;
-}): Promise<void> {
-  const { transport, from } = createZohoTransport();
+  /// Whether the request row was stored. A receipt is a promise that support has the message, so
+  /// it goes only once the row or the alert landed.
+  recorded: boolean;
+}): Promise<{ alerted: boolean }> {
+  // Never throws: the caller decides what a failure means from what did get through. Errors are
+  // logged by message only, which never includes the visitor's address.
+  let mailer: ReturnType<typeof createZohoTransport>;
+  try {
+    mailer = createZohoTransport();
+  } catch (err) {
+    console.error("[support] mail is not configured:", (err as Error).message);
+    return { alerted: false };
+  }
+  const { transport, from } = mailer;
   const firstName = input.name.split(/\s+/)[0] || "there";
   const ticketId = generateTicketId();
   const receivedAt = formatDateTime(new Date());
@@ -241,6 +264,7 @@ async function sendSupportEmails(input: {
     support_email: SUPPORT_EMAIL,
   });
 
+  let alerted = false;
   try {
     await transport.sendMail({
       from,
@@ -251,7 +275,13 @@ async function sendSupportEmails(input: {
       html: internalHtml,
       text: `Category: ${input.category}\nFrom: ${input.name || "(no name given)"} - ${input.email}\n\n${input.message}`,
     });
-    if (input.sendReceipt) {
+    alerted = true;
+  } catch (err) {
+    console.error("[support] internal alert failed:", (err as Error).message);
+  }
+
+  if (input.sendReceipt && (alerted || input.recorded)) {
+    try {
       await transport.sendMail({
         from,
         to: input.email,
@@ -259,8 +289,12 @@ async function sendSupportEmails(input: {
         subject: extractSubject(receivedHtml),
         html: receivedHtml,
       });
+    } catch (err) {
+      // The visitor misses their copy; support still has the request.
+      console.error("[support] receipt failed:", (err as Error).message);
     }
-  } finally {
-    transport.close();
   }
+
+  transport.close();
+  return { alerted };
 }
