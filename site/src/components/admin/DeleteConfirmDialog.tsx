@@ -36,7 +36,12 @@ export function DeleteConfirmDialog({ featureId, title }: { featureId: string; t
     <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogTrigger
         render={
-          <Button variant="ghost" size="icon-sm" className="text-muted-foreground hover:text-destructive">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="text-muted-foreground hover:text-destructive"
+            aria-label={`Delete “${title}”`}
+          >
             <Trash2 className="h-4 w-4" />
           </Button>
         }
@@ -45,7 +50,7 @@ export function DeleteConfirmDialog({ featureId, title }: { featureId: string; t
         <AlertDialogHeader>
           <AlertDialogTitle>Delete &ldquo;{title}&rdquo;?</AlertDialogTitle>
           <AlertDialogDescription>
-            This permanently deletes the request, its votes, and its comments. This can&apos;t be undone.
+            This permanently deletes the request and its votes. This can&apos;t be undone.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

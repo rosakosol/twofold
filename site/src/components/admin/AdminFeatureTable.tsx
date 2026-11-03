@@ -26,7 +26,6 @@ export function AdminFeatureTable({ features }: { features: FeatureDetail[] }) {
             <th scope="col">Category</th>
             <th scope="col">Status</th>
             <th scope="col">Votes</th>
-            <th scope="col">Comments</th>
             <th scope="col">Pinned</th>
             <th scope="col">
               <span className="sr-only">Actions</span>
@@ -44,10 +43,9 @@ export function AdminFeatureTable({ features }: { features: FeatureDetail[] }) {
                 <CategoryBadge category={feature.category as FeatureCategory} />
               </td>
               <td>
-                <StatusSelect featureId={feature.id} status={feature.status as FeatureStatus} />
+                <StatusSelect featureId={feature.id} status={feature.status as FeatureStatus} title={feature.title} />
               </td>
               <td className="num">{feature.upvote_count}</td>
-              <td className="num">{feature.comment_count}</td>
               <td>
                 <PinToggle featureId={feature.id} isPinned={feature.is_pinned} />
               </td>
@@ -61,7 +59,9 @@ export function AdminFeatureTable({ features }: { features: FeatureDetail[] }) {
                   >
                     <Pencil className="h-4 w-4" />
                   </Button>
-                  <MergeDialog featureId={feature.id} title={feature.title} />
+                  {/* Not for a request that is already merged: merging it again would silently
+                      re-point it at a different target. */}
+                  {!feature.merged_into && <MergeDialog featureId={feature.id} title={feature.title} />}
                   <DeleteConfirmDialog featureId={feature.id} title={feature.title} />
                 </div>
               </td>

@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/client";
 import { queryKeys } from "@/lib/queries/queryKeys";
 import { FEATURE_DETAIL_SELECT, type FeatureDetail } from "@/lib/queries/useFeature";
 import type { FeatureStatus } from "@/lib/utils/constants";
+import { containsPattern } from "@/lib/queries/likePattern";
 
 export interface AdminFeatureFilters {
   status?: FeatureStatus;
@@ -13,15 +14,16 @@ export interface AdminFeatureFilters {
 /** Unlike the public board's useFeatureList, this deliberately does NOT filter out
  * merged requests — admins need to see (and un-merge, by re-pointing manually if ever
  * needed) everything. */
-export function useAdminFeatureList(filters: AdminFeatureFilters) {
+export function useAdminFeatureList(filters: AdminFeatureFilters, options: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: queryKeys.adminFeatureList(filters),
+    enabled: options.enabled ?? true,
     queryFn: async () => {
       const supabase = createClient();
       let query = supabase.from("feature_requests").select(FEATURE_DETAIL_SELECT);
 
       if (filters.status) query = query.eq("status", filters.status);
-      if (filters.search) query = query.ilike("title", `%${filters.search}%`);
+      if (filters.search) query = query.ilike("title", containsPattern(filters.search));
 
       query = query.order("is_pinned", { ascending: false });
       query =

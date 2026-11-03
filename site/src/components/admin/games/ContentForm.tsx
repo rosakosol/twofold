@@ -195,6 +195,7 @@ export function ContentForm({ contentType, decks, editingRow, open, onOpenChange
                           type="button"
                           variant="ghost"
                           size="icon-sm"
+                          aria-label={`Remove option ${index + 1}`}
                           onClick={() => {
                             const removed = options[index];
                             setOptions(options.filter((_, i) => i !== index));

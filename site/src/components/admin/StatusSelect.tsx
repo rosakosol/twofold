@@ -6,7 +6,7 @@ import { useUpdateFeatureStatus } from "@/lib/queries/useAdminMutations";
 import { describeDbError } from "@/lib/supabase/dbError";
 import { STATUS_LABELS, STATUS_VALUES, type FeatureStatus } from "@/lib/utils/constants";
 
-export function StatusSelect({ featureId, status }: { featureId: string; status: FeatureStatus }) {
+export function StatusSelect({ featureId, status, title }: { featureId: string; status: FeatureStatus; title?: string }) {
   const updateStatus = useUpdateFeatureStatus();
 
   function handleChange(value: string | null) {
@@ -19,7 +19,7 @@ export function StatusSelect({ featureId, status }: { featureId: string; status:
 
   return (
     <Select value={status} onValueChange={handleChange} disabled={updateStatus.isPending}>
-      <SelectTrigger size="sm">
+      <SelectTrigger size="sm" aria-label={title ? `Status of “${title}”` : "Status"}>
         <SelectValue labels={STATUS_LABELS} />
       </SelectTrigger>
       <SelectContent>

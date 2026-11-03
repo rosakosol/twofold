@@ -48,7 +48,7 @@ function DeleteButton({ contentType, row }: { contentType: ContentTypeConfig; ro
     <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogTrigger
         render={
-          <Button variant="ghost" size="icon-sm" className="text-muted-foreground hover:text-destructive" aria-label="Delete this entry">
+          <Button variant="ghost" size="icon-sm" className="text-muted-foreground hover:text-destructive" aria-label={`Delete "${contentType.primaryText(row)}"`}>
             <Trash2 className="h-4 w-4" aria-hidden />
           </Button>
         }
@@ -79,7 +79,7 @@ function ActiveToggle({ contentType, row }: { contentType: ContentTypeConfig; ro
   const update = useUpdateContent(contentType.key);
   return (
     <Switch
-      aria-label="Active"
+      aria-label={`"${contentType.primaryText(row)}" is active`}
       checked={row.active}
       disabled={update.isPending}
       onCheckedChange={(checked) =>
