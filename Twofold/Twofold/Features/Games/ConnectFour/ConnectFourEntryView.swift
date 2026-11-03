@@ -27,7 +27,7 @@ struct ConnectFourEntryView: View {
     /// Premium game. The server refuses too — `start_connect_four_session` raises
     /// `connect_four_requires_premium` — so this only decides what the screen offers, never
     /// whether a board can actually be created.
-    private var isPremium: Bool { appModel.subscriptionTier == "premium" }
+    private var isPremium: Bool { !appModel.subscription.isPremiumLocked }
 
     var body: some View {
         ScrollView {

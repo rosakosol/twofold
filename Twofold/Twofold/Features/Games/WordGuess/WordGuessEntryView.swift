@@ -23,7 +23,7 @@ struct WordGuessEntryView: View {
     @State private var limitReached = false
     @State private var history: [BackendService.WordGuessHistoryEntry] = []
 
-    private var isPremium: Bool { appModel.subscriptionTier == "premium" }
+    private var isPremium: Bool { !appModel.subscription.isPremiumLocked }
 
     var body: some View {
         ScrollView {

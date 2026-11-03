@@ -20,7 +20,7 @@ struct WordSearchThemePickerView: View {
     @State private var errorMessage: String?
     @State private var records: [GameRecord] = []
 
-    private var isPremium: Bool { appModel.subscriptionTier == "premium" }
+    private var isPremium: Bool { !appModel.subscription.isPremiumLocked }
 
     var body: some View {
         ScrollView {

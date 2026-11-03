@@ -29,7 +29,7 @@ struct SudokuDifficultyPickerView: View {
         _stats = State(initialValue: stats)
     }
 
-    private var isPremium: Bool { appModel.subscriptionTier == "premium" }
+    private var isPremium: Bool { !appModel.subscription.isPremiumLocked }
 
     var body: some View {
         ScrollView {

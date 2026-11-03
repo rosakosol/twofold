@@ -149,7 +149,7 @@ struct ConnectFourGameView: View {
     private var isPaused: Bool {
         guard !store.isFinished else { return false }
         return store.needsPremium
-            || (appModel.hasResolvedSubscription && appModel.subscriptionTier != "premium")
+            || (appModel.subscription.hasResolved && appModel.subscription.isPremiumLocked)
     }
 
     private var pausedForPremium: some View {
