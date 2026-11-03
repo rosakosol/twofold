@@ -154,7 +154,10 @@ export async function downloadAttachment(
   messageId: string,
   attachmentId: string,
   fetchImpl: typeof fetch = fetch,
-): Promise<Uint8Array> {
+  // Backed by a plain ArrayBuffer, which is what `new Uint8Array(arrayBuffer)` gives. The bare
+  // `Uint8Array` means `Uint8Array<ArrayBufferLike>` (possibly shared memory), which fetch won't
+  // take as a body, so fetch-support-attachments' PUT of these bytes failed to type-check.
+): Promise<Uint8Array<ArrayBuffer>> {
   const url = `${MAIL_HOST}/api/accounts/${encodeURIComponent(account)}/folders/${
     encodeURIComponent(folderId)
   }/messages/${encodeURIComponent(messageId)}/attachments/${encodeURIComponent(attachmentId)}`;
