@@ -85,7 +85,7 @@ enum WidgetSnapshotWriter {
             distanceLabel = MeasurementPreference.distanceLabel(km: Geo.distanceKm(mine, theirs))
         }
 
-        let upcomingTrips = appModel.upcomingTrips.map { trip in
+        let upcomingTrips = appModel.travel.upcomingTrips.map { trip in
             WidgetSnapshot.ReunionInfo(
                 id: trip.id,
                 departureDate: trip.departureDate,
@@ -97,11 +97,11 @@ enum WidgetSnapshotWriter {
         let reunionInfo = upcomingTrips.first
 
         let homeTimeZone = appModel.currentUser.homeCity?.timeZone ?? .current
-        let flightInfo = appModel.activeOrUpcomingFlight.map {
-            Self.flightInfo(for: $0, currentUserID: appModel.currentUser.id, travellerIDs: appModel.travellerIDs(for: $0), homeTimeZone: homeTimeZone)
+        let flightInfo = appModel.travel.activeOrUpcomingFlight.map {
+            Self.flightInfo(for: $0, currentUserID: appModel.currentUser.id, travellerIDs: appModel.travel.travellerIDs(for: $0), homeTimeZone: homeTimeZone)
         }
-        let trackedFlights = appModel.activeOrUpcomingFlights.map {
-            Self.flightInfo(for: $0, currentUserID: appModel.currentUser.id, travellerIDs: appModel.travellerIDs(for: $0), homeTimeZone: homeTimeZone)
+        let trackedFlights = appModel.travel.activeOrUpcomingFlights.map {
+            Self.flightInfo(for: $0, currentUserID: appModel.currentUser.id, travellerIDs: appModel.travel.travellerIDs(for: $0), homeTimeZone: homeTimeZone)
         }
 
         let latestMemory = appModel.memories.max(by: { $0.date < $1.date })
@@ -114,11 +114,11 @@ enum WidgetSnapshotWriter {
         )
 
         // Without the partner's answer; that is a network read, added below once both have answered.
-        let dailyQuestion = appModel.todaysDailyQuestionText.map {
+        let dailyQuestion = appModel.games.todaysDailyQuestionText.map {
             WidgetSnapshot.DailyQuestionInfo(
                 question: $0,
-                myAnswered: appModel.todaysMyAnswered,
-                partnerAnswered: appModel.todaysPartnerAnswered,
+                myAnswered: appModel.games.todaysMyAnswered,
+                partnerAnswered: appModel.games.todaysPartnerAnswered,
                 partnerAnswer: nil
             )
         }
@@ -191,12 +191,12 @@ enum WidgetSnapshotWriter {
         // Every URL read up front: the model's fields are the next account's after a sign-out.
         let myAvatarURL = appModel.currentUser.avatarURL
         let partnerAvatarURL = appModel.partner.avatarURL
-        let logoURL = appModel.activeOrUpcomingFlight?.displayLogoURL
+        let logoURL = appModel.travel.activeOrUpcomingFlight?.displayLogoURL
         let coupleID = appModel.couple.id
         let myID = appModel.currentUser.id
         let partnerID = appModel.partner.id
-        let dailySessionID = appModel.todaysDailySessionID
-        let bothAnswered = appModel.todaysMyAnswered && appModel.todaysPartnerAnswered
+        let dailySessionID = appModel.games.todaysDailySessionID
+        let bothAnswered = appModel.games.todaysMyAnswered && appModel.games.todaysPartnerAnswered
 
         // Which cached images actually changed, so only the widgets showing them reload.
         var changedImages: Set<WidgetImage> = []

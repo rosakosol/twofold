@@ -94,9 +94,9 @@ struct TripLifecycleTests {
         let underway = trip(departsInDays: 0, endsInDays: 91)
         model.trips = [underway]
 
-        #expect(model.upcomingTrips.map(\.id) == [underway.id])
-        #expect(model.pastTrips.isEmpty)
-        #expect(model.activeTrip?.id == underway.id)
+        #expect(model.travel.upcomingTrips.map(\.id) == [underway.id])
+        #expect(model.travel.pastTrips.isEmpty)
+        #expect(model.travel.activeTrip?.id == underway.id)
     }
 
     // MARK: - Trips with flights attached (CORE-1 / FLT-1)

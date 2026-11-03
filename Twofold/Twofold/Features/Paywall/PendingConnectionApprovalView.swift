@@ -79,7 +79,7 @@ struct PendingConnectionApprovalView: View {
                         Task {
                             isSendingReminder = true
                             reminderMessage = nil
-                            let failureReason = await appModel.sendConnectionRequestReminder()
+                            let failureReason = await appModel.session.sendConnectionRequestReminder()
                             isSendingReminder = false
                             reminderMessage = failureReason ?? "Reminder sent."
                         }

@@ -57,7 +57,7 @@ struct DisconnectPartnerView: View {
 
     private var standing: SubscriptionStanding {
         Self.subscriptionStanding(
-            hasResolved: appModel.hasResolvedSubscription,
+            hasResolved: appModel.subscription.hasResolved,
             coupleIsCovered: appModel.isSubscriptionActive,
             viewerHoldsSubscription: appModel.viewerHoldsSubscription
         )
@@ -68,7 +68,7 @@ struct DisconnectPartnerView: View {
     /// "no subscription" screen — the same dead end `WebSubscriptionManagedView` exists to replace
     /// in Settings.
     private var payerManagesOnWeb: Bool {
-        AppModel.isWebManagedStore(appModel.viewerSubscriptionStore)
+        SubscriptionState.isWebManagedStore(appModel.subscription.viewerStore)
     }
 
     /// Whose subscription is covering this couple, as far as this screen needs to know.

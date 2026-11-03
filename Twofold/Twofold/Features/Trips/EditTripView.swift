@@ -124,7 +124,7 @@ struct EditTripView: View {
 
         Task {
             // Against the trip this screen opened with, so only what was changed here is sent.
-            await appModel.updateTrip(updated, from: trip)
+            await appModel.travel.updateTrip(updated, from: trip)
             isSaving = false
             dismiss()
         }

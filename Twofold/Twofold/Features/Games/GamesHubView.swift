@@ -38,7 +38,7 @@ struct GamesHubView: View {
     /// keep completed decks visible, since jumping straight to results from a finished deck is
     /// still a useful shortcut there).
     private var travelDecks: [GameDeck] {
-        appModel.decks(for: .travel).filter { appModel.deckProgress?[$0.id]?.bothCompleted != true }
+        appModel.decks(for: .travel).filter { appModel.games.deckProgress?[$0.id]?.bothCompleted != true }
     }
 
     var body: some View {
@@ -84,7 +84,7 @@ struct GamesHubView: View {
             .sheet(isPresented: $showingPartnerGate) {
                 PartnerRequiredGateView()
             }
-            .task { await appModel.loadGameDecksIfNeeded() }
+            .task { await appModel.games.loadGameDecksIfNeeded() }
             .task { openGames = await BackendService.fetchOpenGames() }
             .refreshable {
                 await appModel.refreshAll()
@@ -154,10 +154,10 @@ struct GamesHubView: View {
     /// number bubble on each pill above, same bucketing `AllDecksBrowseView` uses so the counts
     /// promise exactly what tapping through to that filter will show.
     private var deckBrowseFilterCounts: [DeckBrowseFilter: Int] {
-        guard let decks = appModel.gameDecks else { return [:] }
+        guard let decks = appModel.games.gameDecks else { return [:] }
         var counts: [DeckBrowseFilter: Int] = [:]
         for deck in decks {
-            counts[DeckBrowseFilter.bucket(for: deck, progress: appModel.deckProgress), default: 0] += 1
+            counts[DeckBrowseFilter.bucket(for: deck, progress: appModel.games.deckProgress), default: 0] += 1
         }
         return counts
     }
@@ -218,7 +218,7 @@ struct GamesHubView: View {
         // `hasLoadedCoupleState` for the reason `DeckCardRow.needsPartnerGate` gives: before the
         // fetch, `partnerConnected` is false for everyone, so this locked a paired couple's tiles
         // and offered them an invite sheet they do not need.
-        if gameType.requiresPartner && appModel.hasLoadedCoupleState && !appModel.partnerConnected {
+        if gameType.requiresPartner && appModel.session.hasLoadedCoupleState && !appModel.partnerConnected {
             Button {
                 showingPartnerGate = true
             } label: {
@@ -233,7 +233,7 @@ struct GamesHubView: View {
             }
             .buttonStyle(.plain)
             // Not navigable until we know whether it needs a partner — see `awaitingPartnerState`.
-            .allowsHitTesting(!(gameType.requiresPartner && !appModel.hasLoadedCoupleState))
+            .allowsHitTesting(!(gameType.requiresPartner && !appModel.session.hasLoadedCoupleState))
         }
     }
 
@@ -265,7 +265,7 @@ struct GamesHubView: View {
                 .font(.title3.weight(.bold))
                 .foregroundStyle(Theme.textPrimary)
 
-            if appModel.gameDecks == nil {
+            if appModel.games.gameDecks == nil {
                 // `loadGameDecksIfNeeded()` (below) hasn't resolved yet — `travelDecks` reads as
                 // empty either way, so without this a returning user with real decks would see
                 // an empty carousel flash before their actual cards pop in. Sized to roughly
@@ -277,7 +277,7 @@ struct GamesHubView: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: Theme.Spacing.sm) {
                         ForEach(travelDecks) { deck in
-                            DeckCardRow(deck: deck, progress: appModel.deckProgress?[deck.id])
+                            DeckCardRow(deck: deck, progress: appModel.games.deckProgress?[deck.id])
                                 .frame(width: 260)
                         }
                     }

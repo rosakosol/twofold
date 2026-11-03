@@ -23,7 +23,7 @@ struct TwofoldPreviewView: View {
     @State private var isApplying = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private var trip: Trip? { appModel.upcomingTrips.first }
+    private var trip: Trip? { appModel.travel.upcomingTrips.first }
 
     private var daysToGo: Int? {
         guard let trip else { return nil }

@@ -26,7 +26,7 @@ extension PendingMemoryDiskTests {
             PendingMemoryStore.clear()
             let model = AppModel()
 
-            let memory = await model.addMemory(
+            let memory = await model.travel.addMemory(
                 title: "Where we met",
                 place: nil,
                 date: Date(),
@@ -43,7 +43,7 @@ extension PendingMemoryDiskTests {
             PendingMemoryStore.clear()
             let model = AppModel()
 
-            let memory = await model.addMemory(
+            let memory = await model.travel.addMemory(
                 title: "Where we met",
                 place: nil,
                 date: Date(),
@@ -62,9 +62,9 @@ extension PendingMemoryDiskTests {
             PendingMemoryStore.clear()
             let model = AppModel()
 
-            let memory = await model.addMemory(title: "Where we met", place: nil, date: Date(), note: "", imagesData: [samplePhoto])
+            let memory = await model.travel.addMemory(title: "Where we met", place: nil, date: Date(), note: "", imagesData: [samplePhoto])
             let firstID = memory.photos.first?.id
-            await model.updateMemory(memory, newImagesData: [samplePhoto])
+            await model.travel.updateMemory(memory, newImagesData: [samplePhoto])
 
             let updated = model.memories.first { $0.id == memory.id }
             #expect(updated?.photos.count == 2)

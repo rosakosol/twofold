@@ -57,7 +57,7 @@ struct MemoriesMapView: View {
         if let homeCity = appModel.currentUser.homeCity {
             return MKCoordinateRegion(center: homeCity.coordinate, latitudinalMeters: 40_000, longitudinalMeters: 40_000)
         }
-        return Self.region(containing: appModel.citiesWithMemories.map(\.coordinate), padding: 0.3)
+        return Self.region(containing: appModel.travel.citiesWithMemories.map(\.coordinate), padding: 0.3)
     }
 
     var body: some View {
@@ -335,7 +335,7 @@ struct MemoriesMapView: View {
     /// in a beat after the last, rather than the whole set popping onto the map at once.
     private func animatePins() {
         shownCityIDs.removeAll()
-        let cities = appModel.citiesWithMemories
+        let cities = appModel.travel.citiesWithMemories
         let stagger = Self.pinRevealStagger(count: cities.count)
         for (index, city) in cities.enumerated() {
             withAnimation(.spring(response: 0.4, dampingFraction: 0.65).delay(0.15 + Double(index) * stagger)) {

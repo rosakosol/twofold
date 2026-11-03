@@ -229,7 +229,7 @@ struct AddTripDetailsView: View {
             // attaching it, including the case where there's no couple yet (e.g. onboarding,
             // before pairing) — it queues the candidate and attaches it once the trip is
             // actually inserted server-side, rather than silently dropping it.
-            let trip = await appModel.addTrip(
+            let trip = await appModel.travel.addTrip(
                 origin: origin,
                 destination: destination,
                 departureDate: departureDate,

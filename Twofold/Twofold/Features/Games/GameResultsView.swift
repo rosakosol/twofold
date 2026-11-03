@@ -180,7 +180,7 @@ struct GameResultsView: View {
             // solo users too (see its own doc comment), so this still fires for a solo player's
             // first completed game, not just a paired one.
             if appModel.hasCouple {
-                appModel.noteReviewMilestone(.firstGameResults)
+                appModel.prompts.noteReviewMilestone(.firstGameResults)
             }
             if isSolo {
                 appModel.noteSoloActionCompleted()
@@ -191,7 +191,7 @@ struct GameResultsView: View {
             // first loaded) until the app relaunched, even though the session backing this exact
             // screen just completed. The instant local flip below covers "Your turn" the moment
             // this screen appears, rather than however long this fetch takes to land.
-            appModel.markDeckProgressMineCompleted(deckID: store.session?.deckID)
+            appModel.games.markDeckProgressMineCompleted(deckID: store.session?.deckID)
             Task { await appModel.refreshGameDecks() }
         }
         .sensoryFeedback(.success, trigger: confettiTrigger)
@@ -339,7 +339,7 @@ struct GameResultsView: View {
             singleRoundQuestion: singleRound.map { questionText(for: $0) },
             myAnswer: singleRound.map { answerText(store.myResponse(for: $0, myID: myID)?.answerValue, for: $0) },
             partnerAnswer: singleRound.map { answerText(store.partnerResponse(for: $0, partnerID: partnerID)?.answerValue, for: $0) },
-            dailyStreak: appModel.dailyStreak
+            dailyStreak: appModel.games.dailyStreak
         )
     }
 
@@ -550,7 +550,7 @@ struct GameResultsView: View {
         }
         if let newID = try? await BackendService.startDeckSession(deckID: deckID) {
             await appModel.refreshGameDecks()
-            resetTopic = appModel.gameDecks?.first(where: { $0.id == deckID })?.topic
+            resetTopic = appModel.games.gameDecks?.first(where: { $0.id == deckID })?.topic
             resetRoute = SessionRoute(id: newID, gameType: gameType)
         }
         isResettingDeck = false

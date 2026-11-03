@@ -406,7 +406,7 @@ struct AddMemoryView: View {
     private func removeExistingPhoto(_ photo: MemoryPhoto) {
         existingPhotos.removeAll { $0.id == photo.id }
         guard let existingMemory else { return }
-        Task { await appModel.removePhoto(photo, from: existingMemory) }
+        Task { await appModel.travel.removePhoto(photo, from: existingMemory) }
     }
 
     private func save() {
@@ -426,11 +426,11 @@ struct AddMemoryView: View {
                 edited.place = place
                 edited.date = date
                 edited.note = trimmedNote
-                await appModel.updateMemory(edited, from: existingMemory, newImagesData: imagesData)
+                await appModel.travel.updateMemory(edited, from: existingMemory, newImagesData: imagesData)
             } else {
-                let memory = await appModel.addMemory(title: trimmedTitle, place: place, date: date, note: trimmedNote, imagesData: imagesData)
+                let memory = await appModel.travel.addMemory(title: trimmedTitle, place: place, date: date, note: trimmedNote, imagesData: imagesData)
                 if let linkToTrip {
-                    await appModel.linkMemory(memory, to: linkToTrip)
+                    await appModel.travel.linkMemory(memory, to: linkToTrip)
                 }
                 // Only outside onboarding's mandatory first-memory step (`isDismissable ==
                 // false` there) — that flow already has its own dedicated, better-placed

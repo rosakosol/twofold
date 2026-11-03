@@ -100,7 +100,7 @@ struct GameCompletionView: View {
             // finished every round of the session backing this exact screen. The instant local
             // flip below covers "Your turn" the moment this screen appears, rather than however
             // long this fetch takes to land.
-            appModel.markDeckProgressMineCompleted(deckID: deckID)
+            appModel.games.markDeckProgressMineCompleted(deckID: deckID)
             Task { await appModel.refreshGameDecks() }
         }
         // `isSendingReminder` is owned by the caller (each typed game view runs its own

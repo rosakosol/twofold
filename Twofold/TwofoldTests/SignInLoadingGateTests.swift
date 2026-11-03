@@ -21,7 +21,7 @@ struct SignInLoadingGateTests {
     /// reason the flag cannot be assumed true.
     @Test("a new session starts unresolved")
     func startsUnresolved() {
-        #expect(AppModel().hasResolvedOutgoingConnectionRequest == false)
+        #expect(AppModel().session.hasResolvedOutgoingConnectionRequest == false)
     }
 
     /// Resolving is what releases the screen, whatever the answer turns out to be. A network
@@ -31,7 +31,7 @@ struct SignInLoadingGateTests {
         let model = AppModel()
         model.partnerConnected = true
         await model.refreshPendingOutgoingConnectionRequest()
-        #expect(model.hasResolvedOutgoingConnectionRequest)
+        #expect(model.session.hasResolvedOutgoingConnectionRequest)
         #expect(model.pendingOutgoingConnectionRequest == nil)
     }
 }

@@ -149,7 +149,7 @@ struct ArchivedCoupleDetailView: View {
 
     /// Premium exports without limit; everyone else needs a credit in hand.
     private var canIncludeRecord: Bool {
-        !appModel.isPremiumLocked || (credits ?? 0) > 0
+        !appModel.subscription.isPremiumLocked || (credits ?? 0) > 0
     }
 
     var body: some View {
@@ -234,7 +234,7 @@ struct ArchivedCoupleDetailView: View {
         .task {
             await load()
             // Only for people who pay per export — Premium has no balance to report.
-            guard appModel.isPremiumLocked else { return }
+            guard appModel.subscription.isPremiumLocked else { return }
             credits = (try? await BackendService.recordExportCreditCount()) ?? 0
         }
         .sheet(isPresented: $showingPaywall) {
@@ -282,7 +282,7 @@ struct ArchivedCoupleDetailView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Include your Relationship Record")
                                 .font(.subheadline)
-                            Text(appModel.isPremiumLocked
+                            Text(appModel.subscription.isPremiumLocked
                                  ? "A PDF of your story together. Premium only — the data above is free either way."
                                  : "A PDF of your story together, alongside the data.")
                                 .font(.caption2)
@@ -292,7 +292,7 @@ struct ArchivedCoupleDetailView: View {
                     .tint(Theme.accent)
                     .disabled(!canIncludeRecord)
 
-                    if appModel.isPremiumLocked && (credits ?? 0) == 0 {
+                    if appModel.subscription.isPremiumLocked && (credits ?? 0) == 0 {
                         Button { buyOneRecordExport() } label: {
                             HStack(spacing: Theme.Spacing.xs) {
                                 if isBuyingRecord { ProgressView().controlSize(.small) }
@@ -387,7 +387,7 @@ struct ArchivedCoupleDetailView: View {
                 )
                 // Charged after the zip exists, never before — and only when the Record was
                 // actually included. A failed export must not take somebody's purchase.
-                if includeRecord && appModel.isPremiumLocked {
+                if includeRecord && appModel.subscription.isPremiumLocked {
                     if (try? await BackendService.spendRecordExportCredit()) == true {
                         credits = max((credits ?? 1) - 1, 0)
                     }

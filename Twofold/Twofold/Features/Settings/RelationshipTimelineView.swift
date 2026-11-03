@@ -34,7 +34,7 @@ struct RelationshipTimelineView: View {
 
     /// Premium exports without limit; everyone else needs a credit in hand.
     private var canExport: Bool {
-        !appModel.isPremiumLocked || (credits ?? 0) > 0
+        !appModel.subscription.isPremiumLocked || (credits ?? 0) > 0
     }
 
     /// A finished file, identified so `.sheet(item:)` presents it once it exists rather than being
@@ -59,7 +59,7 @@ struct RelationshipTimelineView: View {
                     emptyState
                 } else {
                     header
-                    if appModel.isPremiumLocked { exportPurchaseCard }
+                    if appModel.subscription.isPremiumLocked { exportPurchaseCard }
                     ForEach(items) { item in
                         TimelineEntryView(item: item, isLast: item.id == items.last?.id)
                     }
@@ -103,7 +103,7 @@ struct RelationshipTimelineView: View {
         }
         .task {
             // Only for people who pay per export — Premium has no balance to report.
-            guard appModel.isPremiumLocked else { return }
+            guard appModel.subscription.isPremiumLocked else { return }
             credits = (try? await BackendService.recordExportCreditCount()) ?? 0
         }
         .postHogScreenView("Settings: Relationship Timeline")
@@ -274,7 +274,7 @@ struct RelationshipTimelineView: View {
             // Charged after the file exists, never before. Spending first and then failing to
             // render would take someone's purchase and hand them nothing — and the export is
             // local work that can fail on its own. Premium skips this entirely: it has no ledger.
-            if appModel.isPremiumLocked {
+            if appModel.subscription.isPremiumLocked {
                 let spent = (try? await BackendService.spendRecordExportCredit()) ?? false
                 guard spent else {
                     exportError = "Couldn't find your purchased export. Nothing has been charged — try again in a moment."

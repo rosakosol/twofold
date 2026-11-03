@@ -236,7 +236,7 @@ struct TripsListView: View {
                     // change `trips`/`fallbackCenter` — see `TripsGlobeView`'s own `==` doc
                     // comment for why that matters while the panel below is being dragged.
                     TripsGlobeView(
-                        trips: appModel.upcomingTrips,
+                        trips: appModel.travel.upcomingTrips,
                         fallbackCenter: appModel.currentUser.homeCity?.coordinate
                     )
                     .equatable()
@@ -307,7 +307,7 @@ struct TripsListView: View {
                 FlightTrackingView(flight: flight)
             }
         }
-        .addContentSheet(isPresented: $showingAddTrip, canAdd: appModel.canAddContent, feature: .trips) {
+        .addContentSheet(isPresented: $showingAddTrip, canAdd: appModel.subscription.canAddContent, feature: .trips) {
             NavigationStack {
                 AddTripDetailsView(mode: .standalone, partnerName: appModel.partner.name) { _ in
                     showingAddTrip = false
@@ -324,7 +324,7 @@ struct TripsListView: View {
             // the Travel tab), and until now it fired with no screen event at all.
             .postHogScreenView("Travel: Add Trip")
         }
-        .addContentSheet(isPresented: $showingAddFlight, canAdd: appModel.canAddContent, feature: .flights) {
+        .addContentSheet(isPresented: $showingAddFlight, canAdd: appModel.subscription.canAddContent, feature: .flights) {
             AddFlightView()
         }
         .sheet(isPresented: $showingPartnerGate) {
@@ -566,7 +566,7 @@ struct TripsListView: View {
     private var peekShowsEmptyHint: Bool {
         switch tab {
         case .trips: tripsPeekHint != nil
-        case .flights: appModel.activeOrUpcomingFlights.isEmpty
+        case .flights: appModel.travel.activeOrUpcomingFlights.isEmpty
         }
     }
 
@@ -594,7 +594,7 @@ struct TripsListView: View {
                 emptyTripsHint
                     .padding(.bottom, emptyPeekBottomClearance)
             } else {
-                let trips = Array(appModel.upcomingTrips.prefix(peekItemLimit))
+                let trips = Array(appModel.travel.upcomingTrips.prefix(peekItemLimit))
                 VStack(spacing: Theme.Spacing.md) {
                     ForEach(trips) { trip in
                         Button {
@@ -617,13 +617,13 @@ struct TripsListView: View {
             // Gated on *tracked* flights specifically, not "ever had any flight" — a couple
             // with only past/completed flights and nothing currently tracked should still see
             // the "add a flight" hint here, not an empty carousel with nothing to tap.
-            if appModel.activeOrUpcomingFlights.isEmpty {
+            if appModel.travel.activeOrUpcomingFlights.isEmpty {
                 // The cards below carry this; the hint needs it for the same reason — the
                 // floating tab bar sits outside this panel, so nothing here is inset from it.
                 emptyFlightsHint
                     .padding(.bottom, emptyPeekBottomClearance)
             } else {
-                let flights = Array(appModel.activeOrUpcomingFlights.prefix(peekItemLimit))
+                let flights = Array(appModel.travel.activeOrUpcomingFlights.prefix(peekItemLimit))
                 VStack(spacing: Theme.Spacing.md) {
                     ForEach(flights) { flight in
                         Button {
@@ -687,7 +687,7 @@ struct TripsListView: View {
 
     @ViewBuilder
     private var tripSections: some View {
-        let upcoming = appModel.upcomingTrips
+        let upcoming = appModel.travel.upcomingTrips
         if !upcoming.isEmpty {
             Section("Upcoming") {
                 ForEach(upcoming) { trip in
@@ -696,7 +696,7 @@ struct TripsListView: View {
             }
         }
 
-        let past = appModel.pastTrips
+        let past = appModel.travel.pastTrips
         if !past.isEmpty {
             Section("Past") {
                 ForEach(past) { trip in
@@ -732,7 +732,7 @@ struct TripsListView: View {
                 .buttonStyle(.plain)
                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                     Button(role: .destructive) {
-                        Task { await appModel.deleteTrip(trip) }
+                        Task { await appModel.travel.deleteTrip(trip) }
                     } label: {
                         Label("Delete", systemImage: "trash")
                     }
@@ -753,7 +753,7 @@ struct TripsListView: View {
     /// rather than splitting untethered ones off into a separate Past Flights screen.
     @ViewBuilder
     private var flightSections: some View {
-        let tracked = appModel.activeOrUpcomingFlights
+        let tracked = appModel.travel.activeOrUpcomingFlights
         if !tracked.isEmpty {
             Section("Tracked flights") {
                 ForEach(tracked) { flight in
@@ -770,7 +770,7 @@ struct TripsListView: View {
                 .listRowBackground(Color.clear)
         }
 
-        let completed = appModel.completedFlights
+        let completed = appModel.travel.completedFlights
         if !completed.isEmpty {
             Section("Past flights") {
                 ForEach(completed) { flight in
@@ -806,7 +806,7 @@ struct TripsListView: View {
                 .buttonStyle(.plain)
                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                     Button(role: .destructive) {
-                        Task { await appModel.deleteFlight(flight) }
+                        Task { await appModel.travel.deleteFlight(flight) }
                     } label: {
                         Label("Delete", systemImage: "trash")
                     }
@@ -851,14 +851,14 @@ struct TripsListView: View {
         case .trips:
             let toDelete = appModel.trips.filter { selectedTripIDs.contains($0.id) }
             Task {
-                await appModel.deleteTrips(toDelete)
+                await appModel.travel.deleteTrips(toDelete)
                 isSelecting = false
                 selectedTripIDs.removeAll()
             }
         case .flights:
             let toDelete = appModel.flights.filter { selectedFlightIDs.contains($0.id) }
             Task {
-                await appModel.deleteFlights(toDelete)
+                await appModel.travel.deleteFlights(toDelete)
                 isSelecting = false
                 selectedFlightIDs.removeAll()
             }
@@ -878,7 +878,7 @@ struct TripsListView: View {
     }
 
     private var tripsPeekHint: TripsPeekHint? {
-        Self.tripsPeekHint(hasAnyTrip: !appModel.trips.isEmpty, hasUpcomingTrip: !appModel.upcomingTrips.isEmpty)
+        Self.tripsPeekHint(hasAnyTrip: !appModel.trips.isEmpty, hasUpcomingTrip: !appModel.travel.upcomingTrips.isEmpty)
     }
 
     @ViewBuilder

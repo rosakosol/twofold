@@ -105,7 +105,7 @@ struct MemoryDetailView: View {
                 .confirmationDialog("Delete this memory?", isPresented: $confirmingDelete, titleVisibility: .visible) {
                     Button("Delete", role: .destructive) {
                         Task {
-                            await appModel.deleteMemory(memory)
+                            await appModel.travel.deleteMemory(memory)
                             dismiss()
                         }
                     }
@@ -121,7 +121,7 @@ struct MemoryDetailView: View {
                                 // Step the carousel back first, or removing the page being looked
                                 // at leaves it on an index that no longer exists.
                                 visiblePhotoIndex = max(0, min(visiblePhotoIndex, memory.photos.count - 2))
-                                Task { await appModel.removePhoto(photo, from: memory) }
+                                Task { await appModel.travel.removePhoto(photo, from: memory) }
                             }
                         }
                     )
@@ -156,7 +156,7 @@ struct MemoryDetailView: View {
     private func apply(_ mutate: (inout Memory) -> Void) {
         guard var updated = memory else { return }
         mutate(&updated)
-        Task { await appModel.updateMemory(updated) }
+        Task { await appModel.travel.updateMemory(updated) }
     }
 
     /// The title is always a `TextField`; tapping it just starts editing. A `Text` that swaps for a
@@ -247,7 +247,7 @@ struct MemoryDetailView: View {
         isAddingPhotos = true
         errorMessage = nil
         let before = Set(current.photos.map(\.id))
-        await appModel.updateMemory(current, newImagesData: imagesData)
+        await appModel.travel.updateMemory(current, newImagesData: imagesData)
         isAddingPhotos = false
         // Appended in order, so the new ones line up with `imagesData`.
         return (memory?.photos ?? []).filter { !before.contains($0.id) }.map { MemoryPhotoItem.uploaded($0).id }

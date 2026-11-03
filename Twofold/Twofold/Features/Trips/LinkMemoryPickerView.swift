@@ -41,7 +41,7 @@ struct LinkMemoryPickerView: View {
                         ForEach(unlinkedMemories) { memory in
                             Button {
                                 Task {
-                                    await appModel.linkMemory(memory, to: trip)
+                                    await appModel.travel.linkMemory(memory, to: trip)
                                     dismiss()
                                 }
                             } label: {

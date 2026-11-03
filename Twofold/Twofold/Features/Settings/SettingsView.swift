@@ -104,7 +104,7 @@ struct SettingsView: View {
                             deviceHoldsEntitlement: subscriptionStore.isSubscribed,
                             coupleIsCovered: appModel.isSubscriptionActive,
                             viewerHoldsSubscription: appModel.viewerHoldsSubscription,
-                            viewerSubscriptionStore: appModel.viewerSubscriptionStore
+                            viewerSubscriptionStore: appModel.subscription.viewerStore
                         ) {
                         case .customerCenter: showingCustomerCenter = true
                         case .manageOnWeb: showingWebSubscriptionManaged = true
@@ -426,7 +426,7 @@ struct SettingsView: View {
     ) -> SubscriptionDestination {
         if deviceHoldsEntitlement { return .customerCenter }
         guard coupleIsCovered else { return .paywall }
-        if viewerHoldsSubscription, AppModel.isWebManagedStore(viewerSubscriptionStore) {
+        if viewerHoldsSubscription, SubscriptionState.isWebManagedStore(viewerSubscriptionStore) {
             return .manageOnWeb
         }
         // Everything left over: covered, not from this device, and not positively known to be a web

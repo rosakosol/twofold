@@ -26,22 +26,22 @@ struct AdmissionPathSubscriptionTests {
     /// landed by the time the adopt reads the row.
     @Test("a device entitlement stands in for a backend row that has not caught up")
     func deviceEntitlementCoversWebhookLag() {
-        #expect(AppModel.isSubscribed(backendSaysActive: false, deviceTier: .premium))
-        #expect(AppModel.isSubscribed(backendSaysActive: false, deviceTier: .plus))
+        #expect(SubscriptionState.isSubscribed(backendSaysActive: false, deviceTier: .premium))
+        #expect(SubscriptionState.isSubscribed(backendSaysActive: false, deviceTier: .plus))
     }
 
     /// The direction that must not be rescued. RevenueCat is the receipt-validated answer in both
     /// directions — a cancellation reads as no active entitlement there too.
     @Test("no entitlement and no row still means no subscription")
     func genuineAbsenceStillReadsAsAbsent() {
-        #expect(!AppModel.isSubscribed(backendSaysActive: false, deviceTier: nil))
+        #expect(!SubscriptionState.isSubscribed(backendSaysActive: false, deviceTier: nil))
     }
 
     /// A paid-up row needs no help from the device, which is why the reconciler returns early on it
     /// rather than reaching for `customerInfo` on every launch.
     @Test("a row that says active is enough on its own")
     func backendAloneIsEnough() {
-        #expect(AppModel.isSubscribed(backendSaysActive: true, deviceTier: nil))
+        #expect(SubscriptionState.isSubscribed(backendSaysActive: true, deviceTier: nil))
     }
 
     /// Where the first fix was wrong.
@@ -57,9 +57,9 @@ struct AdmissionPathSubscriptionTests {
     func aRefreshCannotClobberAPurchase() {
         // What a foreground refresh gets back while the webhook is behind.
         let rowAtRefresh = false
-        #expect(AppModel.isSubscribed(backendSaysActive: rowAtRefresh, deviceTier: .premium))
+        #expect(SubscriptionState.isSubscribed(backendSaysActive: rowAtRefresh, deviceTier: .premium))
         // And the same refresh for somebody who genuinely stopped paying.
-        #expect(!AppModel.isSubscribed(backendSaysActive: rowAtRefresh, deviceTier: nil))
+        #expect(!SubscriptionState.isSubscribed(backendSaysActive: rowAtRefresh, deviceTier: nil))
     }
 
     /// Home's own third state, which is a different claim from the one above.
@@ -127,6 +127,6 @@ struct AdmissionPathSubscriptionTests {
     func rawRowValueIsTheBug() {
         let backendSaysActive = false // webhook behind
         #expect(!backendSaysActive, "what the adopt wrote, and what Home then rendered")
-        #expect(AppModel.isSubscribed(backendSaysActive: backendSaysActive, deviceTier: .premium))
+        #expect(SubscriptionState.isSubscribed(backendSaysActive: backendSaysActive, deviceTier: .premium))
     }
 }

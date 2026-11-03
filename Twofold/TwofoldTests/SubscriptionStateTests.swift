@@ -59,7 +59,7 @@ struct SubscriptionStateTests {
         model.subscriptionTier = "premium"
         #expect(model.subscription.isActive)
         #expect(model.subscription.tier == "premium")
-        #expect(!model.isPremiumLocked)
+        #expect(!model.subscription.isPremiumLocked)
     }
 }
 

@@ -45,7 +45,7 @@ struct RootView: View {
     /// The repair offer currently on screen, carrying the streak it is about.
     ///
     /// Item-based rather than a `Bool`, because the sheet's content used to read
-    /// `appModel.streakRepair` — which the repair itself destroys. `refreshStreakRepairState()`
+    /// `appModel.games.streakRepair` — which the repair itself destroys. `refreshStreakRepairState()`
     /// sets it to nil for any couple whose streak is not 0, and a successful repair makes the
     /// streak non-zero, so the content resolved to `EmptyView` the instant the thing worked: a
     /// blank grey sheet, with the "Your N-day streak is back" screen and its Done button never
@@ -328,7 +328,7 @@ struct RootView: View {
             consumePendingOpenURL()
         }
         .onChange(of: appModel.isLoadingSession) { _, _ in consumePendingOpenURL() }
-        .onChange(of: appModel.hasResolvedSubscription) { _, _ in consumePendingOpenURL() }
+        .onChange(of: appModel.subscription.hasResolved) { _, _ in consumePendingOpenURL() }
         .sheet(isPresented: Binding(get: { pendingInviteCode != nil }, set: { if !$0 { pendingInviteCode = nil } })) {
             RedeemPartnerCodeView(prefilledCode: pendingInviteCode)
         }
@@ -338,7 +338,7 @@ struct RootView: View {
         }
         // Watched rather than checked once on appear: the state arrives from a round trip that
         // lands well after this view first draws, and on a foreground it can change again.
-        .onChange(of: appModel.streakRepair?.missedDateRaw) { _, _ in offerStreakRepairIfDue() }
+        .onChange(of: appModel.games.streakRepair?.missedDateRaw) { _, _ in offerStreakRepairIfDue() }
         // Watched rather than checked once, because the couple state that carries both birthdays
         // lands well after this view first draws — the same reason the streak repair check above
         // is an `onChange`. Also re-checked on foreground, so a phone left open overnight finds
@@ -428,7 +428,7 @@ struct RootView: View {
             Task { await checkSubscription() }
 
             guard !appModel.partnerConnectedCelebrationShown else { return }
-            appModel.markPartnerConnectedCelebrationShown()
+            appModel.prompts.markPartnerConnectedCelebrationShown()
             showingPartnerConnectedCelebration = true
         }
         .fullScreenCover(isPresented: $showingPartnerConnectedCelebration) {
@@ -530,7 +530,7 @@ struct RootView: View {
         case .flight, .memory, .trip, .drawingPad, .partnerDrawingPad:
             // Waits for the answer rather than reading a `false` that only means "not known yet",
             // which on a cold launch is what it always was.
-            guard appModel.hasResolvedSubscription else { return }
+            guard appModel.subscription.hasResolved else { return }
             if appModel.isSubscriptionActive {
                 recordDeepLink = destination
             } else {
@@ -550,8 +550,8 @@ struct RootView: View {
             // subscription, and the question screen checks for one the moment it opens: on a cold
             // launch that was before anybody knew, so a subscriber tapping the widget with the app
             // closed was shown "needs a subscription" instead of the question.
-            guard appModel.hasResolvedSubscription else { return }
-            appModel.isDailyQuestionOpenRequested = true
+            guard appModel.subscription.hasResolved else { return }
+            appModel.games.isDailyQuestionOpenRequested = true
             selectedTab = .games
         case .passport(let section):
             pendingStatsSection = section
@@ -566,7 +566,7 @@ struct RootView: View {
         router.pending?.handling(
             isLoadingSession: appModel.isLoadingSession,
             hasCouple: appModel.hasCouple,
-            hasResolvedSubscription: appModel.hasResolvedSubscription,
+            hasResolvedSubscription: appModel.subscription.hasResolved,
             isSubscriptionActive: appModel.isSubscriptionActive
         )
     }
@@ -759,7 +759,7 @@ struct RootView: View {
               let streak = Int(arguments[flag + 1])
         else { return }
 
-        appModel.streakRepair = BackendService.StreakRepairState(
+        appModel.games.streakRepair = BackendService.StreakRepairState(
             repairable: true,
             streakAtRisk: streak,
             credits: 0,
@@ -796,7 +796,7 @@ struct RootView: View {
     }
 
     private func offerStreakRepairIfDue() {
-        guard let repair = appModel.streakRepair,
+        guard let repair = appModel.games.streakRepair,
               repair.repairable,
               repair.streakAtRisk > 0,
               // No key means no way to tell one break from another, and an offer that cannot be
@@ -833,7 +833,7 @@ struct RootView: View {
             // so it carries no id. The tab used to be as far as this went, which left the question
             // itself a tap away; `DailyActivityCard` now opens it when asked, resolving the session
             // the way a tap would.
-            appModel.isDailyQuestionOpenRequested = true
+            appModel.games.isDailyQuestionOpenRequested = true
             selectedTab = .games
         case .flight(let id):
             recordDeepLink = .flight(id)
@@ -918,8 +918,8 @@ struct RootView: View {
 
     private var reviewPromptBinding: Binding<ReviewMilestone?> {
         Binding(
-            get: { showingPartnerConnectedCelebration ? nil : appModel.pendingReviewMilestone },
-            set: { appModel.pendingReviewMilestone = $0 }
+            get: { showingPartnerConnectedCelebration ? nil : appModel.prompts.pendingReviewMilestone },
+            set: { appModel.prompts.pendingReviewMilestone = $0 }
         )
     }
 
@@ -932,11 +932,11 @@ struct RootView: View {
     private var partnerInviteNudgeBinding: Binding<Bool> {
         Binding(
             get: {
-                appModel.pendingPartnerInviteNudge
+                appModel.prompts.pendingPartnerInviteNudge
                     && !showingPartnerConnectedCelebration
-                    && appModel.pendingReviewMilestone == nil
+                    && appModel.prompts.pendingReviewMilestone == nil
             },
-            set: { appModel.pendingPartnerInviteNudge = $0 }
+            set: { appModel.prompts.pendingPartnerInviteNudge = $0 }
         )
     }
 
@@ -968,7 +968,7 @@ struct RootView: View {
         //
         // Nothing is left permanently unresolved by moving it: every path that admits somebody to
         // Home goes through an adopt or the cached-session branch, and each of those resolves.
-        defer { appModel.markSubscriptionResolved() }
+        defer { appModel.subscription.markResolved() }
         // Still refreshed, because `subscriptionStore.subscribedTier` drives the Settings and
         // Customer Center screens — but nothing is written back from it any more.
         await subscriptionStore.refreshEntitlementsOnly()

@@ -140,7 +140,7 @@ struct StreakRepairPromptView: View {
 
     /// True when the couple's included monthly repair is still unspent — in which case this popup
     /// is not an offer to buy anything.
-    private var hasFreeze: Bool { appModel.streakRepair?.monthlyFreezeAvailable == true }
+    private var hasFreeze: Bool { appModel.games.streakRepair?.monthlyFreezeAvailable == true }
 
     private var primaryTitle: String {
         if isWorking { return "One moment…" }
@@ -163,14 +163,14 @@ struct StreakRepairPromptView: View {
         let repaired: Bool
         if hasFreeze {
             repaired = await store.useMonthlyFreeze()
-        } else if (appModel.streakRepair?.credits ?? 0) > 0 {
+        } else if (appModel.games.streakRepair?.credits ?? 0) > 0 {
             repaired = await store.spendCredit()
         } else {
             repaired = await store.purchaseAndRepair()
         }
         if repaired {
             await appModel.refreshDailyStreak()
-            await appModel.refreshStreakRepairState()
+            await appModel.games.refreshStreakRepairState()
         }
     }
 }

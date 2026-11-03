@@ -22,7 +22,7 @@ struct AdultContentSettingsView: View {
     @State private var showingAgeConfirmation = false
     @State private var errorMessage: String?
 
-    private var status: BackendService.AdultContentStatus? { appModel.adultContentStatus }
+    private var status: BackendService.AdultContentStatus? { appModel.games.adultContentStatus }
 
     private var partnerName: String {
         let name = appModel.couple.partnerB.name
@@ -78,7 +78,7 @@ struct AdultContentSettingsView: View {
         .background(ScreenBackground())
         .navigationTitle("18+ questions")
         .task {
-            await appModel.refreshAdultContentStatus()
+            await appModel.games.refreshAdultContentStatus()
             isOn = status?.me ?? false
         }
         .alert("Are you 18 or older?", isPresented: $showingAgeConfirmation) {
@@ -113,8 +113,8 @@ struct AdultContentSettingsView: View {
         errorMessage = nil
         Task {
             do {
-                try await appModel.setAdultContentOptIn(newValue)
-                isOn = appModel.adultContentStatus?.me ?? newValue
+                try await appModel.games.setAdultContentOptIn(newValue)
+                isOn = appModel.games.adultContentStatus?.me ?? newValue
             } catch {
                 isOn = previous
                 errorMessage = "Couldn't save that. Check your connection and try again."

@@ -22,7 +22,7 @@ struct PendingRequestResolutionTests {
     @Test("a fresh session has not resolved anything")
     func startsUnresolved() {
         let model = AppModel()
-        #expect(model.hasResolvedOutgoingConnectionRequest == false)
+        #expect(model.session.hasResolvedOutgoingConnectionRequest == false)
         #expect(model.pendingOutgoingConnectionRequest == nil, "nil here means unknown, not absent")
     }
 
@@ -50,7 +50,7 @@ struct PendingRequestResolutionTests {
         let model = AppModel()
         model.partnerConnected = true
         await model.refreshPendingOutgoingConnectionRequest()
-        #expect(model.hasResolvedOutgoingConnectionRequest)
+        #expect(model.session.hasResolvedOutgoingConnectionRequest)
         #expect(model.pendingOutgoingConnectionRequest == nil)
     }
 
@@ -62,7 +62,7 @@ struct PendingRequestResolutionTests {
         let model = AppModel()
         // Unauthenticated: the fetch cannot succeed, which is the shape of a persistent failure.
         await model.refreshPendingOutgoingConnectionRequest()
-        #expect(model.hasResolvedOutgoingConnectionRequest,
+        #expect(model.session.hasResolvedOutgoingConnectionRequest,
                 "an unresolvable lookup must still end, or the loading screen never clears")
     }
 }

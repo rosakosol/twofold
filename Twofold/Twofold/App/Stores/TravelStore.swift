@@ -252,16 +252,6 @@ final class TravelStore: AccountScopedStore {
         upcomingTrips.first { $0.category == .reunion && $0.departureDate > .now }?.id
     }
 
-    var nextReunionDaysToGo: Int {
-        guard let trip = upcomingTrips.first else { return 0 }
-        let days = TimeMath.daysUntil(trip.departureDate)
-        return max(0, days)
-    }
-
-    func memories(in place: Place) -> [Memory] {
-        memories.filter { $0.place?.isSameSpot(as: place) == true }
-    }
-
     var citiesWithMemories: [Place] {
         var seen = Set<UUID>()
         return memories.compactMap { memory in

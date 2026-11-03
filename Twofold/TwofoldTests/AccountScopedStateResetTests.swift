@@ -39,20 +39,20 @@ struct AccountScopedStateResetTests {
         model.trips = []
         model.myDrawingURL = URL(string: "https://example.test/sign/drawing-pads/couple/person/pad.png")
         model.partnerDrawingURL = URL(string: "https://example.test/sign/drawing-pads/couple/other/pad.png")
-        model.dailyStreak = 28
-        model.longestDailyStreak = 40
-        model.dailyStreakResetsAt = .now
-        model.todaysDailySessionID = UUID()
-        model.todaysDailyQuestionText = "Someone else's question"
-        model.todaysMyAnswered = true
-        model.todaysPartnerAnswered = true
-        model.dailyQuestionError = "stale"
+        model.games.dailyStreak = 28
+        model.games.longestDailyStreak = 40
+        model.games.dailyStreakResetsAt = .now
+        model.games.todaysDailySessionID = UUID()
+        model.games.todaysDailyQuestionText = "Someone else's question"
+        model.games.todaysMyAnswered = true
+        model.games.todaysPartnerAnswered = true
+        model.games.dailyQuestionError = "stale"
         model.partnerDisconnectedMessage = "Your connection with Alex has ended"
         model.partnerSubscriptionLapsedPartnerName = "Alex"
         model.partnerConnectedCelebrationShown = true
         model.setupChecklistDismissed = true
-        model.pendingPartnerInviteNudge = true
-        model.pendingReviewMilestone = .firstMemory
+        model.prompts.pendingPartnerInviteNudge = true
+        model.prompts.pendingReviewMilestone = .firstMemory
         model.writeRefusedMessage = "refused"
         model.needsOnboarding = true
         return model
@@ -72,10 +72,10 @@ struct AccountScopedStateResetTests {
         let model = dirtied()
         model.resetAccountScopedState()
 
-        #expect(model.dailyStreak == nil)
-        #expect(model.longestDailyStreak == nil)
-        #expect(model.dailyStreakResetsAt == nil)
-        #expect(model.streakRepair == nil)
+        #expect(model.games.dailyStreak == nil)
+        #expect(model.games.longestDailyStreak == nil)
+        #expect(model.games.dailyStreakResetsAt == nil)
+        #expect(model.games.streakRepair == nil)
     }
 
     @Test("Today's question and whether the last couple answered it go too")
@@ -83,11 +83,11 @@ struct AccountScopedStateResetTests {
         let model = dirtied()
         model.resetAccountScopedState()
 
-        #expect(model.todaysDailySessionID == nil)
-        #expect(model.todaysDailyQuestionText == nil)
-        #expect(model.todaysMyAnswered == false)
-        #expect(model.todaysPartnerAnswered == false)
-        #expect(model.dailyQuestionError == nil)
+        #expect(model.games.todaysDailySessionID == nil)
+        #expect(model.games.todaysDailyQuestionText == nil)
+        #expect(model.games.todaysMyAnswered == false)
+        #expect(model.games.todaysPartnerAnswered == false)
+        #expect(model.games.dailyQuestionError == nil)
     }
 
     @Test("The tier goes, so a free account cannot inherit premium access")
@@ -119,8 +119,8 @@ struct AccountScopedStateResetTests {
 
         #expect(model.partnerConnectedCelebrationShown == false)
         #expect(model.setupChecklistDismissed == false)
-        #expect(model.pendingPartnerInviteNudge == false)
-        #expect(model.pendingReviewMilestone == nil)
+        #expect(model.prompts.pendingPartnerInviteNudge == false)
+        #expect(model.prompts.pendingReviewMilestone == nil)
         #expect(model.writeRefusedMessage == nil)
     }
 
@@ -133,8 +133,8 @@ struct AccountScopedStateResetTests {
         #expect(model.partnerConnected == false)
         #expect(model.backendCoupleID == nil)
         #expect(model.inviteCode == nil)
-        #expect(model.gameDecks == nil)
-        #expect(model.deckProgress == nil)
+        #expect(model.games.gameDecks == nil)
+        #expect(model.games.deckProgress == nil)
     }
 
     /// Its own test rather than a line in `uiFlagsAreCleared`, because the consequence is not a

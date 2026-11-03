@@ -22,11 +22,11 @@ struct GameTypeDecksView: View {
 
     private var unansweredDecks: [GameDeck] {
         allDecks
-            .filter { !(appModel.deckProgress?[$0.id]?.bothCompleted ?? false) }
+            .filter { !(appModel.games.deckProgress?[$0.id]?.bothCompleted ?? false) }
             .sorted { lhs, rhs in
                 // Started means answered, not merely opened — see `DeckProgress.hasAnyAnswers`.
-                let lhsStarted = appModel.deckProgress?[lhs.id]?.hasAnyAnswers ?? false
-                let rhsStarted = appModel.deckProgress?[rhs.id]?.hasAnyAnswers ?? false
+                let lhsStarted = appModel.games.deckProgress?[lhs.id]?.hasAnyAnswers ?? false
+                let rhsStarted = appModel.games.deckProgress?[rhs.id]?.hasAnyAnswers ?? false
                 if lhsStarted != rhsStarted { return lhsStarted }
                 return lhs.sortOrder < rhs.sortOrder
             }
@@ -37,8 +37,8 @@ struct GameTypeDecksView: View {
     /// random next to the "Completed <date>" each card shows.
     private var answeredDecks: [GameDeck] {
         allDecks
-            .filter { appModel.deckProgress?[$0.id]?.bothCompleted ?? false }
-            .sorted { GameLogic.completedDeckPrecedes($0, $1, progress: appModel.deckProgress) }
+            .filter { appModel.games.deckProgress?[$0.id]?.bothCompleted ?? false }
+            .sorted { GameLogic.completedDeckPrecedes($0, $1, progress: appModel.games.deckProgress) }
     }
 
     var body: some View {
@@ -67,7 +67,7 @@ struct GameTypeDecksView: View {
         .background(ScreenBackground())
         .navigationTitle(gameType.displayName)
         .navigationBarTitleDisplayMode(.inline)
-        .task { await appModel.loadGameDecksIfNeeded() }
+        .task { await appModel.games.loadGameDecksIfNeeded() }
         .postHogScreenView("Games: Type Decks")
     }
 
@@ -82,7 +82,7 @@ struct GameTypeDecksView: View {
 
                 VStack(spacing: Theme.Spacing.sm) {
                     ForEach(decks) { deck in
-                        DeckCardRow(deck: deck, progress: appModel.deckProgress?[deck.id], showsTopic: true)
+                        DeckCardRow(deck: deck, progress: appModel.games.deckProgress?[deck.id], showsTopic: true)
                     }
                 }
             }

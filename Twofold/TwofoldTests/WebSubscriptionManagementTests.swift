@@ -171,7 +171,7 @@ struct WebSubscriptionManagementTests {
 
     @Test("both RevenueCat web stores count", arguments: ["stripe", "rc_billing", "RC_BILLING", " Stripe "])
     func webStoresCount(_ store: String) {
-        #expect(AppModel.isWebManagedStore(store))
+        #expect(SubscriptionState.isWebManagedStore(store))
     }
 
     /// Nil is the common answer, not an edge case: every subscription older than migration
@@ -179,6 +179,6 @@ struct WebSubscriptionManagementTests {
     /// nothing at all. It must never read as a web store.
     @Test("anything not positively a web store isn't one", arguments: [nil, "", "   ", "app_store", "play_store", "promotional", "mac_app_store", "amazon", "unknown"])
     func everythingElseIsNot(_ store: String?) {
-        #expect(!AppModel.isWebManagedStore(store))
+        #expect(!SubscriptionState.isWebManagedStore(store))
     }
 }

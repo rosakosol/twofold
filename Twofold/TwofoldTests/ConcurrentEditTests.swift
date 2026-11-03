@@ -49,7 +49,7 @@ extension PendingMemoryDiskTests {
             backend.serverMemories[0].note = "The café by the station"
             var edited = model.memories[0]
             edited.title = "Where we really met"
-            await model.updateMemory(edited)
+            await model.travel.updateMemory(edited)
 
             #expect(backend.serverMemories[0].title == "Where we really met")
             #expect(backend.serverMemories[0].note == "The café by the station", "the title edit sent this phone's old note and wiped the partner's")
@@ -71,14 +71,14 @@ extension PendingMemoryDiskTests {
             // The sheet opens with this copy.
             let opened = model.memories[0]
             // While it is open: a photo is removed from it, and the partner's note arrives.
-            await model.removePhoto(removed, from: opened)
+            await model.travel.removePhoto(removed, from: opened)
             backend.serverMemories[0].note = "The café by the station"
             backend.serverMemories[0].photos = [kept]
             await model.refreshMemories()
 
             var edited = opened
             edited.title = "Where we really met"
-            await model.updateMemory(edited, from: opened)
+            await model.travel.updateMemory(edited, from: opened)
 
             let shown = model.memories.first { $0.id == memory.id }
             #expect(shown?.title == "Where we really met")
@@ -99,10 +99,10 @@ extension PendingMemoryDiskTests {
             backend.isOffline = true
             var first = model.memories[0]
             first.title = "Where we really met"
-            await model.updateMemory(first)
+            await model.travel.updateMemory(first)
             var second = model.memories[0]
             second.note = "Written on the plane"
-            await model.updateMemory(second)
+            await model.travel.updateMemory(second)
             #expect(PendingWriteStore.all().count == 1, "one entry per memory")
 
             backend.isOffline = false
@@ -145,7 +145,7 @@ extension PendingMemoryDiskTests {
             backend.isRefusing = true
             var edited = model.trips[0]
             edited.category = .reunion
-            await model.updateTrip(edited)
+            await model.travel.updateTrip(edited)
 
             #expect(model.trips[0].category == .together)
             #expect(model.writeRefusedMessage != nil)
@@ -170,7 +170,7 @@ extension PendingMemoryDiskTests {
             backend.serverTrips[0].notes = "Ferry at six"
             var edited = model.trips[0]
             edited.category = .reunion
-            await model.updateTrip(edited)
+            await model.travel.updateTrip(edited)
 
             #expect(backend.serverTrips[0].category == .reunion)
             #expect(backend.serverTrips[0].notes == "Ferry at six", "the category edit sent this phone's empty notes and wiped the partner's")
@@ -196,7 +196,7 @@ extension PendingMemoryDiskTests {
             backend.serverTrips[0].departureDate = moved
             var edited = model.trips[0]
             edited.destination = tokyo
-            await model.updateTrip(edited)
+            await model.travel.updateTrip(edited)
 
             #expect(backend.serverTrips[0].destination.city == "Tokyo")
             #expect(backend.serverTrips[0].departureDate == moved, "the destination edit moved the partner's departure back")

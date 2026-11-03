@@ -55,17 +55,17 @@ struct AllDecksBrowseView: View {
     }
 
     private var filteredDecks: [GameDeck] {
-        var decks = appModel.gameDecks ?? []
+        var decks = appModel.games.gameDecks ?? []
         if let selectedFilter {
-            decks = decks.filter { DeckBrowseFilter.bucket(for: $0, progress: appModel.deckProgress) == selectedFilter }
+            decks = decks.filter { DeckBrowseFilter.bucket(for: $0, progress: appModel.games.deckProgress) == selectedFilter }
         }
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         if !query.isEmpty {
             decks = decks.filter { $0.title.lowercased().contains(query) || $0.topic.lowercased().contains(query) }
         }
         return decks.sorted { lhs, rhs in
-            let lhsProgress = appModel.deckProgress?[lhs.id]
-            let rhsProgress = appModel.deckProgress?[rhs.id]
+            let lhsProgress = appModel.games.deckProgress?[lhs.id]
+            let rhsProgress = appModel.games.deckProgress?[rhs.id]
 
             // Fully finished (both partners answered) sinks to the bottom regardless of the
             // active filter — there's nothing left to do on these, so they shouldn't compete
@@ -79,7 +79,7 @@ struct AllDecksBrowseView: View {
             // read as shuffled next to the "Completed <date>" each card shows. Shared with the
             // Answered sections on TopicDetailView/GameTypeDecksView.
             if lhsDone, rhsDone {
-                return GameLogic.completedDeckPrecedes(lhs, rhs, progress: appModel.deckProgress)
+                return GameLogic.completedDeckPrecedes(lhs, rhs, progress: appModel.games.deckProgress)
             }
 
             // Same notion of "started" the bucketing above uses — a session nobody has answered
@@ -122,7 +122,7 @@ struct AllDecksBrowseView: View {
 
                 VStack(spacing: Theme.Spacing.sm) {
                     ForEach(filteredDecks) { deck in
-                        DeckCardRow(deck: deck, progress: appModel.deckProgress?[deck.id], showsTopic: true)
+                        DeckCardRow(deck: deck, progress: appModel.games.deckProgress?[deck.id], showsTopic: true)
                     }
                 }
 
@@ -138,7 +138,7 @@ struct AllDecksBrowseView: View {
         .background(ScreenBackground())
         .navigationTitle("All games")
         .navigationBarTitleDisplayMode(.inline)
-        .task { await appModel.loadGameDecksIfNeeded() }
+        .task { await appModel.games.loadGameDecksIfNeeded() }
         .postHogScreenView("Games: All Decks")
     }
 

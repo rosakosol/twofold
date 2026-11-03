@@ -22,7 +22,7 @@ struct TopicsSection: View {
                 .foregroundStyle(Theme.textPrimary)
 
             VStack(spacing: Theme.Spacing.sm) {
-                if appModel.gameDecks == nil {
+                if appModel.games.gameDecks == nil {
                     // Every row's progress would otherwise read as a real, played-nothing 0%
                     // until `loadGameDecksIfNeeded()` (below) resolves — misleading for a
                     // returning couple who's actually made progress on most topics.
@@ -41,7 +41,7 @@ struct TopicsSection: View {
                 }
             }
         }
-        .task { await appModel.loadGameDecksIfNeeded() }
+        .task { await appModel.games.loadGameDecksIfNeeded() }
         .sheet(item: $selectedTopic) { topic in
             TopicDetailView(topic: topic)
         }
@@ -54,7 +54,7 @@ struct TopicsSection: View {
     }
 
     private func topicRow(_ topic: GameTopic) -> some View {
-        let progress = appModel.topicProgress(topic)
+        let progress = appModel.games.topicProgress(topic)
         let fraction = progress.map { $0.total > 0 ? Double($0.played) / Double($0.total) : 0 } ?? 0
         let percent = Int((fraction * 100).rounded())
 
@@ -119,11 +119,11 @@ struct TopicDetailView: View {
     /// In-progress decks first, then never-started ones — completed decks are shown separately.
     private var unansweredDecks: [GameDeck] {
         appModel.decks(for: topic)
-            .filter { !(appModel.deckProgress?[$0.id]?.bothCompleted ?? false) }
+            .filter { !(appModel.games.deckProgress?[$0.id]?.bothCompleted ?? false) }
             .sorted { lhs, rhs in
                 // Started means answered, not merely opened — see `DeckProgress.hasAnyAnswers`.
-                let lhsStarted = appModel.deckProgress?[lhs.id]?.hasAnyAnswers ?? false
-                let rhsStarted = appModel.deckProgress?[rhs.id]?.hasAnyAnswers ?? false
+                let lhsStarted = appModel.games.deckProgress?[lhs.id]?.hasAnyAnswers ?? false
+                let rhsStarted = appModel.games.deckProgress?[rhs.id]?.hasAnyAnswers ?? false
                 if lhsStarted != rhsStarted { return lhsStarted }
                 return lhs.sortOrder < rhs.sortOrder
             }
@@ -133,8 +133,8 @@ struct TopicDetailView: View {
     /// other two screens that list finished decks.
     private var answeredDecks: [GameDeck] {
         appModel.decks(for: topic)
-            .filter { appModel.deckProgress?[$0.id]?.bothCompleted ?? false }
-            .sorted { GameLogic.completedDeckPrecedes($0, $1, progress: appModel.deckProgress) }
+            .filter { appModel.games.deckProgress?[$0.id]?.bothCompleted ?? false }
+            .sorted { GameLogic.completedDeckPrecedes($0, $1, progress: appModel.games.deckProgress) }
     }
 
     var body: some View {
@@ -183,7 +183,7 @@ struct TopicDetailView: View {
 
                 VStack(spacing: Theme.Spacing.sm) {
                     ForEach(decks) { deck in
-                        DeckCardRow(deck: deck, progress: appModel.deckProgress?[deck.id])
+                        DeckCardRow(deck: deck, progress: appModel.games.deckProgress?[deck.id])
                     }
                 }
             }

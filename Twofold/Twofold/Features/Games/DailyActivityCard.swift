@@ -27,7 +27,7 @@ struct DailyActivityCard: View {
     @State private var showingDailyQuestion = false
     /// The streak a repair is being bought for, and the sheet's whole reason to exist.
     ///
-    /// Driven off its own state rather than `appModel.streakRepair`, and attached to the card
+    /// Driven off its own state rather than `appModel.games.streakRepair`, and attached to the card
     /// rather than to `repairRow`, because both of those disappear the instant a repair succeeds.
     /// The sheet used to hang off `StreakRepairRow` inside `if repair.repairable` — so the moment
     /// `repairNow()` refreshed the state, the row's condition went false, the row left the
@@ -50,7 +50,7 @@ struct DailyActivityCard: View {
     /// runs on every appearance of this card, so keying purely off the in-flight flag would flash
     /// placeholder bars over a question that's already on screen every time the tab is revisited.
     private var isLoadingQuestion: Bool {
-        appModel.isLoadingDailyQuestion && appModel.todaysDailyQuestionText == nil
+        appModel.games.isLoadingDailyQuestion && appModel.games.todaysDailyQuestionText == nil
     }
 
     /// Two lines' worth, so a one-line question and a two-line one occupy the same space and
@@ -97,7 +97,7 @@ struct DailyActivityCard: View {
                         Text("Today's deep question")
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(Theme.onFill)
-                        Text(appModel.todaysDailyQuestionText
+                        Text(appModel.games.todaysDailyQuestionText
                             ?? (isLoadingQuestion ? Self.questionSkeletonText : "A new question, just for you two"))
                             .font(.caption2)
                             // 0.85 landed at 4.46:1 against the deepened banner — just under AA.
@@ -115,7 +115,7 @@ struct DailyActivityCard: View {
                             // line to a wrapped real question and pushed every deck below it down.
                             .frame(minHeight: reservedCaptionHeight, alignment: .topLeading)
                             .redacted(reason: isLoadingQuestion ? .placeholder : [])
-                            .accessibilityLabel(isLoadingQuestion ? Text("Loading today's question") : Text(appModel.todaysDailyQuestionText ?? "A new question, just for you two"))
+                            .accessibilityLabel(isLoadingQuestion ? Text("Loading today's question") : Text(appModel.games.todaysDailyQuestionText ?? "A new question, just for you two"))
                     }
                     Spacer()
                     Image(systemName: "chevron.right")
@@ -142,12 +142,12 @@ struct DailyActivityCard: View {
         // `isDailyQuestionOpenRequested`. `initial: true` covers the link that arrived before this
         // card was on screen.
         .navigationDestination(isPresented: $showingDailyQuestion) { dailyDestination }
-        .onChange(of: appModel.isDailyQuestionOpenRequested, initial: true) { _, requested in
+        .onChange(of: appModel.games.isDailyQuestionOpenRequested, initial: true) { _, requested in
             guard requested else { return }
-            appModel.isDailyQuestionOpenRequested = false
+            appModel.games.isDailyQuestionOpenRequested = false
             showingDailyQuestion = true
         }
-        .task { await appModel.startOrResumeDailyQuestion() }
+        .task { await appModel.games.startOrResumeDailyQuestion() }
         // On the card, not on `repairRow` — see `repairingStreakAtRisk` for why that mattered.
         .sheet(item: $repairingStreakAtRisk) { repairing in
             StreakRepairPromptView(streak: repairing.streak)
@@ -214,16 +214,16 @@ struct DailyActivityCard: View {
         // otherwise this briefly flashes "Start a streak" before flipping to the real
         // streak count on every cold load, which read as a glitch rather than a loading
         // state.
-        .redacted(reason: appModel.dailyStreak == nil ? .placeholder : [])
+        .redacted(reason: appModel.games.dailyStreak == nil ? .placeholder : [])
     }
 
     @ViewBuilder
     private var answeredAvatars: some View {
         if appModel.partnerConnected {
             HStack(spacing: -8) {
-                completionAvatar(person: appModel.currentUser, answered: appModel.todaysMyAnswered)
+                completionAvatar(person: appModel.currentUser, answered: appModel.games.todaysMyAnswered)
                     .zIndex(1)
-                completionAvatar(person: appModel.partner, answered: appModel.todaysPartnerAnswered)
+                completionAvatar(person: appModel.partner, answered: appModel.games.todaysPartnerAnswered)
             }
         }
     }
@@ -246,7 +246,7 @@ struct DailyActivityCard: View {
             // — so the couple's best-ever streak, the one number worth chasing, was
             // invisible in exactly the state where it's most motivating: right after a
             // streak lapses and the subline reverts to "Answer today's question together".
-            if let best = appModel.longestDailyStreak, best > 0 {
+            if let best = appModel.games.longestDailyStreak, best > 0 {
                 Text("Best: \(best) day\(best == 1 ? "" : "s")")
                     .font(.caption2)
                     .foregroundStyle(Theme.textSecondary)
@@ -267,7 +267,7 @@ struct DailyActivityCard: View {
     /// — this is where they come back to.
     @ViewBuilder
     private var repairRow: some View {
-        if let repair = appModel.streakRepair, repair.repairable, repair.streakAtRisk > 0 {
+        if let repair = appModel.games.streakRepair, repair.repairable, repair.streakAtRisk > 0 {
             StreakRepairRow(
                 streak: repair.streakAtRisk,
                 freezeAvailable: repair.monthlyFreezeAvailable,
@@ -291,23 +291,23 @@ struct DailyActivityCard: View {
         isRepairing = true
         Task {
             _ = await repairStore.useMonthlyFreeze()
-            await appModel.refreshStreakRepairState()
+            await appModel.games.refreshStreakRepairState()
             await appModel.refreshDailyStreak()
             isRepairing = false
         }
     }
 
-    /// Placeholder text while `appModel.dailyStreak` is nil — never actually shown (the whole
+    /// Placeholder text while `appModel.games.dailyStreak` is nil — never actually shown (the whole
     /// block is `.redacted` in that state), just needs to occupy roughly the right width/shape.
     private var streakHeadline: String {
-        guard let dailyStreak = appModel.dailyStreak else { return "Start a streak" }
+        guard let dailyStreak = appModel.games.dailyStreak else { return "Start a streak" }
         return dailyStreak > 0 ? "\(dailyStreak)-day streak" : "Start a streak"
     }
 
     /// No longer carries the longest streak — that moved out to its own line under the countdown
     /// (see above), so this can stay a plain call to action in both states.
     private var streakSubline: String {
-        guard let dailyStreak = appModel.dailyStreak, dailyStreak > 0 else { return "Answer today's question together" }
+        guard let dailyStreak = appModel.games.dailyStreak, dailyStreak > 0 else { return "Answer today's question together" }
         // Deliberately short: the headline above already says "N-day streak", and the row now also
         // carries the countdown plus "Best: N days" on the right, so a longer line here wrapped to
         // three lines and crowded the card.
@@ -322,22 +322,22 @@ struct DailyActivityCard: View {
         // and then fail on submit with a generic error, after they had written an answer. Gating
         // the destination rather than hiding the row keeps the card looking the same for everyone
         // and puts the explanation where the refusal would have been.
-        if !appModel.canAddContent {
+        if !appModel.subscription.canAddContent {
             SubscriptionRequiredView(feature: .dailyQuestion)
-        } else if let sessionID = appModel.todaysDailySessionID {
+        } else if let sessionID = appModel.games.todaysDailySessionID {
             DeepConversationsGameView(sessionID: sessionID)
-        } else if let error = appModel.dailyQuestionError {
+        } else if let error = appModel.games.dailyQuestionError {
             VStack(spacing: Theme.Spacing.md) {
                 GameErrorState(message: error)
                 Button("Try again") {
-                    Task { await appModel.startOrResumeDailyQuestion() }
+                    Task { await appModel.games.startOrResumeDailyQuestion() }
                 }
                 .buttonStyle(.borderedProminent)
             }
         } else {
             ProgressView()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .task { await appModel.startOrResumeDailyQuestion() }
+                .task { await appModel.games.startOrResumeDailyQuestion() }
         }
     }
 
@@ -368,7 +368,7 @@ struct DailyActivityCard: View {
     /// *both* partners' timezones (the later of the two midnights), which the client has no
     /// business reconstructing.
     private func countdownLabel(from now: Date) -> String {
-        guard let nextBoundary = appModel.dailyStreakResetsAt else { return "" }
+        guard let nextBoundary = appModel.games.dailyStreakResetsAt else { return "" }
         let remaining = max(0, Int(nextBoundary.timeIntervalSince(now)))
         let hours = remaining / 3600
         let minutes = (remaining % 3600) / 60

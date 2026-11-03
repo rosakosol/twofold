@@ -104,7 +104,7 @@ struct TripDetailsView: View {
                 guard let trip else { return }
                 isDeleting = true
                 Task {
-                    await appModel.deleteTrip(trip)
+                    await appModel.travel.deleteTrip(trip)
                     dismiss()
                 }
             }
@@ -238,7 +238,7 @@ struct TripDetailsView: View {
                         .buttonStyle(.plain)
 
                         Button(role: .destructive) {
-                            Task { await appModel.unlinkFlight(flight) }
+                            Task { await appModel.travel.unlinkFlight(flight) }
                         } label: {
                             Text("Unlink flight").font(.caption)
                         }
@@ -283,7 +283,7 @@ struct TripDetailsView: View {
                             .buttonStyle(.plain)
                             .contextMenu {
                                 Button(role: .destructive) {
-                                    Task { await appModel.unlinkMemory(memory) }
+                                    Task { await appModel.travel.unlinkMemory(memory) }
                                 } label: {
                                     Label("Unlink from trip", systemImage: "link.badge.minus")
                                 }

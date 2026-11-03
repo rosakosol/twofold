@@ -52,7 +52,7 @@ struct MemoriesView: View {
                 }
                 .sharedBackgroundVisibility(.hidden)
             }
-            .addContentSheet(isPresented: $showingAddMemory, canAdd: appModel.canAddContent, feature: .memories) {
+            .addContentSheet(isPresented: $showingAddMemory, canAdd: appModel.subscription.canAddContent, feature: .memories) {
                 AddMemoryView()
             }
         }

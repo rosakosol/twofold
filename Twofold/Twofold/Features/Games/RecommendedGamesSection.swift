@@ -22,7 +22,7 @@ struct RecommendedGamesSection: View {
     @State private var randomDeckIDs: [GameDeck.ID] = []
 
     private var randomDecks: [GameDeck] {
-        guard let decks = appModel.gameDecks else { return [] }
+        guard let decks = appModel.games.gameDecks else { return [] }
         let byID = Dictionary(uniqueKeysWithValues: decks.map { ($0.id, $0) })
         return randomDeckIDs.compactMap { byID[$0] }
     }
@@ -33,7 +33,7 @@ struct RecommendedGamesSection: View {
     /// Isolating it here keeps each builder small enough to infer.
     @ViewBuilder
     private var deckContent: some View {
-        if appModel.gameDecks == nil, appModel.gameDecksUnavailable {
+        if appModel.games.gameDecks == nil, appModel.games.gameDecksUnavailable {
             // Decks are fetched, never bundled, and the fetch swallows its error — so this used
             // to sit on the spinner below forever whenever it failed, reading as a hang rather
             // than a limitation. `loadGameDecksIfNeeded` leaves `gameDecks` nil on failure, so it
@@ -43,7 +43,7 @@ struct RecommendedGamesSection: View {
                 .foregroundStyle(Theme.textSecondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.vertical, Theme.Spacing.sm)
-        } else if appModel.gameDecks == nil {
+        } else if appModel.games.gameDecks == nil {
             // Hasn't resolved yet — sized to roughly match a real `DeckCardRow` so the swap-in
             // doesn't visibly jump.
             ProgressView()
@@ -58,7 +58,7 @@ struct RecommendedGamesSection: View {
                         // edge on anything with a long name.
                         DeckCardRow(
                             deck: deck,
-                            progress: appModel.deckProgress?[deck.id],
+                            progress: appModel.games.deckProgress?[deck.id],
                             showsTopic: false,
                             showsEmoji: false
                         )
@@ -86,11 +86,11 @@ struct RecommendedGamesSection: View {
             deckContent
         }
         .task {
-            await appModel.loadGameDecksIfNeeded()
-            guard randomDeckIDs.isEmpty, let decks = appModel.gameDecks, !decks.isEmpty else { return }
+            await appModel.games.loadGameDecksIfNeeded()
+            guard randomDeckIDs.isEmpty, let decks = appModel.games.gameDecks, !decks.isEmpty else { return }
             // Same "still worth showing" filter `GamesHubView`'s own Travel carousel uses —
             // a deck both partners already finished isn't a useful "recommendation."
-            let unfinished = decks.filter { appModel.deckProgress?[$0.id]?.bothCompleted != true }
+            let unfinished = decks.filter { appModel.games.deckProgress?[$0.id]?.bothCompleted != true }
             randomDeckIDs = Array(unfinished.shuffled().prefix(5)).map(\.id)
         }
     }

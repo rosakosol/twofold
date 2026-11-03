@@ -115,7 +115,7 @@ struct GameHistoryView: View {
         .navigationTitle("Completed games")
         .navigationBarTitleDisplayMode(.inline)
         .task { await load() }
-        .task { await appModel.loadGameDecksIfNeeded() }
+        .task { await appModel.games.loadGameDecksIfNeeded() }
         .postHogScreenView("Games: History")
     }
 
@@ -272,7 +272,7 @@ struct GameHistoryView: View {
     }
 
     private func deck(for session: GameSession) -> GameDeck? {
-        session.deckID.flatMap { deckID in appModel.gameDecks?.first(where: { $0.id == deckID }) }
+        session.deckID.flatMap { deckID in appModel.games.gameDecks?.first(where: { $0.id == deckID }) }
     }
 
     @ViewBuilder

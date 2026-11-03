@@ -1327,7 +1327,7 @@ final class AppModel {
         // and `refreshAll` only got away with it because it called those three afterwards and
         // they reapplied on its behalf. It no longer does — see `refreshAll`.
         reapplyPendingWrites()
-        Task { [weak self] in await self?.resolveMissingAirportTimezones() }
+        Task { [weak self] in await self?.travel.resolveMissingAirportTimezones() }
         // Both of these used to be assigned ~50 lines below, after the `await` on the next
         // subscription line. `partnerConnected` flipping true is what `RootView` watches to show
         // the "You're connected!" celebration, and its guard is `partnerConnectedCelebrationShown`

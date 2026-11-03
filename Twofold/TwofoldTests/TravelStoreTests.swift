@@ -29,8 +29,8 @@ struct TravelStoreTests {
         }
         let model = AppModel()
         // Solo, so both are drafts held for a couple that does not exist yet.
-        await model.addTrip(origin: melbourne, destination: tokyo, departureDate: .now, arrivalDate: .now, traveler: .you, category: .reunion)
-        await model.addMemory(title: "Draft", place: nil, date: .now, note: "", imagesData: [Data([1, 2, 3])])
+        await model.travel.addTrip(origin: melbourne, destination: tokyo, departureDate: .now, arrivalDate: .now, traveler: .you, category: .reunion)
+        await model.travel.addMemory(title: "Draft", place: nil, date: .now, note: "", imagesData: [Data([1, 2, 3])])
         model.flights = DemoData.flights
         let travel = model.travel
         #expect(!travel.pendingTripIDs.isEmpty)

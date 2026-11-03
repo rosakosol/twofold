@@ -299,7 +299,7 @@ struct MemoriesListView: View {
                 .buttonStyle(.plain)
                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                     Button(role: .destructive) {
-                        Task { await appModel.deleteMemory(memory) }
+                        Task { await appModel.travel.deleteMemory(memory) }
                     } label: {
                         Label("Delete", systemImage: "trash")
                     }
@@ -336,7 +336,7 @@ struct MemoriesListView: View {
     private func deleteSelection() {
         let toDelete = appModel.memories.filter { selectedIDs.contains($0.id) }
         Task {
-            await appModel.deleteMemories(toDelete)
+            await appModel.travel.deleteMemories(toDelete)
             isSelecting = false
             selectedIDs.removeAll()
         }

@@ -48,20 +48,20 @@ struct DeckCardRow: View {
     /// shown at a time.
     @State private var showingPartnerGate = false
 
-    private var isLocked: Bool { appModel.isDeckLocked(deck) }
+    private var isLocked: Bool { appModel.subscription.isDeckLocked(deck) }
     private var bothCompleted: Bool { progress?.bothCompleted ?? false }
     /// `hasLoadedCoupleState` first, because `partnerConnected` starts false: without it a paired
     /// couple saw their partner games locked for the first round trip of every cold launch, and a
     /// tap in that window opened the invite sheet to somebody who already has a partner.
     private var needsPartnerGate: Bool {
-        appModel.hasLoadedCoupleState && !appModel.partnerConnected && deck.gameType.requiresPartner
+        appModel.session.hasLoadedCoupleState && !appModel.partnerConnected && deck.gameType.requiresPartner
     }
 
     /// True while we do not yet know. The card renders as normal rather than locked — asserting a
     /// lock we are not sure of is the thing being fixed — but does not navigate, because a partner
     /// game opened without a partner lands on an entry screen that refuses for the wrong reason.
     private var awaitingPartnerState: Bool {
-        !appModel.hasLoadedCoupleState && deck.gameType.requiresPartner
+        !appModel.session.hasLoadedCoupleState && deck.gameType.requiresPartner
     }
 
     /// "Completed" alone once read as a status with no sense of *when* — falls back to the bare

@@ -27,7 +27,7 @@ struct TripRowView: View {
 
     var body: some View {
         HStack(alignment: .center, spacing: Theme.Spacing.md) {
-            TripCountdownTile(trip: trip, isNextReunion: trip.id == appModel.nextReunionTripID)
+            TripCountdownTile(trip: trip, isNextReunion: trip.id == appModel.travel.nextReunionTripID)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text("\(trip.origin.displayCity) to \(trip.destination.displayCity)")

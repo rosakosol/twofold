@@ -42,7 +42,7 @@ struct LinkFlightPickerView: View {
                         ForEach(untetheredFlights) { flight in
                             Button {
                                 Task {
-                                    await appModel.linkFlight(flight, to: trip)
+                                    await appModel.travel.linkFlight(flight, to: trip)
                                     dismiss()
                                 }
                             } label: {
