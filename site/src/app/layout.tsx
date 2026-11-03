@@ -3,6 +3,7 @@ import { Newsreader } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/app/providers";
 import { THEME_INIT_SCRIPT } from "@/lib/theme/themeScript";
+import { SITE_URL } from "@/lib/mail/companyInfo";
 
 // Text uses the system faces the app does, SF and New York on Apple devices (--font-body and
 // --font-display in src/styles/tokens.css, docs/TWOFOLD_WEBSITE.md section 2.3). The one web font
@@ -14,12 +15,29 @@ const wordmarkFont = Newsreader({
   weight: "400",
 });
 
+const DESCRIPTION =
+  "Twofold helps long distance couples stay connected - track flights, share memories and grow closer with games.";
+
+// metadataBase makes every relative URL below absolute, which link previews need. Open Graph and
+// Twitter fields are inherited by every page that doesn't set its own, so a shared link gets a
+// title, a description and an image instead of a bare URL. The image is the app icon for now;
+// a wide `app/opengraph-image.png` would replace it here without any code change.
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: {
     default: "Twofold - Long Distance Couples App",
     template: "%s | Twofold",
   },
-  description: "Twofold helps long distance couples stay connected - track flights, share memories and grow closer with games.",
+  description: DESCRIPTION,
+  openGraph: {
+    type: "website",
+    siteName: "Twofold",
+    locale: "en_AU",
+    title: "Twofold - Long Distance Couples App",
+    description: DESCRIPTION,
+    images: [{ url: "/app-icon.png", width: 256, height: 256, alt: "Twofold" }],
+  },
+  twitter: { card: "summary" },
 };
 
 // Deliberately minimal — no header/footer here. (marketing) and (board) each render

@@ -14,7 +14,7 @@ import {
   type SubscriptionSnapshot,
 } from "@/lib/account/subscription";
 
-export const metadata: Metadata = { title: "Your account" };
+export const metadata: Metadata = { title: "Your account", robots: { index: false, follow: false } };
 
 /**
  * Fetched on the server, as the signed-in user, under the same RLS every other client obeys — no

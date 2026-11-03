@@ -5,6 +5,14 @@ import "@/styles/console.css";
 import { createClient } from "@/lib/supabase/server";
 import { isConsoleAdmin } from "@/lib/auth/isConsoleAdmin";
 import { ConsoleHeader } from "@/components/console/ConsoleHeader";
+import type { Metadata } from "next";
+
+// An internal tool: never indexed, whatever a crawler is handed a link to. robots.ts disallows
+// /admin as well, but a disallowed URL can still be listed from links; this header can't.
+export const metadata: Metadata = {
+  title: { default: "Console", template: "%s | Twofold console" },
+  robots: { index: false, follow: false },
+};
 
 /**
  * The internal console: a separate shell from the public website, not a set of extra links inside
