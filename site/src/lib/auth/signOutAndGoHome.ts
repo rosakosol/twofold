@@ -21,5 +21,7 @@ import { createClient } from "@/lib/supabase/client";
 export async function signOutAndGoHome() {
   const supabase = createClient();
   await supabase.auth.signOut();
+  // A full document load is the point (see above), so the router-push lint does not apply.
+  // eslint-disable-next-line @next/next/no-location-assign-relative-destination
   window.location.assign("/");
 }

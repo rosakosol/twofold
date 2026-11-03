@@ -20,6 +20,13 @@ const eslintConfig = [
       // accounted for 1180 of the 1185 warnings and 14 of the 22 errors. Flat config
       // doesn't consult .gitignore, so it has to be named here.
       "design-system/**",
+      // A leftover copy of the site from before the folder was renamed (local, untracked). Its
+      // compiled `.next/` and `node_modules/` are over 2 GB, and walking them ran ESLint out of
+      // memory, so `npm run lint` never finished. Any nested build output is skipped for the same
+      // reason.
+      "feedback/**",
+      "**/.next/**",
+      "**/node_modules/**",
     ],
   },
 ];

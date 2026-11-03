@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useEffectEvent, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 import { PLANS, RETURNING_CUSTOMER_OFFERING_ID } from "@/lib/marketing/config";
@@ -343,6 +343,10 @@ function PricingContent({ plans }: { plans: { plus: ResolvedPlan; premium: Resol
     attemptPurchase(planId, pendingPeriod);
   }
 
+  // The auth effect below subscribes once on mount. Reading `resumePendingPurchase` through an
+  // effect event keeps it on the latest render's state without re-subscribing on every render.
+  const onSessionReady = useEffectEvent(resumePendingPurchase);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -351,12 +355,12 @@ function PricingContent({ plans }: { plans: { plus: ResolvedPlan; premium: Resol
       if (cancelled) return;
       setSession(initialSession);
       setAuthLoading(false);
-      if (initialSession && !cancelled) await resumePendingPurchase(initialSession);
+      if (initialSession && !cancelled) await onSessionReady(initialSession);
     })();
 
     const unsubscribe = onAuthChange((newSession) => {
       setSession(newSession);
-      if (newSession) void resumePendingPurchase(newSession);
+      if (newSession) void onSessionReady(newSession);
     });
 
     return () => {
