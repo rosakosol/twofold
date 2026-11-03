@@ -478,46 +478,6 @@ export type Database = {
           },
         ]
       }
-      developer_updates: {
-        Row: {
-          author_id: string | null
-          body: string
-          created_at: string
-          feature_id: string
-          id: string
-        }
-        ComputedFields: never
-        Insert: {
-          author_id?: string | null
-          body: string
-          created_at?: string
-          feature_id: string
-          id?: string
-        }
-        Update: {
-          author_id?: string | null
-          body?: string
-          created_at?: string
-          feature_id?: string
-          id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "developer_updates_author_id_fkey"
-            columns: ["author_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "developer_updates_feature_id_fkey"
-            columns: ["feature_id"]
-            isOneToOne: false
-            referencedRelation: "feature_requests"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       device_push_tokens: {
         Row: {
           apns_token: string
@@ -607,83 +567,6 @@ export type Database = {
         }
         Relationships: []
       }
-      feature_bookmarks: {
-        Row: {
-          created_at: string
-          feature_id: string
-          user_id: string
-        }
-        ComputedFields: never
-        Insert: {
-          created_at?: string
-          feature_id: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          feature_id?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "feature_bookmarks_feature_id_fkey"
-            columns: ["feature_id"]
-            isOneToOne: false
-            referencedRelation: "feature_requests"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "feature_bookmarks_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      feature_comments: {
-        Row: {
-          body: string
-          created_at: string
-          feature_id: string
-          id: string
-          updated_at: string
-          user_id: string
-        }
-        ComputedFields: never
-        Insert: {
-          body: string
-          created_at?: string
-          feature_id: string
-          id?: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          body?: string
-          created_at?: string
-          feature_id?: string
-          id?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "feature_comments_feature_id_fkey"
-            columns: ["feature_id"]
-            isOneToOne: false
-            referencedRelation: "feature_requests"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "feature_comments_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       feature_requests: {
         Row: {
           author_id: string | null
@@ -744,40 +627,6 @@ export type Database = {
             columns: ["merged_into"]
             isOneToOne: false
             referencedRelation: "feature_requests"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      feature_subscribers: {
-        Row: {
-          created_at: string
-          feature_id: string
-          user_id: string
-        }
-        ComputedFields: never
-        Insert: {
-          created_at?: string
-          feature_id: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          feature_id?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "feature_subscribers_feature_id_fkey"
-            columns: ["feature_id"]
-            isOneToOne: false
-            referencedRelation: "feature_requests"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "feature_subscribers_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -3717,6 +3566,22 @@ export type Database = {
           p_subject?: string
         }
         Returns: string
+      }
+      submit_support_request_with_thread: {
+        Args: {
+          p_category: string
+          p_email?: string
+          p_message: string
+          p_name?: string
+          p_report_surface?: string
+          p_reported_profile_id?: string
+          p_source?: string
+          p_subject?: string
+        }
+        Returns: {
+          request_id: string
+          thread_id: string
+        }[]
       }
       subscriptions_to_reconcile: {
         Args: { p_checked_cutoff: string }
