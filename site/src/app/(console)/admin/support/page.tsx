@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { nullableArg } from "@/lib/db/nullableArg";
-import { dataOrThrow, listOrThrow } from "@/lib/console/readResult";
+import { dataOrThrow, listOrThrow } from "@/lib/db/readResult";
 import { SupportQueue, type SupportRequest } from "@/components/console/SupportQueue";
 
 export const metadata: Metadata = { title: "Support" };

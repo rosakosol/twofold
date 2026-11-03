@@ -3,7 +3,7 @@ import "./account.css";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/server";
-import { dataOrThrow, listOrThrow } from "@/lib/console/readResult";
+import { dataOrThrow, listOrThrow } from "@/lib/db/readResult";
 import { SubscriptionCard } from "@/components/account/SubscriptionCard";
 import { PartnerCard } from "@/components/account/PartnerCard";
 import { DangerZone } from "@/components/account/DangerZone";

@@ -5,7 +5,7 @@ import { UsageMeter } from "@/components/console/usage/UsageMeter";
 import { UsageTrend, type UsageDay } from "@/components/console/usage/UsageTrend";
 import { UsageEndpointTable, type UsageEndpoint } from "@/components/console/usage/UsageEndpointTable";
 import { ConsolePageHead } from "@/components/console/ConsoleUI";
-import { dataOrThrow, listOrThrow } from "@/lib/console/readResult";
+import { dataOrThrow, listOrThrow } from "@/lib/db/readResult";
 import { TriangleAlert } from "lucide-react";
 
 /** Calls per distinct flight above which an endpoint is called out: one flight polled this many

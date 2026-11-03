@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { AccountDetailView } from "@/components/console/AccountDetailView";
 import type { CoupleArchive } from "@/components/console/AccountArchives";
 import type { FlightOverride } from "@/components/console/AccountGrants";
-import { dataOrThrow, isNotFoundError, listOrThrow } from "@/lib/console/readResult";
+import { dataOrThrow, isNotFoundError, listOrThrow } from "@/lib/db/readResult";
 import type { AccountDetail, AuditEntry, ReportAboutAccount } from "@/lib/console/accountDetail";
 
 export const metadata: Metadata = { title: "Account" };

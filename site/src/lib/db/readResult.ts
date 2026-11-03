@@ -1,11 +1,11 @@
 /**
- * Console reads that fail loudly.
+ * Reads that fail loudly, for the console and the account page.
  *
  * Every console page used to destructure `{ data }` and drop `error`, so a failed RPC rendered as
  * no data: "Nobody has been reported" with a green tick on the moderation page, an empty support
  * inbox, $0 of API spend. On a screen an operator trusts to say "nothing needs you", an empty
  * state that might be an outage is worse than an error page. These turn a failed read into a
- * throw, which the console's error.tsx catches inside the console chrome with a retry button.
+ * throw, which an error.tsx catches (the console's, inside its chrome, or the account page's) with a retry.
  */
 
 /** The part of a supabase-js result these read: PostgrestError is structurally compatible. */

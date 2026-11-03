@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAdminFeature } from "@/lib/queries/useAdminFeatures";
 import { useUpdateFeatureDetails } from "@/lib/queries/useAdminMutations";
 import { ConsoleError } from "@/components/console/ConsoleUI";
-import { isNotFoundError } from "@/lib/console/readResult";
+import { isNotFoundError } from "@/lib/db/readResult";
 import { describeDbError } from "@/lib/supabase/dbError";
 import { CATEGORY_LABELS, CATEGORY_VALUES, type FeatureCategory } from "@/lib/utils/constants";
 

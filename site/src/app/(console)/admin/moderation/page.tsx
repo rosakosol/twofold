@@ -7,7 +7,7 @@ import { ConsoleEmpty, ConsolePageHead, StatTiles } from "@/components/console/C
 import { StatusPill } from "@/components/site/StatusPill";
 import type { ReportedAccount } from "@/lib/console/accountDetail";
 import { longDate } from "@/lib/console/format";
-import { dataOrThrow, listOrThrow } from "@/lib/console/readResult";
+import { dataOrThrow, listOrThrow } from "@/lib/db/readResult";
 
 export const metadata: Metadata = { title: "Moderation" };
 export const dynamic = "force-dynamic";

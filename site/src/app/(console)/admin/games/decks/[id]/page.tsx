@@ -11,7 +11,7 @@ import { useGameDeck } from "@/lib/queries/useGameContent";
 import { DeckForm } from "@/components/admin/games/DeckForm";
 import { ContentTable } from "@/components/admin/games/ContentTable";
 import { ConsoleEmpty, ConsoleError } from "@/components/console/ConsoleUI";
-import { isNotFoundError } from "@/lib/console/readResult";
+import { isNotFoundError } from "@/lib/db/readResult";
 import { contentTypeForGameType } from "@/lib/games/contentTypes";
 
 export default function DeckDetailPage() {
