@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth/server";
 
 /**
  * The account portal: what someone can do about their own account without emailing anyone.
@@ -13,9 +13,7 @@ import { createClient } from "@/lib/supabase/server";
  * account page after signing in rather than on the feedback board.
  */
 export default async function AccountLayout({ children }: { children: React.ReactNode }) {
-  const supabase = await createClient();
-  const { data } = await supabase.auth.getUser();
-  if (!data.user) redirect("/auth/sign-in?next=/account");
+  if (!(await getCurrentUser())) redirect("/auth/sign-in?next=/account");
 
   // The page sets its own column (account.css): 760px, centred, per the website spec.
   return children;

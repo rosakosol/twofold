@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import "./account.css";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth/server";
+import { dataOrThrow, listOrThrow } from "@/lib/console/readResult";
 import { SubscriptionCard } from "@/components/account/SubscriptionCard";
 import { PartnerCard } from "@/components/account/PartnerCard";
 import { DangerZone } from "@/components/account/DangerZone";
@@ -27,14 +30,16 @@ export const metadata: Metadata = { title: "Your account" };
 export default async function AccountPage() {
   const supabase = await createClient();
 
-  const { data: auth } = await supabase.auth.getUser();
-  const user = auth.user!;
+  // The same lookup the layout made (cached per request). The layout redirects too, but the two
+  // render concurrently, so this page can't assume the layout's check has already run.
+  const user = await getCurrentUser();
+  if (!user) redirect("/auth/sign-in?next=/account");
 
   // In parallel, because they do not depend on each other and every one of these is a round trip
   // to Sydney. Awaited one after another they cost twice what they need to, and on a page that
   // shows nothing until all of them land that is the difference between quick and apparently
   // broken. Only the partner lookup below genuinely has to wait, because it needs the couple.
-  const [{ data: profile }, { data: couple }, { data: historyRow }, { data: archives }, { data: emailRows }] = await Promise.all([
+  const [profileResult, coupleResult, historyResult, archivesResult, emailResult] = await Promise.all([
     supabase
       .from("profiles")
       .select(
@@ -66,6 +71,14 @@ export default async function AccountPage() {
     // Which emails this account gets, by its own address (20261112000000).
     supabase.rpc("my_email_preferences"),
   ]);
+  // A failed read throws to account/error.tsx rather than rendering as an absence. This page
+  // exists to answer "what am I paying for" without emailing anybody, and a failed profile read
+  // shown as "no active subscription" told a paying subscriber the wrong thing.
+  const profile = dataOrThrow(profileResult, "your profile");
+  const couple = dataOrThrow(coupleResult, "your partner");
+  const historyRow = dataOrThrow(historyResult, "your billing history");
+  const archives = listOrThrow(archivesResult, "your archived data");
+  const emailRows = dataOrThrow(emailResult, "your email preferences");
   const emailPrefs: EmailPreferences | null = Array.isArray(emailRows) && emailRows[0] ? emailRows[0] : null;
 
   const history = parseSubscriptionHistory(historyRow);
@@ -76,9 +89,12 @@ export default async function AccountPage() {
       : couple.partner_a_id
     : null;
 
-  const { data: partner } = partnerId
-    ? await supabase.from("profiles").select("first_name").eq("id", partnerId).maybeSingle()
-    : { data: null };
+  const partner = partnerId
+    ? dataOrThrow<{ first_name: string }>(
+        await supabase.from("profiles").select("first_name").eq("id", partnerId).maybeSingle(),
+        "your partner's name",
+      )
+    : null;
 
   const snapshot: SubscriptionSnapshot = {
     active: profile?.subscription_active ?? false,
@@ -123,8 +139,8 @@ export default async function AccountPage() {
         email={user.email ?? ""}
         hasPartner={Boolean(partnerId)}
         partnerName={partner?.first_name || null}
-        archivedCount={archives?.length ?? 0}
-        earliestArchivePurgeAt={archives?.[0]?.scheduled_purge_at ?? null}
+        archivedCount={archives.length}
+        earliestArchivePurgeAt={archives[0]?.scheduled_purge_at ?? null}
         billingWarning={deletionBillingWarning(snapshot)}
       />
     </div>
