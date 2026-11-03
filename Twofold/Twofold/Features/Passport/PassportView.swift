@@ -23,7 +23,7 @@ enum StatsSection: String, CaseIterable {
 
 struct PassportView: View {
     @Environment(AppModel.self) private var appModel
-    @State private var showingSnapshot = false
+    @State private var showingRelationshipStatsShare = false
     @State private var showingTripShare = false
     @State private var showingPassportShare = false
     @State private var showingAllFlightStats = false
@@ -66,7 +66,7 @@ struct PassportView: View {
                     switch section {
                     case .relationship:
                         RelationshipStatsCard(couple: appModel.session.couple, stats: relationshipStats) {
-                            showingSnapshot = true
+                            showingRelationshipStatsShare = true
                         }
                     case .trips:
                         TripStatsCard(
@@ -96,7 +96,7 @@ struct PassportView: View {
                     self.requestedSection = nil
                 }
             }
-            .sheet(isPresented: $showingSnapshot) {
+            .sheet(isPresented: $showingRelationshipStatsShare) {
                 RelationshipStatsShareView(couple: appModel.session.couple, stats: relationshipStats)
             }
             .sheet(isPresented: $showingTripShare) {
