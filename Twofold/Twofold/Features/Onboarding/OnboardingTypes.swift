@@ -36,8 +36,6 @@ enum OnboardingStep: Hashable {
     case createAccount
     case homeCity
     case addPhoto
-    case connectPartner
-    case shareInvite
     case enterPartnerCode
     case joinInvite
     case connectionRequestSent
@@ -46,7 +44,7 @@ enum OnboardingStep: Hashable {
     case reveal
 
     /// PostHog `$screen_name` for this step — tagged once at `OnboardingCoordinatorView`'s single
-    /// `.navigationDestination` choke point rather than on each of the 31 individual screens.
+    /// `.navigationDestination` choke point rather than on each individual screen.
     var analyticsName: String {
         switch self {
         case .situation: "Onboarding: Situation"
@@ -76,8 +74,6 @@ enum OnboardingStep: Hashable {
         case .createAccount: "Onboarding: Create Account"
         case .homeCity: "Onboarding: Home City"
         case .addPhoto: "Onboarding: Add Photo"
-        case .connectPartner: "Onboarding: Connect Partner"
-        case .shareInvite: "Onboarding: Share Invite"
         case .enterPartnerCode: "Onboarding: Enter Partner Code"
         case .joinInvite: "Onboarding: Join Invite"
         case .connectionRequestSent: "Onboarding: Connection Request Sent"

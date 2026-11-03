@@ -351,10 +351,6 @@ struct OnboardingCoordinatorView: View {
             HomeCityView()
         case .addPhoto:
             AddPhotoView()
-        case .connectPartner:
-            ConnectPartnerView()
-        case .shareInvite:
-            ShareInviteView(onboarding: onboarding)
         case .enterPartnerCode:
             EnterPartnerCodeView()
         case .joinInvite:

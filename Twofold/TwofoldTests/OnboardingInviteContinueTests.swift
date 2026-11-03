@@ -9,12 +9,11 @@
 //  labelled "Not now", offered to someone who had just shared their code. Onboarding stopped
 //  there.
 //
-//  It was hard to see by reading because there are two different routes to the same screen.
-//  `ShareInviteView` has an onboarding initialiser that advances the path, and that initialiser is
-//  only used by the deep-link path (`.connectPartner` -> `.shareInvite`). The flow a new user
-//  actually walks is `.invitePartner`, which renders `PartnerConnectCard` and opens the very same
-//  view as a *sheet*, with a closure that only dismissed. Both routes are asserted here so a fix
-//  to one is never mistaken for a fix to both.
+//  It was hard to see by reading because there used to be two routes to the same screen: a pushed
+//  `.shareInvite` step that advanced the path, and the one a new user actually walks,
+//  `.invitePartner`, which renders `PartnerConnectCard` and opens the very same view as a *sheet*,
+//  with a closure that only dismissed. The pushed route could no longer be reached and has been
+//  removed; the sheet route is the one asserted here.
 //
 
 import Testing
@@ -24,18 +23,6 @@ import SwiftUI
 
 @MainActor
 struct OnboardingInviteContinueTests {
-
-    /// The deep-link route, which was always correct.
-    @Test("the pushed invite screen advances the onboarding path")
-    func pushedRouteAdvances() {
-        let onboarding = OnboardingModel()
-        onboarding.inviteCode = "ABCD-EFGH"
-        onboarding.path = [.connectPartner, .shareInvite]
-
-        ShareInviteView(onboarding: onboarding).onContinue()
-
-        #expect(onboarding.path == [.connectPartner, .shareInvite, .nextTrip], "got \(onboarding.path)")
-    }
 
     /// The route a new signing-up user actually takes, through the real card `InvitePartnerView`
     /// builds. An earlier version of this test constructed the continuation inline and called it,

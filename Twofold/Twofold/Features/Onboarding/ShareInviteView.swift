@@ -2,9 +2,8 @@
 //  ShareInviteView.swift
 //  Twofold
 //
-//  Used both as an onboarding step (pushed on the onboarding NavigationStack) and as a
-//  standalone sheet from the home screen's "invite partner" checklist card, so it takes
-//  its code and continue action as plain parameters instead of reading a specific model.
+//  Presented as a sheet from `PartnerConnectCard`, in onboarding and after it, so it takes its
+//  code and continue action as plain parameters instead of reading a specific model.
 //
 
 import SwiftUI
@@ -16,18 +15,6 @@ struct ShareInviteView: View {
     init(code: String, onContinue: @escaping () -> Void) {
         self.code = code
         self.onContinue = onContinue
-    }
-
-    /// Convenience initializer for the onboarding NavigationStack destination, which reads
-    /// its code from the shared `OnboardingModel` and advances to the next onboarding step.
-    /// The code is already created for real by `ConnectPartnerView` before pushing here —
-    /// pairing itself isn't confirmed until the partner actually redeems it, so this just
-    /// advances rather than pretending they're connected.
-    init(onboarding: OnboardingModel) {
-        self.code = onboarding.inviteCode ?? ""
-        self.onContinue = {
-            onboarding.path.append(.nextTrip)
-        }
     }
 
     @State private var didCopy = false

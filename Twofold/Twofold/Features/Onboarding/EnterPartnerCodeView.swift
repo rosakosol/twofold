@@ -47,8 +47,8 @@ struct EnterPartnerCodeView: View {
             onboarding.inviteCode = trimmed
             // Typed by hand, so it stays a request the inviter approves.
             onboarding.inviteOrigin = .code
-            // Already mid-way through the inviter flow ("I have a partner code") — account
-            // and home city already exist, so redeem right now.
+            // An account and home city already exist (reachable only by going back past
+            // account creation), so redeem right now.
             isSubmitting = true
             errorMessage = nil
             Task {
