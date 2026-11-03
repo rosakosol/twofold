@@ -40,18 +40,59 @@ struct JourneyLiveActivityWidget: Widget {
                 }
             } compactLeading: {
                 // Your partner's photo (section 7): the person this journey is about, whichever of
-                // you is in the air.
-                WidgetAvatarView(person: .partner, name: context.attributes.viewerIsTraveler ? context.attributes.partnerName : context.attributes.travelerName, size: 22, showsRing: false)
+                // you is in the air. Where the island is limited in width (iPhone Duo's outer
+                // display, where it grows out of the camera) the compact view has to fit a 28pt
+                // circle, so it shows what minimal shows: the plane and how far along it is.
+                LimitedWidthAware {
+                    WidgetAvatarView(person: .partner, name: context.attributes.viewerIsTraveler ? context.attributes.partnerName : context.attributes.travelerName, size: 22, showsRing: false)
+                } limited: {
+                    FlightIconWithProgressArc(icon: "airplane", status: status, progress: context.state.progress, size: 22)
+                }
             } compactTrailing: {
-                journeyTimeRemainingText(context.state, compact: true)
-                    .font(.caption2.monospacedDigit())
-                    .minimumScaleFactor(0.8)
-                    .lineLimit(1)
+                // Nothing where width is limited: "2h 15m" scaled to 80% still does not fit beside
+                // the camera, and an empty trailing view is how the system is told to leave it out.
+                LimitedWidthAware {
+                    journeyTimeRemainingText(context.state, compact: true)
+                        .font(.caption2.monospacedDigit())
+                        .minimumScaleFactor(0.8)
+                        .lineLimit(1)
+                } limited: {
+                    EmptyView()
+                }
             } minimal: {
                 FlightIconWithProgressArc(icon: "airplane", status: status, progress: context.state.progress, size: 22)
             }
             .widgetURL(URL(string: "twofold://flight/\(context.attributes.flightID.uuidString)"))
             .keylineTint(LiveActivityPalette.liveActivityAccent)
+        }
+    }
+}
+
+/// `full` normally, `limited` where the Dynamic Island is limited in width.
+///
+/// The HIG's limited-width presentation (Oct 2026, with iPhone Duo): compact and minimal views have
+/// to fit a 28pt circle. `isDynamicIslandLimitedInWidth` only exists from iOS 27, and on anything
+/// older the island is never limited, so `full` is right there.
+private struct LimitedWidthAware<Full: View, Limited: View>: View {
+    @ViewBuilder var full: Full
+    @ViewBuilder var limited: Limited
+
+    var body: some View {
+        if #available(iOS 27.0, *) {
+            Reader(full: full, limited: limited)
+        } else {
+            full
+        }
+    }
+
+    @available(iOS 27.0, *)
+    private struct Reader: View {
+        @Environment(\.isDynamicIslandLimitedInWidth) private var isLimited
+        let full: Full
+        let limited: Limited
+
+        var body: some View {
+            if isLimited { limited } else { full }
         }
     }
 }
