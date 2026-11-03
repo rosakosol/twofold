@@ -32,6 +32,9 @@ struct TwofoldApp: App {
         WindowGroup {
             RootView()
                 .environment(appModel)
+                // Tells the app delegate whether this window has a vertical side bar, which is
+                // what lets a closed iPhone Duo turn to landscape in tent pose. See OrientationPolicy.
+                .background { VerticalBarObserver().allowsHitTesting(false) }
                 // Device-local override (Settings → Appearance), applied to the window rather than
                 // through `.preferredColorScheme`.
                 //

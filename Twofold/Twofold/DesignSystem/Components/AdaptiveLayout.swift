@@ -16,8 +16,10 @@ import SwiftUI
 
 /// Whether a board and its controls should sit side by side rather than stacked.
 enum BoardArrangement {
-    /// Wider than tall by a clear margin. Never true on a phone held upright — the app is locked to
-    /// portrait there — and true on iPhone Duo's inner display opened like a book (~951 x 669).
+    /// Wider than tall by a clear margin. Never true on an ordinary iPhone — the app is locked to
+    /// portrait there — and true on iPhone Duo's inner display opened like a book (~951 x 669) and
+    /// on its closed outer display turned on its side in tent pose (~678 x 466, see
+    /// `OrientationPolicy`).
     /// The margin keeps a nearly square space (the inner display upright, less its bars) stacked.
     static func isSideBySide(_ size: CGSize) -> Bool {
         size.width > size.height * 1.2

@@ -28,6 +28,12 @@ final class PushNotificationDelegate: NSObject, UIApplicationDelegate, UNUserNot
         return true
     }
 
+    /// Portrait everywhere but a closed iPhone Duo in tent pose — see `OrientationPolicy`. Info.plist
+    /// allows landscape so that this answer can; this is what keeps every other iPhone portrait.
+    func application(_ application: UIApplication, supportedInterfaceOrientationsFor window: UIWindow?) -> UIInterfaceOrientationMask {
+        MainActor.assumeIsolated { OrientationPolicy.current }
+    }
+
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
         NotificationCenter.default.post(name: .didRegisterForRemoteNotifications, object: deviceToken)
     }
