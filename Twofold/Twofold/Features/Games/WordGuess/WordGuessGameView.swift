@@ -403,7 +403,7 @@ struct WordGuessGameView: View {
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
                 } else {
-                    Text("A new word is waiting tomorrow.")
+                    Text(Self.aloneFinishedLine(isPremium: !appModel.subscription.isPremiumLocked))
                         .font(.caption)
                         .foregroundStyle(Theme.textSecondary)
                         .multilineTextAlignment(.center)
@@ -412,5 +412,13 @@ struct WordGuessGameView: View {
             }
             .frame(maxWidth: .infinity)
         }
+    }
+
+    /// Under a finished board when there is no partner to compare with.
+    ///
+    /// Premium has no daily limit (`WordGuessEntryView`), so "tomorrow" was only ever true on Plus
+    /// (GAME-9).
+    static func aloneFinishedLine(isPremium: Bool) -> LocalizedStringResource {
+        isPremium ? "Start another word whenever you like." : "A new word is waiting tomorrow."
     }
 }

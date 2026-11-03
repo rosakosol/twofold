@@ -37,6 +37,27 @@ struct PuzzleAbandonCopy {
     let message: String
 }
 
+extension PuzzleAbandonCopy {
+    /// Sudoku's. `partnerName` is nil for someone playing alone, who has no partner whose
+    /// progress could go with it.
+    static func sudoku(partnerName: String?, difficulty: SudokuDifficulty?) -> PuzzleAbandonCopy {
+        // "a new hard puzzle", or "a new puzzle" — never "a new  puzzle".
+        let next = difficulty.map { "new \($0.displayName.lowercased()) puzzle" } ?? "new puzzle"
+        let startAgain = "You'll be able to start a \(next) straight away."
+        return PuzzleAbandonCopy(
+            menuItem: "Abandon this puzzle",
+            title: "Abandon this puzzle?",
+            keepPlaying: "Keep playing",
+            // `start_sudoku_session` resumes per couple, so one grid is shared between them.
+            // Someone abandoning what they think is their own copy would otherwise wipe out a
+            // partner's half-finished solve with no warning. Alone there is no one else's
+            // progress to lose, and naming the placeholder "Partner" invented one (GAME-9).
+            message: partnerName.map { "This ends it for both of you — \($0)'s progress on this grid goes too. \(startAgain)" }
+                ?? startAgain
+        )
+    }
+}
+
 extension View {
     /// The shared chrome for a puzzle screen. `share` drives the share sheet; a screen with nothing
     /// to share passes `.constant(nil)`.

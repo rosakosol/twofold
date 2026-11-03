@@ -208,11 +208,14 @@ struct WordGuessEntryView: View {
             Spacer(minLength: Theme.Spacing.sm)
             VStack(alignment: .trailing, spacing: Theme.Spacing.xxs) {
                 scoreLine(name: "You", summary: entry.mine, pending: "Not finished")
-                scoreLine(
-                    name: appModel.partner.name,
-                    summary: entry.partner,
-                    pending: entry.mine == nil ? "" : "Waiting"
-                )
+                // Alone, nobody is coming, so "Partner: Waiting" never changed (GAME-9).
+                if appModel.session.partnerConnected {
+                    scoreLine(
+                        name: appModel.partner.name,
+                        summary: entry.partner,
+                        pending: entry.mine == nil ? "" : "Waiting"
+                    )
+                }
             }
             if canOpen(entry) {
                 Image(systemName: entry.mine != nil && entry.partner != nil && !isPremium ? "lock.fill" : "chevron.right")

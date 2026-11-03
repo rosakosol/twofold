@@ -124,8 +124,11 @@ struct SudokuDifficultyPickerView: View {
         if let row = stats?.rows.first(where: { $0.difficulty == difficulty }), !row.isEmpty {
             HStack(spacing: Theme.Spacing.sm) {
                 bestTime(row.myBest, name: "You", solved: row.mySolved)
-                Text("·").foregroundStyle(Theme.textSecondary)
-                bestTime(row.partnerBest, name: appModel.partner.name, solved: row.partnerSolved)
+                // Alone, the partner is a placeholder named "Partner" with no times (GAME-9).
+                if appModel.session.partnerConnected {
+                    Text("·").foregroundStyle(Theme.textSecondary)
+                    bestTime(row.partnerBest, name: appModel.partner.name, solved: row.partnerSolved)
+                }
             }
             .font(.caption)
         }
@@ -229,7 +232,10 @@ struct SudokuDifficultyPickerView: View {
             Spacer(minLength: Theme.Spacing.sm)
             VStack(alignment: .trailing, spacing: Theme.Spacing.xxs) {
                 timeLine(name: "You", time: entry.mine, pending: "Not finished")
-                timeLine(name: appModel.partner.name, time: entry.partner, pending: entry.mine == nil ? "" : "Waiting")
+                // Alone, nobody is coming, so "Partner: Waiting" never changed (GAME-9).
+                if appModel.session.partnerConnected {
+                    timeLine(name: appModel.partner.name, time: entry.partner, pending: entry.mine == nil ? "" : "Waiting")
+                }
             }
             Image(systemName: entry.mine != nil && entry.partner != nil && !isPremium ? "lock.fill" : "chevron.right")
                 .font(.caption.weight(.semibold))

@@ -77,16 +77,9 @@ struct SudokuGameView: View {
         }
         .puzzleScreenChrome(
             store: store,
-            abandon: PuzzleAbandonCopy(
-                menuItem: "Abandon this puzzle",
-                title: "Abandon this puzzle?",
-                keepPlaying: "Keep playing",
-                // `start_sudoku_session` resumes per couple, so one grid is shared between them.
-                // Someone abandoning what they think is their own copy would otherwise wipe out a
-                // partner's half-finished solve with no warning.
-                message: "This ends it for both of you — \(appModel.partner.name)'s progress on this grid "
-                    + "goes too. You'll be able to start a new "
-                    + "\(store.difficulty?.displayName.lowercased() ?? "") puzzle straight away."
+            abandon: .sudoku(
+                partnerName: appModel.session.partnerConnected ? appModel.partner.name : nil,
+                difficulty: store.difficulty
             ),
             reminderSentMessage: "\(appModel.partner.name) has been told their puzzle is waiting.",
             share: $sharing
