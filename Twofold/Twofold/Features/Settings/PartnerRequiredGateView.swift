@@ -36,17 +36,7 @@ struct PartnerRequiredGateView: View {
                 if let pending = appModel.session.pendingOutgoingConnectionRequest {
                     waitingOn(pending)
                 } else {
-                    ZStack {
-                        Circle()
-                            .fill(Theme.primaryButtonGradient)
-                            .opacity(0.18)
-                        Image(systemName: "person.2.fill")
-                            .font(.system(size: 36))
-                            .foregroundStyle(Theme.accent)
-                        Circle()
-                            .strokeBorder(Theme.textSecondary.opacity(0.15), lineWidth: 1)
-                    }
-                    .frame(width: 96, height: 96)
+                    GateHero(systemImage: "person.2.fill")
 
                     VStack(spacing: Theme.Spacing.sm) {
                         Text("Partner required")

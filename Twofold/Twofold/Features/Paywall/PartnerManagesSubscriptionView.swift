@@ -22,15 +22,7 @@ struct PartnerManagesSubscriptionView: View {
             VStack(spacing: Theme.Spacing.lg) {
                 Spacer()
 
-                ZStack {
-                    Circle()
-                        .fill(Theme.primaryButtonGradient)
-                        .opacity(0.18)
-                    Image(systemName: "person.crop.circle.badge.checkmark")
-                        .font(.system(size: 36))
-                        .foregroundStyle(Theme.accent)
-                }
-                .frame(width: 96, height: 96)
+                GateHero(systemImage: "person.crop.circle.badge.checkmark")
 
                 VStack(spacing: Theme.Spacing.sm) {
                     Text("\(partnerName) is managing your couple subscription")

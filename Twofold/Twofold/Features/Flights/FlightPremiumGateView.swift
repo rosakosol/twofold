@@ -25,26 +25,7 @@ struct FlightPremiumGateView: View {
             VStack(spacing: Theme.Spacing.lg) {
                 Spacer()
 
-                ZStack {
-                    Circle()
-                        .fill(Theme.primaryButtonGradient)
-                        .opacity(0.18)
-                    Image(systemName: icon)
-                        .font(.system(size: 36))
-                        .foregroundStyle(Theme.accent)
-                    Circle()
-                        .strokeBorder(Theme.textSecondary.opacity(0.15), lineWidth: 1)
-                }
-                .frame(width: 96, height: 96)
-                .overlay(alignment: .bottomTrailing) {
-                    ZStack {
-                        Circle().fill(Theme.primaryButtonGradient)
-                        Image(systemName: "crown.fill")
-                            .font(.caption)
-                            .foregroundStyle(Theme.onPrimaryButton)
-                    }
-                    .frame(width: 30, height: 30)
-                }
+                GateHero(systemImage: icon, badge: .premium)
 
                 VStack(spacing: Theme.Spacing.sm) {
                     Text(title)

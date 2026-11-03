@@ -22,15 +22,7 @@ struct CancelSubscriptionOfferView: View {
             VStack(spacing: Theme.Spacing.lg) {
                 Spacer()
 
-                ZStack {
-                    Circle()
-                        .fill(Theme.primaryButtonGradient)
-                        .opacity(0.18)
-                    Image(systemName: "creditcard.trianglebadge.exclamationmark")
-                        .font(.system(size: 36))
-                        .foregroundStyle(Theme.accent)
-                }
-                .frame(width: 96, height: 96)
+                GateHero(systemImage: "creditcard.trianglebadge.exclamationmark")
 
                 VStack(spacing: Theme.Spacing.sm) {
                     Text("Keep your subscription?")

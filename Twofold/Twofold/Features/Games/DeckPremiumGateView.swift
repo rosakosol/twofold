@@ -21,24 +21,7 @@ struct DeckPremiumGateView: View {
             VStack(spacing: Theme.Spacing.lg) {
                 Spacer()
 
-                ZStack {
-                    Circle()
-                        .fill(LinearGradient(colors: deck.gameType.iconGradient, startPoint: .topLeading, endPoint: .bottomTrailing))
-                        .opacity(0.18)
-                    Text(deck.emoji).font(.system(size: 44))
-                    Circle()
-                        .strokeBorder(Theme.textSecondary.opacity(0.15), lineWidth: 1)
-                }
-                .frame(width: 96, height: 96)
-                .overlay(alignment: .bottomTrailing) {
-                    ZStack {
-                        Circle().fill(Theme.primaryButtonGradient)
-                        Image(systemName: "crown.fill")
-                            .font(.caption)
-                            .foregroundStyle(Theme.onPrimaryButton)
-                    }
-                    .frame(width: 30, height: 30)
-                }
+                GateHero(emoji: deck.emoji, fill: deck.gameType.chipTint, badge: .premium)
 
                 VStack(spacing: Theme.Spacing.sm) {
                     Text(deck.title)
