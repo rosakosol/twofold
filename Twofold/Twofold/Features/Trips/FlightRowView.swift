@@ -28,33 +28,29 @@ struct FlightRowView: View {
         Date.FormatStyle(timeZone: flight.origin.timeZone ?? .current).day().month(.abbreviated)
     }
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     var body: some View {
-        HStack(spacing: Theme.Spacing.md) {
-            AirlineLogoView(url: flight.displayLogoURL, size: logoSize, fallbackCode: flight.airlineCode)
-
-            VStack(alignment: .leading, spacing: 2) {
-                // "Departs in 24d 8h" in accent while it is ahead, "Arrived 10 days ago" in
-                // textSecondary once it is behind you (section 6, Travel).
-                Text(flight.countdownSummary)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(isAhead ? Theme.accent : Theme.textSecondary)
-                    .lineLimit(1)
-                HStack(spacing: Theme.Spacing.xs) {
-                    Text(flight.origin.displayCode)
-                    Image(systemName: "arrow.right").accessibilityLabel("to")
-                    Text(flight.destination.displayCode)
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                // Logo and pill above the text rather than either side of it: at these sizes the
+                // three side by side left the text a letter or two per line.
+                VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+                    HStack {
+                        AirlineLogoView(url: flight.displayLogoURL, size: logoSize, fallbackCode: flight.airlineCode)
+                        Spacer()
+                        StatusPill(flight: flight)
+                    }
+                    details
                 }
-                .font(.system(size: 17, weight: .bold))
-                .foregroundStyle(Theme.textPrimary)
-
-                Text("\([flight.airlineName, flight.displayNumber].compactMap { $0 }.joined(separator: " "))\(flight.scheduledOut.map { " · \($0.formatted(departureDayStyle))" } ?? "")")
-                    .font(.caption)
-                    .foregroundStyle(Theme.textSecondary)
-                    .lineLimit(1)
+            } else {
+                HStack(spacing: Theme.Spacing.md) {
+                    AirlineLogoView(url: flight.displayLogoURL, size: logoSize, fallbackCode: flight.airlineCode)
+                    details
+                    Spacer()
+                    StatusPill(flight: flight)
+                }
             }
-
-            Spacer()
-            StatusPill(flight: flight)
         }
         .padding(Theme.Spacing.sm)
         // Without this, the row's own `Spacer()` and other empty space don't count as part of
@@ -63,5 +59,28 @@ struct FlightRowView: View {
         // tap, so pressing anywhere else in the row (e.g. the blank stretch next to the badge)
         // silently did nothing.
         .contentShape(Rectangle())
+    }
+
+    private var details: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            // "Departs in 24d 8h" in accent while it is ahead, "Arrived 10 days ago" in
+            // textSecondary once it is behind you (section 6, Travel).
+            Text(flight.countdownSummary)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(isAhead ? Theme.accent : Theme.textSecondary)
+                .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
+            HStack(spacing: Theme.Spacing.xs) {
+                Text(flight.origin.displayCode)
+                Image(systemName: "arrow.right").accessibilityLabel("to")
+                Text(flight.destination.displayCode)
+            }
+            .font(.body.bold())
+            .foregroundStyle(Theme.textPrimary)
+
+            Text("\([flight.airlineName, flight.displayNumber].compactMap { $0 }.joined(separator: " "))\(flight.scheduledOut.map { " · \($0.formatted(departureDayStyle))" } ?? "")")
+                .font(.caption)
+                .foregroundStyle(Theme.textSecondary)
+                .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
+        }
     }
 }

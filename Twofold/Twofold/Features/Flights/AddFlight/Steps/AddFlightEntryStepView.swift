@@ -119,7 +119,7 @@ struct AddFlightEntryStepView: View {
         } else if !airportResults.isEmpty {
             VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
                 Text("Suggestions")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.footnote.weight(.semibold))
                     .foregroundStyle(Theme.textSecondary)
 
                 VStack(spacing: Theme.Spacing.sm) {

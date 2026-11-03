@@ -55,7 +55,7 @@ struct PartnerConnectedView: View {
 
             VStack(spacing: Theme.Spacing.xs) {
                 Text("You're connected")
-                    .font(.system(size: 30, weight: .bold))
+                    .scaledFont(size: 30, weight: .bold, relativeTo: .title)
                     .foregroundStyle(Theme.textPrimary)
                 Text("\(appModel.currentUser.name) and \(appModel.partner.name) are now sharing Twofold together.")
                     .font(.body)

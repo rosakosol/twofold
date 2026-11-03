@@ -31,6 +31,8 @@ struct FullStatsView: View {
     }
 
     @Environment(AppModel.self) private var appModel
+    /// The 44pt distance at the top, scaled with Dynamic Type.
+    @ScaledMetric(relativeTo: .largeTitle) private var heroNumberSize: CGFloat = 44
     @State private var scope: StatScope = .all
     @State private var period: StatPeriod = .allTime
     /// Which ranked cards have been expanded past their first few rows, keyed by card title.
@@ -171,7 +173,7 @@ struct FullStatsView: View {
             // Flight-based (same figure as `distanceSection` below), not trip/reunion-based — a
             // tracked flight should count toward "how far you've travelled" whether or not it's
             // linked to a Trip at all (most aren't; see `FlightStats.init`'s own comment).
-            Text("\(Text(MeasurementPreference.convertedValue(km: stats.totalDistanceKm), format: .number.precision(.fractionLength(0))).font(.system(size: 44, weight: .bold)).foregroundStyle(Theme.accent))\(Text(" \(MeasurementPreference.unitSuffix())").font(.title.weight(.bold)).foregroundStyle(Theme.success))")
+            Text("\(Text(MeasurementPreference.convertedValue(km: stats.totalDistanceKm), format: .number.precision(.fractionLength(0))).font(.system(size: heroNumberSize, weight: .bold)).foregroundStyle(Theme.accent))\(Text(" \(MeasurementPreference.unitSuffix())").font(.title.weight(.bold)).foregroundStyle(Theme.success))")
 
             if scope == .all {
                 Text(appModel.session.couple.sharesHomeCity ? "together" : "for each other")
@@ -338,7 +340,7 @@ struct FullStatsView: View {
     private func regionTile(region: CountryRegion, count: Int) -> some View {
         VStack(spacing: 2) {
             Text("\(count)x")
-                .font(.system(size: 20, weight: .bold))
+                .font(.title3.bold())
                 .foregroundStyle(count > 0 ? Theme.textPrimary : Theme.textSecondary)
             Text(region.rawValue)
                 .font(.caption2.weight(.semibold))

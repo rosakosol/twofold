@@ -261,7 +261,7 @@ struct GameResultsView: View {
                 resultsHeaderCard {
                     if let matchPercent {
                         Text("\(matchPercent)%")
-                            .font(.system(size: 56, weight: .bold))
+                            .scaledFont(size: 56, weight: .bold, relativeTo: .largeTitle)
                             .tracking(-1.5)
                         Text("answer similarity")
                             .font(.subheadline.weight(.semibold))

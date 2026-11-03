@@ -19,6 +19,8 @@ import UIKit
 
 struct PersonalizedInsightView: View {
     @Environment(OnboardingModel.self) private var onboarding
+    /// The 42pt distance, scaled with Dynamic Type.
+    @ScaledMetric(relativeTo: .largeTitle) private var distanceSize: CGFloat = 42
 
     /// Drives the staged reveal: 1 = map, 2 = distance count-up, 3 = comparison line,
     /// 4 = stat tiles + buttons. Also the trigger for the per-stage haptics.
@@ -95,7 +97,7 @@ struct PersonalizedInsightView: View {
                     .offset(y: stage >= 1 ? 0 : 12)
 
                 VStack(spacing: Theme.Spacing.xs) {
-                    Text("\(Text(displayedKm, format: .number.precision(.fractionLength(0))).font(.system(size: 42, weight: .bold).monospacedDigit()).foregroundStyle(Theme.accent)) \(Text(MeasurementPreference.unitSuffix()).font(.title2.weight(.bold)).foregroundStyle(Theme.success))")
+                    Text("\(Text(displayedKm, format: .number.precision(.fractionLength(0))).font(.system(size: distanceSize, weight: .bold).monospacedDigit()).foregroundStyle(Theme.accent)) \(Text(MeasurementPreference.unitSuffix()).font(.title2.weight(.bold)).foregroundStyle(Theme.success))")
                     Text("apart")
                         .font(.headline)
                         .foregroundStyle(Theme.textSecondary)

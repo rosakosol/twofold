@@ -108,7 +108,7 @@ struct AddFlightRouteStepView: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(isDeparture ? "From" : "To")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.footnote.weight(.semibold))
                     .foregroundStyle(Theme.textSecondary)
 
                 TextField(

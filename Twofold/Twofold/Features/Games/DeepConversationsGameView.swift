@@ -183,7 +183,7 @@ struct DeepConversationsGameView: View {
                             PillBadge(text: resolvedTopic.displayName, tint: resolvedTopic.color, isNeutral: true)
                         }
                         Text(topic.topic)
-                            .font(.system(size: 24, weight: .bold))
+                            .scaledFont(size: 24, weight: .bold, relativeTo: .title2)
                             .foregroundStyle(Theme.textPrimary)
                             .multilineTextAlignment(.center)
                     }
@@ -203,7 +203,7 @@ struct DeepConversationsGameView: View {
             // control outline, since a multi-line field cannot be a capsule.
             VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                 Text("Your answer")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.footnote.weight(.semibold))
                     .foregroundStyle(Theme.textSecondary)
                 TextEditor(text: $responseText)
                     .frame(height: 120)

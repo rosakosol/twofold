@@ -34,7 +34,7 @@ struct OnboardingRevealView: View {
             if let trip = onboarding.draftedTrip, let days = daysUntilTogether {
                 VStack(spacing: Theme.Spacing.md) {
                     Text("\(days)")
-                        .font(.system(size: 72, weight: .bold))
+                        .scaledFont(size: 72, weight: .bold, relativeTo: .largeTitle)
                         .foregroundStyle(Theme.accent)
                     Text("days until you're together 💛")
                         .font(.title3.weight(.semibold))

@@ -64,7 +64,7 @@ struct RelationshipGlobeFullScreenView: View {
     private var distanceCaption: some View {
         VStack(spacing: 2) {
             Text("Distance between you")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.footnote.weight(.semibold))
                 .foregroundStyle(Theme.textSecondary)
             Text(MeasurementPreference.distanceLabel(km: distanceKm))
                 .font(.title2.weight(.bold))

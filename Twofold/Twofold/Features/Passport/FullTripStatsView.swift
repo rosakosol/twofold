@@ -152,7 +152,7 @@ struct FullTripStatsView: View {
         SectionCard {
             VStack(spacing: Theme.Spacing.xs) {
                 Text("\(stats.totalTrips)")
-                    .font(.system(size: 44, weight: .bold))
+                    .scaledFont(size: 44, weight: .bold, relativeTo: .largeTitle)
                     .foregroundStyle(Theme.textPrimary)
                     .monospacedDigit()
                 Text(stats.totalTrips == 1 ? "trip" : "trips")

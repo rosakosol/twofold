@@ -69,7 +69,7 @@ struct SameCityCard: View {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Same city")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.footnote.weight(.semibold))
                         .foregroundStyle(Theme.textSecondary)
                     Text("You're both in \(city.displayCity)")
                         .font(.title3.weight(.bold))
@@ -96,15 +96,18 @@ struct DistanceCard: View {
     let onShare: () -> Void
     let onOpenGlobe: () -> Void
 
+    /// The 36pt distance (section 6, Home), scaled with Dynamic Type.
+    @ScaledMetric(relativeTo: .largeTitle) private var distanceSize: CGFloat = 36
+
     var body: some View {
         SectionCard {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Distance between you")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.footnote.weight(.semibold))
                         .foregroundStyle(Theme.textSecondary)
                     Text(MeasurementPreference.distanceLabel(km: distanceKm))
-                        .font(.system(size: 36, weight: .bold))
+                        .font(.system(size: distanceSize, weight: .bold))
                         .tracking(-1)
                         .foregroundStyle(Theme.textPrimary)
                 }

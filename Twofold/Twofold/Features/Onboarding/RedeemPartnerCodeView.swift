@@ -121,7 +121,7 @@ struct RedeemPartnerCodeView: View {
                 .textInputAutocapitalization(.characters)
                 .autocorrectionDisabled()
                 .multilineTextAlignment(.center)
-                .font(.system(size: 28, weight: .bold))
+                .font(.title.bold())
                 .padding()
                 .onboardingFieldBackground()
                 .padding(.horizontal, Theme.Spacing.lg)

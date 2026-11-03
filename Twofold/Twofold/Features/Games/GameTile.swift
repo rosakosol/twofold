@@ -22,6 +22,7 @@ struct GameTile: View {
     /// Dimmed with a lock rather than hidden, so someone who has not connected a partner still sees
     /// what is waiting for them, the same reasoning `GameCard` uses.
     var isLocked: Bool = false
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         Group {
@@ -39,7 +40,7 @@ struct GameTile: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .top) {
                 Image(systemName: gameType.icon)
-                    .font(.system(size: 26, weight: .semibold))
+                    .scaledFont(size: 26, weight: .semibold, relativeTo: .title2)
                     .accessibilityHidden(true)
                 Spacer(minLength: 0)
                 if isLocked {
@@ -50,8 +51,10 @@ struct GameTile: View {
             }
             Spacer(minLength: Theme.Spacing.sm)
             Text(gameType.displayName)
-                .font(.system(size: 16, weight: .bold))
-                .lineLimit(2)
+                .font(.callout.bold())
+                // Two lines keep the grid even at ordinary sizes; at accessibility sizes a name
+                // needs as many as it takes.
+                .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
                 // The longest name is nearly three times the shortest, and a tile that truncated
                 // "Who's More Likely To" would be hiding the only part that says what it is.
                 .minimumScaleFactor(0.85)
@@ -81,9 +84,9 @@ struct GameTile: View {
                 .accessibilityHidden(true)
 
             Text(gameType.displayName)
-                .font(.system(size: 16, weight: .bold))
+                .font(.callout.bold())
                 .foregroundStyle(Theme.textPrimary)
-                .lineLimit(2)
+                .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
                 .minimumScaleFactor(0.85)
                 .multilineTextAlignment(.leading)
                 .fixedSize(horizontal: false, vertical: true)

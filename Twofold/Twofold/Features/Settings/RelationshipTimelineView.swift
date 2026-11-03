@@ -326,7 +326,7 @@ private struct TimelineEntryView: View {
                         .font(.caption)
                         .foregroundStyle(Theme.accent)
                     Text(kind)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.footnote.weight(.semibold))
                         .foregroundStyle(Theme.textSecondary)
                     Spacer()
                     Text(item.date, format: .dateTime.day().month(.abbreviated).year())

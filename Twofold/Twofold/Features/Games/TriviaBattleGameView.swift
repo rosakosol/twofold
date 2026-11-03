@@ -210,7 +210,7 @@ struct TriviaBattleGameView: View {
                             PillBadge(text: resolvedTopic.displayName, tint: resolvedTopic.color, isNeutral: true)
                         }
                         Text(question.question)
-                            .font(.system(size: 24, weight: .bold))
+                            .scaledFont(size: 24, weight: .bold, relativeTo: .title2)
                             .foregroundStyle(Theme.textPrimary)
                             .multilineTextAlignment(.center)
                         // Shown when revisiting an already-answered question via the back
@@ -273,7 +273,7 @@ struct TriviaBattleGameView: View {
                                 .foregroundStyle(Brand.triviaShapes[index % 4])
                                 .accessibilityHidden(true)
                             Text(option)
-                                .font(.system(size: 20, weight: .bold))
+                                .font(.title3.bold())
                                 .foregroundStyle(Theme.textPrimary)
                                 .multilineTextAlignment(.center)
                                 .lineLimit(4)

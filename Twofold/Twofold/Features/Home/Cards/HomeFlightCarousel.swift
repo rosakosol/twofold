@@ -68,12 +68,29 @@ struct HomeFlightCarousel: View {
 struct ActiveFlightCard: View {
     let flight: Flight
 
+    /// The 30pt route and its 20pt arrow, scaled with Dynamic Type from the sizes the design gives
+    /// them (section 6, Home).
+    @ScaledMetric(relativeTo: .title) private var routeSize: CGFloat = 30
+    @ScaledMetric(relativeTo: .title3) private var arrowSize: CGFloat = 20
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    /// Side by side at ordinary sizes; stacked at accessibility sizes, where the two halves of a
+    /// row no longer fit beside each other and each was being truncated to a few letters.
+    private var rowLayout: AnyLayout { rowLayout(aligned: .center) }
+    private var baselineRowLayout: AnyLayout { rowLayout(aligned: .firstTextBaseline) }
+
+    private func rowLayout(aligned alignment: VerticalAlignment) -> AnyLayout {
+        dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: Theme.Spacing.xs))
+            : AnyLayout(HStackLayout(alignment: alignment))
+    }
+
     var body: some View {
         SectionCard {
-            HStack {
+            rowLayout {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(flight.status.isActivelyTracked ? "Tracking now" : "Next flight")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.footnote.weight(.semibold))
                         .foregroundStyle(Theme.textSecondary)
                     HStack(spacing: Theme.Spacing.xs) {
                         // 24pt, not 18 — at 18pt, .scaledToFill() cropping a wide tailfin logo
@@ -83,29 +100,30 @@ struct ActiveFlightCard: View {
                         Text([flight.airlineName, flight.displayNumber].compactMap { $0 }.joined(separator: " "))
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(Theme.textPrimary)
-                            .lineLimit(1)
+                            .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
                     }
                 }
-                Spacer()
+                if !dynamicTypeSize.isAccessibilitySize { Spacer() }
                 StatusPill(flight: flight)
             }
 
             // The route as airport codes, 30pt bold (section 6, Home): "FCO → SFO". Codes are short
             // and fixed-width enough that the line never needs to shrink.
-            HStack(alignment: .firstTextBaseline) {
+            baselineRowLayout {
                 HStack(spacing: Theme.Spacing.xs) {
                     Text(flight.origin.displayCode)
                     Image(systemName: "arrow.right")
-                        .font(.system(size: 20, weight: .bold))
+                        .font(.system(size: arrowSize, weight: .bold))
                         .accessibilityLabel("to")
                     Text(flight.destination.displayCode)
                 }
-                .font(.system(size: 30, weight: .bold))
+                .font(.system(size: routeSize, weight: .bold))
                 .tracking(-0.6)
                 .foregroundStyle(Theme.textPrimary)
                 .lineLimit(1)
+                .minimumScaleFactor(0.6)
 
-                Spacer(minLength: Theme.Spacing.sm)
+                if !dynamicTypeSize.isAccessibilitySize { Spacer(minLength: Theme.Spacing.sm) }
 
                 if let totalDurationSummary = flight.totalDurationSummary {
                     Text(totalDurationSummary)
@@ -116,20 +134,20 @@ struct ActiveFlightCard: View {
                 }
             }
 
-            HStack(alignment: .center) {
+            rowLayout {
                 Text(flight.countdownSummary)
-                    .font(.system(size: 17, weight: .bold))
+                    .font(.body.bold())
                     .foregroundStyle(Theme.accent)
-                    .lineLimit(1)
+                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
                     .minimumScaleFactor(0.8)
 
-                Spacer(minLength: Theme.Spacing.sm)
+                if !dynamicTypeSize.isAccessibilitySize { Spacer(minLength: Theme.Spacing.sm) }
 
                 // Port + local time for each end, stacked (not side by side) — a long-format
                 // arrival time was pushing departure onto a second row when both fought for the
                 // same line. Departure in the origin's timezone, arrival in the destination's,
                 // same convention FlightTrackingView's journey rows use.
-                VStack(alignment: .trailing, spacing: 3) {
+                VStack(alignment: dynamicTypeSize.isAccessibilitySize ? .leading : .trailing, spacing: 3) {
                     portTimeRow(icon: "airplane.departure", code: flight.origin.displayCode, time: flight.bestDeparture, timeZone: flight.origin.timeZone)
                     portTimeRow(icon: "airplane.arrival", code: flight.destination.displayCode, time: flight.bestArrival, timeZone: flight.destination.timeZone)
                 }

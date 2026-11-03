@@ -463,7 +463,8 @@ struct TripsListView: View {
                 // Collapsing is drag-only (the handle above) — no separate button, so there's
                 // exactly one interaction to learn for both directions.
                 Text("Travel")
-                    .font(.system(size: 34, weight: .bold))
+                    .font(.largeTitle.bold())
+                    .lineLimit(1)
                     .tracking(-0.7)
                     .foregroundStyle(Theme.textPrimary)
                     // Always on screen, so this never goes stale the way a measurement taken only

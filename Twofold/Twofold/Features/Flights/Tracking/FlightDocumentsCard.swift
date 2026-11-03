@@ -135,7 +135,7 @@ struct FlightDocumentsCard: View {
     private func documentGroup(label: String, documents: [FlightDocument]) -> some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
             Text(label)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.footnote.weight(.semibold))
                 .foregroundStyle(Theme.textSecondary)
 
             ForEach(documents) { document in

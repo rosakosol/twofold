@@ -47,7 +47,7 @@ struct StatsHeroNumber: View {
     var body: some View {
         VStack(spacing: 2) {
             Text(label)
-                .font(.system(size: 12, weight: .semibold))
+                .font(.caption.weight(.semibold))
                 .opacity(0.92)
                 .lineLimit(capsLines ? 1 : nil)
                 .minimumScaleFactor(capsLines ? 0.8 : 1)

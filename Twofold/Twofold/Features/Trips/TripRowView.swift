@@ -25,13 +25,21 @@ struct TripRowView: View {
         return "\(trip.departureDate.formatted(format)) to \(trip.arrivalDate.formatted(format))"
     }
 
+    /// Tile beside the text, or above it at accessibility sizes, where the tile has grown to take
+    /// half the row and the route and dates were left a few letters each.
+    private var rowLayout: AnyLayout {
+        dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: Theme.Spacing.sm))
+            : AnyLayout(HStackLayout(alignment: .center, spacing: Theme.Spacing.md))
+    }
+
     var body: some View {
-        HStack(alignment: .center, spacing: Theme.Spacing.md) {
+        rowLayout {
             TripCountdownTile(trip: trip, isNextReunion: trip.id == appModel.travel.nextReunionTripID)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text("\(trip.origin.displayCity) to \(trip.destination.displayCity)")
-                    .font(.system(size: 17, weight: .bold))
+                    .font(.body.bold())
                     .foregroundStyle(Theme.textPrimary)
                     // One clean line at normal sizes; at accessibility sizes shrinking back down
                     // would defeat the setting, so the route wraps instead.

@@ -7,7 +7,8 @@ import SwiftUI
 
 /// The stat tile of the redesign (docs/TWOFOLD_DESIGN.md, section 5): a card with a 36pt rounded-
 /// square chip filled with one of five gradients, a 12pt `textSecondary` label, a 20pt bold value
-/// and an optional sub-label.
+/// and an optional sub-label. The text uses text styles (`.caption` is 12pt and `.title3` 20pt at
+/// the default size), so it grows with Dynamic Type; the chip is a fixed mark and stays 36pt.
 ///
 /// Two layouts. `row` (chip beside the text) is for the Stats grids, where tiles sit two abreast.
 /// `stacked` (chip above, centred) is for a short line of tiles across a screen, as onboarding
@@ -88,19 +89,19 @@ struct StatTile: View {
             chipView
             VStack(alignment: .leading, spacing: 1) {
                 Text(label)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.caption.weight(.semibold))
                     .foregroundStyle(Theme.textSecondary)
                     .lineLimit(capsLines ? 1 : nil)
                     .minimumScaleFactor(capsLines ? 0.75 : 1)
                 Text(value)
-                    .font(.system(size: 20, weight: .bold))
+                    .font(.title3.bold())
                     .foregroundStyle(Theme.textPrimary)
                     .lineLimit(capsLines ? 1 : nil)
                     .minimumScaleFactor(capsLines ? 0.7 : 1)
                 // Reserved even when empty, so a tile without a sub-label is as tall as its
                 // neighbour with one.
                 Text(detail ?? " ")
-                    .font(.system(size: 12))
+                    .font(.caption)
                     .foregroundStyle(Theme.textSecondary)
                     .lineLimit(capsLines ? 1 : nil)
                     .opacity(detail == nil ? 0 : 1)
@@ -115,10 +116,10 @@ struct StatTile: View {
         VStack(spacing: Theme.Spacing.sm) {
             chipView
             Text(value)
-                .font(.system(size: 20, weight: .bold))
+                .font(.title3.bold())
                 .foregroundStyle(Theme.textPrimary)
             Text(label)
-                .font(.system(size: 12, weight: .semibold))
+                .font(.caption.weight(.semibold))
                 .foregroundStyle(Theme.textSecondary)
                 .multilineTextAlignment(.center)
         }

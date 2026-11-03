@@ -15,6 +15,9 @@ struct TripCountdownTile: View {
     var isNextReunion: Bool = false
 
     @ScaledMetric(relativeTo: .title2) private var size: CGFloat = 64
+    /// The text grows with the tile, at the same rate, so "22 / days" fills it the same way at
+    /// every text size rather than sitting fixed in a tile that has tripled around it.
+    private var scale: CGFloat { size / 64 }
 
     private var foreground: Color { isNextReunion ? Theme.onFill : Theme.textPrimary }
     private var secondary: Color { isNextReunion ? Theme.onFill.opacity(0.92) : Theme.textSecondary }
@@ -25,32 +28,32 @@ struct TripCountdownTile: View {
                 let days = max(0, TimeMath.daysUntil(trip.departureDate))
                 if days == 0 {
                     Text("Today")
-                        .font(.system(size: 15, weight: .bold))
+                        .font(.system(size: 15 * scale, weight: .bold))
                         .foregroundStyle(foreground)
                 } else {
                     Text("\(days)")
-                        .font(.system(size: 24, weight: .bold))
+                        .font(.system(size: 24 * scale, weight: .bold))
                         .foregroundStyle(foreground)
                         .minimumScaleFactor(0.6)
                     Text(days == 1 ? "day" : "days")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.system(size: 11 * scale, weight: .semibold))
                         .foregroundStyle(secondary)
                 }
             } else if trip.isActive {
                 Image(systemName: "airplane")
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.system(size: 18 * scale, weight: .semibold))
                     .foregroundStyle(isNextReunion ? Theme.onFill : Theme.accent)
                     .accessibilityHidden(true)
                 Text("Now")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.system(size: 11 * scale, weight: .semibold))
                     .foregroundStyle(secondary)
             } else {
                 Image(systemName: "checkmark")
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.system(size: 18 * scale, weight: .semibold))
                     .foregroundStyle(Theme.success)
                     .accessibilityHidden(true)
                 Text("Done")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.system(size: 11 * scale, weight: .semibold))
                     .foregroundStyle(secondary)
             }
         }

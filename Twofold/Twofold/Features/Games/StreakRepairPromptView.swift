@@ -55,7 +55,7 @@ struct StreakRepairPromptView: View {
 
             VStack(spacing: Theme.Spacing.sm) {
                 Text(title)
-                    .font(.system(size: 28, weight: .bold))
+                    .font(.title.bold())
                     .foregroundStyle(Theme.textPrimary)
                     .multilineTextAlignment(.center)
 

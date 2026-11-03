@@ -112,7 +112,7 @@ struct OfflineNoticeView: View {
     private func section(title: String, rows: [(icon: String, text: String)], tint: Color) -> some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
             Text(title)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.footnote.weight(.semibold))
                 .foregroundStyle(Theme.textSecondary)
 
             ForEach(rows, id: \.text) { row in

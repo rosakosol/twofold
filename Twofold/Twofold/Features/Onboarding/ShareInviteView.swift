@@ -30,7 +30,10 @@ struct ShareInviteView: View {
                     .font(.headline)
                     .foregroundStyle(Theme.textSecondary)
                 Text(code)
-                    .font(.system(size: 40, weight: .bold))
+                    .scaledFont(size: 40, weight: .bold, relativeTo: .largeTitle)
+                    // One line always: a code broken across two reads as two codes.
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
                     .foregroundStyle(Theme.accent)
                 Text("Share this with your partner so they can join you on Twofold.")
                     .font(.subheadline)
