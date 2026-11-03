@@ -180,9 +180,11 @@ struct ConnectFourGameView: View {
     }
 
     private var content: some View {
-        VStack(spacing: Theme.Spacing.md) {
+        // Side by side where the space is wider than tall (iPhone Duo's inner display opened like a
+        // book), so the board keeps the full height and the fold runs beside it, not through it.
+        BoardAndPanel {
             turnBanner
-
+        } board: {
             ConnectFourBoardView(
                 board: store.board,
                 myDisc: store.myDisc,
@@ -197,7 +199,7 @@ struct ConnectFourGameView: View {
             // Dimmed while it is not your move, so "you cannot play right now" is visible before a
             // tap is spent finding out.
             .opacity(store.isFinished || store.isMyTurn ? 1 : 0.75)
-
+        } panel: {
             if store.isFinished {
                 resultCard
                     .padding(.horizontal, Theme.Spacing.md)
@@ -213,8 +215,6 @@ struct ConnectFourGameView: View {
                     .padding(.horizontal, Theme.Spacing.lg)
                     .fixedSize(horizontal: false, vertical: true)
             }
-
-            Spacer(minLength: 0)
         }
         .padding(.vertical, Theme.Spacing.md)
     }

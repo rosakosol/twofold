@@ -78,9 +78,11 @@ struct WordSearchGameView: View {
     @ViewBuilder
     private var content: some View {
         if let play = store.play {
-            VStack(spacing: Theme.Spacing.sm) {
+            // Side by side where the space is wider than tall (iPhone Duo's inner display opened
+            // like a book): the grid on one half, the words on the other, and the fold between.
+            BoardAndPanel(spacing: Theme.Spacing.sm) {
                 statusBar(play: play)
-
+            } board: {
                 WordSearchGridView(
                     play: play,
                     selection: store.selection,
@@ -89,7 +91,7 @@ struct WordSearchGameView: View {
                     onEnd: { store.endSelection() }
                 )
                 .padding(.horizontal, Theme.Spacing.md)
-
+            } panel: {
                 if play.isComplete {
                     finishedSection(play: play)
                         .padding(.horizontal, Theme.Spacing.md)
@@ -97,8 +99,6 @@ struct WordSearchGameView: View {
                     wordList(play: play)
                         .padding(.horizontal, Theme.Spacing.md)
                 }
-
-                Spacer(minLength: 0)
             }
             .padding(.vertical, Theme.Spacing.md)
         }

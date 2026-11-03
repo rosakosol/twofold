@@ -215,9 +215,12 @@ struct SudokuGameView: View {
     @ViewBuilder
     private var board: some View {
         if let generated = store.generated, let play = store.play {
-            VStack(spacing: Theme.Spacing.md) {
+            // Stacked on a phone, as it always was. Side by side on a display wider than tall —
+            // iPhone Duo's inner display opened like a book — so the grid has the full height and
+            // the fold runs between it and the keypad rather than through the middle of it.
+            BoardAndPanel {
                 statusBar(play: play)
-
+            } board: {
                 SudokuBoardView(
                     puzzle: generated.puzzle,
                     play: play,
@@ -230,7 +233,7 @@ struct SudokuGameView: View {
                 // which left the grid and the keypad noticeably wider than everything else on the
                 // screen and put the outer keys hard against the edges.
                 .padding(.horizontal, Theme.Spacing.md)
-
+            } panel: {
                 if play.isComplete {
                     if let comparison = comparison(for: play) {
                         VStack(spacing: Theme.Spacing.sm) {
@@ -248,7 +251,6 @@ struct SudokuGameView: View {
                     controls
                     keypad
                 }
-                Spacer(minLength: 0)
             }
             .padding(.vertical, Theme.Spacing.md)
         }

@@ -186,54 +186,41 @@ struct WordGuessGameView: View {
     /// so a taller box only ever helps it: it stops being the constraint before the width does.
     private func playingLayout(play: WordGuessPlayState) -> some View {
         GeometryReader { proxy in
-            // Everything that isn't board or keyboard, taken off the top before either is sized.
-            let chrome = Theme.Spacing.sm * 2 + Theme.Spacing.sm * 2 + Self.rejectionRowHeight
-            let usable = max(0, proxy.size.height - chrome)
-            // Keys grow with the screen, but never below the height they had when this was fixed
-            // (a smaller tap target than before would be a regression, not a layout) and never so
-            // tall they turn into buttons. 8.5% of the usable height lands near 46 on an SE and
-            // near 60 on a Pro Max.
-            // The board is width-limited on any ordinary phone — square tiles, five across — so it
-            // cannot use height beyond `boardNeeds` however much it is given. Everything past that
-            // belongs to the keyboard rather than sitting as dead space between the two.
-            //
-            // The previous rule handed the keyboard a flat 8.5% of the screen and left the
-            // remainder unclaimed, which is why the keys still read as small next to 72pt tiles.
-            let widthLimitedTile = WordGuessBoardView.tileSide(forWidth: proxy.size.width - Theme.Spacing.sm * 2)
-            let boardNeeds = WordGuessBoardView.boardHeight(forTileSide: widthLimitedTile)
-            let keyboardBudget = max(0, usable - boardNeeds)
-            // Still floored at the height the keys had when this was fixed, so a small phone gives
-            // up keyboard before it gives up tap target. Capped so a tall phone does not turn the
-            // bottom third of the screen into three rows of buttons.
-            let keyHeight = min(
-                76,
-                max(WordGuessKeyboardView.defaultKeyHeight, (keyboardBudget - Theme.Spacing.xs * 2) / 3)
-            )
+            if BoardArrangement.isSideBySide(proxy.size) {
+                sideBySideLayout(play: play, size: proxy.size)
+            } else {
+                stackedLayout(play: play, size: proxy.size)
+            }
+        }
+    }
 
-            // The tile is the smaller of what the width allows and what the height left over from
-            // the keyboard allows, so the board always fits both ways and stays square either way.
-            // Width usually wins; height only becomes the binding constraint on a short screen.
-            let boardBox = usable - WordGuessKeyboardView.height(forKeyHeight: keyHeight)
-            let side = min(
-                WordGuessBoardView.tileSide(forWidth: proxy.size.width - Theme.Spacing.sm * 2),
-                WordGuessBoardView.tileSide(forHeight: boardBox)
+    /// Board on one half, keyboard on the other: a display wider than tall, which on an iPhone is
+    /// the Duo's inner display opened like a book.
+    ///
+    /// Stacked there, the board had to fit above the keyboard in ~600pt of height and came out
+    /// small, under a keyboard stretched across the whole display and the fold. Side by side, the
+    /// board takes the full height of its half and the fold runs between the two.
+    private func sideBySideLayout(play: WordGuessPlayState, size: CGSize) -> some View {
+        let half = (size.width - Theme.Spacing.lg) / 2
+        let side = min(
+            WordGuessBoardView.tileSide(forWidth: half - Theme.Spacing.sm * 2),
+            WordGuessBoardView.tileSide(forHeight: size.height - Theme.Spacing.sm * 2)
+        )
+        // A third of the height across three rows, within the same floor and ceiling the stacked
+        // layout uses.
+        let keyHeight = min(WordGuessKeyboardView.maxKeyHeight, max(WordGuessKeyboardView.defaultKeyHeight, (size.height / 3 - Theme.Spacing.xs * 2) / 3))
+        return HStack(spacing: Theme.Spacing.lg) {
+            WordGuessBoardView(
+                play: play,
+                draft: store.draft,
+                isDraftRejected: store.rejection != nil,
+                rejectionNudge: store.rejectionNudge,
+                tileSide: side
             )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             VStack(spacing: Theme.Spacing.sm) {
-                WordGuessBoardView(
-                    play: play,
-                    draft: store.draft,
-                    isDraftRejected: store.rejection != nil,
-                    rejectionNudge: store.rejectionNudge,
-                    tileSide: min(side, widthLimitedTile)
-                )
-                // Takes whatever the keyboard doesn't. The board draws at its own measured size
-                // and centres inside this, so spare height reads as margin rather than stretching
-                // anything out of square.
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-
                 rejectionMessage
-
                 WordGuessKeyboardView(
                     marks: play.keyboardMarks,
                     isEnabled: store.canType,
@@ -243,8 +230,71 @@ struct WordGuessGameView: View {
                 )
                 .padding(.horizontal, Theme.Spacing.sm)
             }
-            .padding(.vertical, Theme.Spacing.sm)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+        .padding(.vertical, Theme.Spacing.sm)
+    }
+
+    /// Board above keyboard: every phone, and anything taller than wide.
+    private func stackedLayout(play: WordGuessPlayState, size: CGSize) -> some View {
+        // Everything that isn't board or keyboard, taken off the top before either is sized.
+        let chrome = Theme.Spacing.sm * 2 + Theme.Spacing.sm * 2 + Self.rejectionRowHeight
+        let usable = max(0, size.height - chrome)
+        // Keys grow with the screen, but never below the height they had when this was fixed
+        // (a smaller tap target than before would be a regression, not a layout) and never so
+        // tall they turn into buttons. 8.5% of the usable height lands near 46 on an SE and
+        // near 60 on a Pro Max.
+        // The board is width-limited on any ordinary phone — square tiles, five across — so it
+        // cannot use height beyond `boardNeeds` however much it is given. Everything past that
+        // belongs to the keyboard rather than sitting as dead space between the two.
+        //
+        // The previous rule handed the keyboard a flat 8.5% of the screen and left the
+        // remainder unclaimed, which is why the keys still read as small next to 72pt tiles.
+        let widthLimitedTile = WordGuessBoardView.tileSide(forWidth: size.width - Theme.Spacing.sm * 2)
+        let boardNeeds = WordGuessBoardView.boardHeight(forTileSide: widthLimitedTile)
+        let keyboardBudget = max(0, usable - boardNeeds)
+        // Still floored at the height the keys had when this was fixed, so a small phone gives
+        // up keyboard before it gives up tap target. Capped so a tall phone does not turn the
+        // bottom third of the screen into three rows of buttons.
+        let keyHeight = min(
+            WordGuessKeyboardView.maxKeyHeight,
+            max(WordGuessKeyboardView.defaultKeyHeight, (keyboardBudget - Theme.Spacing.xs * 2) / 3)
+        )
+
+        // The tile is the smaller of what the width allows and what the height left over from
+        // the keyboard allows, so the board always fits both ways and stays square either way.
+        // Width usually wins; height only becomes the binding constraint on a short screen.
+        let boardBox = usable - WordGuessKeyboardView.height(forKeyHeight: keyHeight)
+        let side = min(
+            WordGuessBoardView.tileSide(forWidth: size.width - Theme.Spacing.sm * 2),
+            WordGuessBoardView.tileSide(forHeight: boardBox)
+        )
+
+        return VStack(spacing: Theme.Spacing.sm) {
+            WordGuessBoardView(
+                play: play,
+                draft: store.draft,
+                isDraftRejected: store.rejection != nil,
+                rejectionNudge: store.rejectionNudge,
+                tileSide: min(side, widthLimitedTile)
+            )
+            // Takes whatever the keyboard doesn't. The board draws at its own measured size
+            // and centres inside this, so spare height reads as margin rather than stretching
+            // anything out of square.
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            rejectionMessage
+
+            WordGuessKeyboardView(
+                marks: play.keyboardMarks,
+                isEnabled: store.canType,
+                onLetter: { store.type($0) },
+                onBackspace: { store.backspace() },
+                keyHeight: keyHeight
+            )
+            .padding(.horizontal, Theme.Spacing.sm)
+        }
+        .padding(.vertical, Theme.Spacing.sm)
     }
 
     /// Kept in one place because `playingLayout` subtracts it before sizing anything and
