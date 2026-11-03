@@ -19,6 +19,9 @@
 # Use a simulator you don't mind changing: this installs the build on it, switches its appearance and
 # pins its status bar to 9:41 while it runs, then puts the appearance back and clears the status bar.
 # Needs python3 with Pillow for the WebP conversion.
+#
+# On iPhone Duo, set SCREEN to the display to capture (1 = outer, 3 = inner): with two displays simctl
+# will not pick one itself. See capture-app-store-screens.sh.
 
 set -euo pipefail
 
@@ -31,6 +34,8 @@ OUT="$ROOT/site/public/assets/phone-screen"
 TMP=$(mktemp -d)
 WAIT=${WAIT:-10}
 SET=${SET:?set SET to the new capture set number, see the header}
+DISPLAY_ARGS=()
+[[ -n "${SCREEN:-}" ]] && DISPLAY_ARGS=(--display="$SCREEN")
 
 # name : launch arguments after -demoMode
 SCREENS=(
@@ -64,7 +69,7 @@ for mode in light dark; do
     args=(${=spec#*:})
     xcrun simctl launch --terminate-running-process "$SIM" "$BID" -demoMode $args >/dev/null
     end=$((SECONDS + WAIT)); until (( SECONDS >= end )); do sleep 1; done
-    xcrun simctl io "$SIM" screenshot "$TMP/$name-$mode.png" >/dev/null 2>&1
+    xcrun simctl io "$SIM" screenshot $DISPLAY_ARGS "$TMP/$name-$mode.png" >/dev/null 2>&1
     echo "  $name-$mode"
   done
 done
