@@ -53,9 +53,7 @@ struct CancelSubscriptionOfferView: View {
             }
             .background(ScreenBackground())
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Close", systemImage: "xmark", role: .close, action: onNotNow)
-                }
+                CloseToolbarItem("Close", action: onNotNow)
             }
         }
     }

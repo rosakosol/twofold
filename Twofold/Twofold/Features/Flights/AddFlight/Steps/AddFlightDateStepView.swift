@@ -87,7 +87,7 @@ struct AddFlightDateStepView: View {
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .confirmationAction) {
-                        Button("Done", systemImage: "checkmark", role: .confirm) {
+                        BarButton.confirm("Done", emphasized: false) {
                             showingCalendar = false
                             model.path.append(.results)
                         }

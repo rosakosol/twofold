@@ -63,9 +63,7 @@ struct DrawingPadPairView: View {
             .navigationTitle("Your drawings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Close", systemImage: "xmark", role: .close) { dismiss() }
-                }
+                CloseToolbarItem("Close") { dismiss() }
                 // Hidden while neither pad has a drawing: two empty pages are nothing to send.
                 if myURL != nil || partnerURL != nil {
                     ToolbarItem(placement: .topBarTrailing) {

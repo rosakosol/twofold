@@ -320,9 +320,7 @@ struct TripsListView: View {
                     showingAddTrip = false
                 }
                 .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Cancel", systemImage: "xmark", role: .close) { showingAddTrip = false }
-                    }
+                    CloseToolbarItem("Cancel") { showingAddTrip = false }
                 }
             }
             // `AddTripDetailsView` itself has no screen-view tag of its own — the onboarding

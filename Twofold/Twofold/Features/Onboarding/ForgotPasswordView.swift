@@ -68,9 +68,7 @@ struct ForgotPasswordView: View {
             }
             .background(ScreenBackground())
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel", systemImage: "xmark", role: .close) { dismiss() }
-                }
+                CloseToolbarItem("Cancel") { dismiss() }
             }
             // Deliberately non-committal about whether the address is actually registered —
             // Supabase itself never reveals that (same response either way, so a caller can't

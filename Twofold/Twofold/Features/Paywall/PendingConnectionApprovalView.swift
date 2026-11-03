@@ -98,9 +98,7 @@ struct PendingConnectionApprovalView: View {
             .background(ScreenBackground())
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Close", systemImage: "xmark", role: .close) { dismiss() }
-                }
+                CloseToolbarItem("Close") { dismiss() }
             }
         }
     }

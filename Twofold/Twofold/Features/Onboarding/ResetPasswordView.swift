@@ -93,16 +93,14 @@ struct ResetPasswordView: View {
             }
             .background(ScreenBackground())
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    // Bails out of the just-established recovery session rather than leaving it
-                    // dangling — there's no sensible "cancel and go back to where I was" here
-                    // since tapping the email link is what got us into a session in the first
-                    // place.
-                    Button("Cancel", systemImage: "xmark", role: .close) {
-                        Task {
-                            try? await BackendService.signOut()
-                            dismiss()
-                        }
+                // Bails out of the just-established recovery session rather than leaving it
+                // dangling — there's no sensible "cancel and go back to where I was" here
+                // since tapping the email link is what got us into a session in the first
+                // place.
+                CloseToolbarItem("Cancel") {
+                    Task {
+                        try? await BackendService.signOut()
+                        dismiss()
                     }
                 }
             }

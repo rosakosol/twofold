@@ -61,9 +61,7 @@ struct PartnerRequiredGateView: View {
             }
             .background(ScreenBackground())
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Close", systemImage: "xmark", role: .close) { dismiss() }
-                }
+                CloseToolbarItem("Close", phonePlacement: .topBarTrailing) { dismiss() }
             }
             .task {
                 await appModel.session.refreshPendingConnectionRequests()

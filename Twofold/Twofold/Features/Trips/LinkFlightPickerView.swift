@@ -59,9 +59,7 @@ struct LinkFlightPickerView: View {
             .navigationTitle("Link a flight")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel", systemImage: "xmark", role: .close) { dismiss() }
-                }
+                CloseToolbarItem("Cancel") { dismiss() }
             }
         }
         .sheet(isPresented: $showingCreateFlight) {

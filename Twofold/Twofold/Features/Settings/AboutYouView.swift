@@ -110,7 +110,7 @@ struct AboutYouView: View {
                 if isSaving {
                     ProgressView()
                 } else {
-                    Button("Save", systemImage: "checkmark", role: .confirm, action: save)
+                    BarButton.confirm("Save", action: save)
                         .disabled(isSaving)
                 }
             }

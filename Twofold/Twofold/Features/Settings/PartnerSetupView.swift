@@ -156,16 +156,14 @@ struct PartnerSetupView: View {
             .navigationTitle("Your partner")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Close", systemImage: "xmark", role: .close) { dismiss() }
-                }
+                CloseToolbarItem("Close") { dismiss() }
                 ToolbarItem(placement: .confirmationAction) {
                     // A titled symbol rather than a text label, so on iPhone Duo it can join the side bar with
                     // the rest; a spinner in its place while saving.
                     if isSaving {
                         ProgressView()
                     } else {
-                        Button("Save", systemImage: "checkmark", role: .confirm, action: save)
+                        BarButton.confirm("Save", action: save)
                             .disabled(isSaving)
                     }
                 }

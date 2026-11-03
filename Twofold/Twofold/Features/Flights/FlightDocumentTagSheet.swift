@@ -80,11 +80,9 @@ struct FlightDocumentTagSheet: View {
         .navigationTitle("Add document")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                Button("Cancel", systemImage: "xmark", role: .close, action: onCancel)
-            }
+            CloseToolbarItem("Cancel", action: onCancel)
             ToolbarItem(placement: .confirmationAction) {
-                Button("Add", systemImage: "checkmark", role: .confirm, action: confirm).disabled(!canConfirm)
+                BarButton.confirm("Add", action: confirm).disabled(!canConfirm)
             }
         }
         .onAppear {

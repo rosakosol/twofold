@@ -40,9 +40,7 @@ struct PartnerInviteNudgeView: View {
             .padding(Theme.Spacing.md)
             .background(ScreenBackground())
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Not now", systemImage: "xmark", role: .close) { dismiss() }
-                }
+                CloseToolbarItem("Not now", phonePlacement: .topBarTrailing) { dismiss() }
             }
         }
     }

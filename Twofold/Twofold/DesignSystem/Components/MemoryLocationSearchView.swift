@@ -165,9 +165,7 @@ struct MemoryLocationSearchView: View {
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel", systemImage: "xmark", role: .close) { dismiss() }
-                }
+                CloseToolbarItem("Cancel") { dismiss() }
             }
         }
         .postHogScreenView("Memories: Location Search")

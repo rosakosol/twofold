@@ -42,9 +42,7 @@ struct PendingFlightShareReviewView: View {
             .navigationTitle("Review flight")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel", systemImage: "xmark", role: .close) { finish() }
-                }
+                CloseToolbarItem("Cancel") { finish() }
             }
         }
         .task { await load() }

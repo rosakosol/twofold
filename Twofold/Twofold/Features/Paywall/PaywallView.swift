@@ -435,7 +435,7 @@ struct PaywallView: View {
                 }
             }
             ToolbarItem(placement: .topBarLeading) {
-                Button("Sign out", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) {
+                BarButton("Sign out", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) {
                     showingSignOutConfirm = true
                 }
                 .disabled(isSigningOut)

@@ -139,9 +139,7 @@ struct SignInView: View {
             }
             .background(ScreenBackground())
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel", systemImage: "xmark", role: .close) { dismiss() }
-                }
+                CloseToolbarItem("Cancel") { dismiss() }
             }
             .sheet(isPresented: $showingForgotPassword) {
                 ForgotPasswordView()

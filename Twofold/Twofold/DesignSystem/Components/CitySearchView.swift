@@ -111,9 +111,7 @@ struct CitySearchView: View {
             .navigationTitle("Choose a city")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel", systemImage: "xmark", role: .close) { dismiss() }
-                }
+                CloseToolbarItem("Cancel") { dismiss() }
             }
         }
     }

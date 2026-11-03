@@ -100,9 +100,7 @@ struct ConnectionRequestReviewView: View {
             }
             .background(ScreenBackground())
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Close", systemImage: "xmark", role: .close) { dismiss() }
-                }
+                CloseToolbarItem("Close") { dismiss() }
                 // In the toolbar rather than beside Accept and Decline: it is not a third way of
                 // answering the request, and giving it equal weight would suggest it is.
                 ToolbarItem(placement: .topBarTrailing) {

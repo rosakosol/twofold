@@ -164,9 +164,7 @@ struct TopicDetailView: View {
             .navigationTitle(topic.displayName)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Close", systemImage: "xmark", role: .close) { dismiss() }
-                }
+                CloseToolbarItem("Close", phonePlacement: .topBarTrailing) { dismiss() }
             }
         }
         .postHogScreenView("Games: Topic Detail")

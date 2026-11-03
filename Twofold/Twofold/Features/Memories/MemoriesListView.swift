@@ -187,12 +187,10 @@ struct MemoriesListView: View {
         .sensoryFeedback(.selection, trigger: hapticTrigger)
         .toolbar {
             if isSelecting {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel", systemImage: "xmark", role: .close) {
-                        withAnimation(.snappy) {
-                            isSelecting = false
-                            selectedIDs.removeAll()
-                        }
+                CloseToolbarItem("Cancel") {
+                    withAnimation(.snappy) {
+                        isSelecting = false
+                        selectedIDs.removeAll()
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {

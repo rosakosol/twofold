@@ -135,9 +135,7 @@ struct AddMemoryView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 if isDismissable {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Cancel", systemImage: "xmark", role: .close) { dismiss() }
-                    }
+                    CloseToolbarItem("Cancel") { dismiss() }
                 }
             }
             .interactiveDismissDisabled(!isDismissable)

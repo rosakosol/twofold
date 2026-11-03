@@ -35,9 +35,7 @@ struct AddFlightStepScaffold<Content: View>: View {
         .background(ScreenBackground())
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                Button(model.topBarTitle, systemImage: "xmark", role: .close, action: model.onTopBarAction)
-            }
+            CloseToolbarItem(verbatim: model.topBarTitle, action: model.onTopBarAction)
         }
     }
 }

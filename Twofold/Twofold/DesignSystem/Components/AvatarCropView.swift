@@ -59,11 +59,9 @@ struct AvatarCropView: View {
             .navigationTitle("Adjust photo")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel", systemImage: "xmark", role: .close, action: onCancel)
-                }
+                CloseToolbarItem("Cancel", action: onCancel)
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Use photo", systemImage: "checkmark", role: .confirm) { onComplete(renderCrop()) }
+                    BarButton.confirm("Use photo") { onComplete(renderCrop()) }
                 }
             }
         }

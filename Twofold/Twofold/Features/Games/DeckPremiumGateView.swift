@@ -48,9 +48,7 @@ struct DeckPremiumGateView: View {
             }
             .background(ScreenBackground())
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Close", systemImage: "xmark", role: .close) { dismiss() }
-                }
+                CloseToolbarItem("Close", phonePlacement: .topBarTrailing) { dismiss() }
             }
             .sheet(isPresented: $showingPaywall) {
                 NavigationStack { PaywallView(initialTier: .premium) }

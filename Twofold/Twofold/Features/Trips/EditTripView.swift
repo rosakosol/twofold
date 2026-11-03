@@ -76,16 +76,14 @@ struct EditTripView: View {
         .navigationTitle("Edit trip")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                Button("Cancel", systemImage: "xmark", role: .close) { dismiss() }
-            }
+            CloseToolbarItem("Cancel") { dismiss() }
             ToolbarItem(placement: .confirmationAction) {
                 // A titled symbol rather than a text label, so on iPhone Duo it can join the side bar with
                 // the rest; a spinner in its place while saving.
                 if isSaving {
                     ProgressView()
                 } else {
-                    Button("Save", systemImage: "checkmark", role: .confirm, action: save)
+                    BarButton.confirm("Save", action: save)
                         .disabled(!canSave)
                 }
             }

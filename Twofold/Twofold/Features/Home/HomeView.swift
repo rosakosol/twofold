@@ -194,9 +194,7 @@ struct HomeView: View {
                         showingAddTrip = false
                     }
                     .toolbar {
-                        ToolbarItem(placement: .cancellationAction) {
-                            Button("Cancel", systemImage: "xmark", role: .close) { showingAddTrip = false }
-                        }
+                        CloseToolbarItem("Cancel") { showingAddTrip = false }
                     }
                 }
             }

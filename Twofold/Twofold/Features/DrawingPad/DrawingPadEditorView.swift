@@ -100,9 +100,7 @@ struct DrawingPadEditorView: View {
             .navigationTitle("Your pad")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Close", systemImage: "xmark", role: .close) { dismiss() }
-                }
+                CloseToolbarItem("Close") { dismiss() }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         sharedCanvas = renderCanvas()
@@ -112,7 +110,7 @@ struct DrawingPadEditorView: View {
                     .disabled(elements.isEmpty && backgroundImage == nil)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Clear", systemImage: "trash") {
+                    BarButton("Clear", systemImage: "trash") {
                         clearedPads.append(ClearedPad(elements: elements, redoStack: redoStack, backgroundImage: backgroundImage))
                         elements.removeAll()
                         redoStack.removeAll()
@@ -128,7 +126,7 @@ struct DrawingPadEditorView: View {
                     if isSaving {
                         ProgressView()
                     } else {
-                        Button("Save", systemImage: "checkmark", role: .confirm) {
+                        BarButton.confirm("Save") {
                             if backgroundLoadFailed {
                                 confirmingReplace = true
                             } else {
