@@ -32,7 +32,7 @@ struct AddPhotoView: View {
                 VStack(spacing: Theme.Spacing.xl) {
                     VStack(spacing: Theme.Spacing.sm) {
                         ZStack {
-                            RoundPhotoPicker(initialImageData: nil) { data in
+                            RoundPhotoPicker(initialImageData: nil, accessibilityLabel: "Choose your photo") { data in
                                 Task { await uploadSelf(data) }
                             }
                             if isUploadingSelf {
@@ -47,7 +47,7 @@ struct AddPhotoView: View {
                     if let inviterName = onboarding.inviterName {
                         VStack(spacing: Theme.Spacing.sm) {
                             ZStack {
-                                RoundPhotoPicker(placeholderSystemImage: "person.fill", initialImageData: nil) { data in
+                                RoundPhotoPicker(placeholderSystemImage: "person.fill", initialImageData: nil, accessibilityLabel: "Choose your photo of \(inviterName)") { data in
                                     Task { await uploadPartnerView(data) }
                                 }
                                 if isUploadingPartnerView {

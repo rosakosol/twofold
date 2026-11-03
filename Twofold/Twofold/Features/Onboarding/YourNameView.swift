@@ -16,7 +16,7 @@ struct YourNameView: View {
             centered: true,
             content: {
                 VStack(spacing: Theme.Spacing.lg) {
-                    RoundPhotoPicker(placeholderSystemImage: "person.fill", initialImageData: onboarding.selfPhotoData) { data in
+                    RoundPhotoPicker(placeholderSystemImage: "person.fill", initialImageData: onboarding.selfPhotoData, accessibilityLabel: "Choose your photo") { data in
                         onboarding.selfPhotoData = data
                     }
                     .frame(maxWidth: .infinity)

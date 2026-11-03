@@ -7,6 +7,7 @@ import SwiftUI
 import MapKit
 
 struct WelcomeView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(OnboardingModel.self) private var onboarding
     @Environment(AppModel.self) private var appModel
     @Environment(\.colorScheme) private var colorScheme
@@ -76,6 +77,9 @@ struct WelcomeView: View {
                             iconPulsing ? 1.08 : 1.0
                         )
                         .onAppear {
+                            // Still with Reduce Motion on: a pulse that never stops is the kind
+                            // of motion the setting asks to be spared.
+                            guard !reduceMotion else { return }
                             withAnimation(
                                 .easeInOut(duration: 1.1)
                                 .repeatForever(

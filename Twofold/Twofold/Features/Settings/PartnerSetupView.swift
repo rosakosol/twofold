@@ -67,7 +67,7 @@ struct PartnerSetupView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: Theme.Spacing.md) {
-                    RoundPhotoPicker(placeholderSystemImage: "person.fill", initialImageURL: appModel.partner.avatarURL, size: 96) { data in
+                    RoundPhotoPicker(placeholderSystemImage: "person.fill", initialImageURL: appModel.partner.avatarURL, size: 96, accessibilityLabel: "Change your photo of \(appModel.partner.name)") { data in
                         Task {
                             do {
                                 try await appModel.updatePartnerAvatar(imageData: data)

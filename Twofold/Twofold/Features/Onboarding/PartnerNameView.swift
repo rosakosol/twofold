@@ -21,7 +21,7 @@ struct PartnerNameView: View {
             centered: true,
             content: {
                 VStack(spacing: Theme.Spacing.lg) {
-                    RoundPhotoPicker(placeholderSystemImage: "person.fill", initialImageData: onboarding.partnerPhotoData) { data in
+                    RoundPhotoPicker(placeholderSystemImage: "person.fill", initialImageData: onboarding.partnerPhotoData, accessibilityLabel: "Choose a photo of your partner") { data in
                         onboarding.partnerPhotoData = data
                     }
                     .frame(maxWidth: .infinity)

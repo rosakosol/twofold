@@ -221,6 +221,7 @@ struct OnboardingCard: View {
                 Text(icon)
                     .font(.system(size: 32))
                     .frame(width: 40)
+                    .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
                         .font(.subheadline.weight(.semibold))
@@ -236,6 +237,8 @@ struct OnboardingCard: View {
                 Spacer(minLength: 0)
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                     .foregroundStyle(isSelected ? Theme.accent : Theme.controlLine)
+                    // The selected trait below says this; the glyph would read "checkmark" too.
+                    .accessibilityHidden(true)
             }
             .padding(Theme.Spacing.md)
             .background { Theme.surface }
@@ -243,6 +246,7 @@ struct OnboardingCard: View {
             .overlay { cardBorder(isSelected: isSelected) }
         }
         .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
 
@@ -262,6 +266,8 @@ struct OnboardingOptionRow: View {
                 Spacer()
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                     .foregroundStyle(isSelected ? Theme.accent : Theme.controlLine)
+                    // The selected trait below says this; the glyph would read "checkmark" too.
+                    .accessibilityHidden(true)
             }
             .padding(Theme.Spacing.md)
             .background { Theme.surface }
@@ -269,6 +275,7 @@ struct OnboardingOptionRow: View {
             .overlay { cardBorder(isSelected: isSelected, cornerRadius: Theme.Radius.tile) }
         }
         .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
 

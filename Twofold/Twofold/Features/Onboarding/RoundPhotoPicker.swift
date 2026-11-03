@@ -21,6 +21,9 @@ struct RoundPhotoPicker: View {
     /// already set, which reads as "my photo didn't save" even though it did.
     var initialImageURL: URL?
     var size: CGFloat = 100
+    /// What VoiceOver calls the picker. Screens with two (yours and your partner's) were two
+    /// identical "Photos" buttons.
+    var accessibilityLabel: LocalizedStringKey = "Choose a photo"
     var onPick: (Data) -> Void
 
     @State private var selectedItem: PhotosPickerItem?
@@ -81,6 +84,7 @@ struct RoundPhotoPicker: View {
             }
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(accessibilityLabel)
         .onAppear {
             guard previewImage == nil, let initialImageData, let uiImage = UIImage(data: initialImageData) else { return }
             previewImage = Image(uiImage: uiImage)

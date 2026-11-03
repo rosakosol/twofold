@@ -21,7 +21,7 @@ struct AboutYouView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: Theme.Spacing.md) {
-                RoundPhotoPicker(placeholderSystemImage: "person.fill", initialImageURL: appModel.currentUser.avatarURL, size: 96) { data in
+                RoundPhotoPicker(placeholderSystemImage: "person.fill", initialImageURL: appModel.currentUser.avatarURL, size: 96, accessibilityLabel: "Change your photo") { data in
                     Task {
                         do {
                             try await appModel.updateAvatar(imageData: data)

@@ -9,6 +9,7 @@
 import SwiftUI
 
 struct PurchaseSuccessView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(OnboardingModel.self) private var onboarding
     @Environment(AppModel.self) private var appModel
     @State private var didCelebrate = false
@@ -30,7 +31,8 @@ struct PurchaseSuccessView: View {
                         .scaleEffect(heartScale)
                         .frame(maxWidth: .infinity)
                         .onAppear {
-                            withAnimation(.spring(response: 0.5, dampingFraction: 0.5)) {
+                            // With Reduce Motion the heart is simply there, rather than springing in.
+                            withAnimation(reduceMotion ? nil : .spring(response: 0.5, dampingFraction: 0.5)) {
                                 heartScale = 1.0
                             }
                             didCelebrate = true

@@ -6,6 +6,7 @@
 import SwiftUI
 
 struct TrialTrustView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(OnboardingModel.self) private var onboarding
     @State private var shownRows: Set<Int> = []
     @State private var iconPulsing = false
@@ -101,6 +102,8 @@ struct TrialTrustView: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, Theme.Spacing.sm)
                         .onAppear {
+                            // Still with Reduce Motion on, like Welcome's.
+                            guard !reduceMotion else { return }
                             withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true)) {
                                 iconPulsing = true
                             }

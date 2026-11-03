@@ -65,6 +65,7 @@ struct GenderView: View {
             VStack(spacing: Theme.Spacing.xs) {
                 Text(gender.emoji)
                     .font(.system(size: 32))
+                    .accessibilityHidden(true)
                 Text(gender.title)
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(Theme.textPrimary)
@@ -80,6 +81,7 @@ struct GenderView: View {
             }
         }
         .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
 
