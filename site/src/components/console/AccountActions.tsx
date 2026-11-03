@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { functionErrorMessage } from "@/lib/supabase/functionError";
 import { cancellability } from "@/lib/console/accountDetail";
+import { deletionBillingWarning, type DeletionBillingWarning } from "@/lib/account/subscription";
 import { AccountSection, ActionRow } from "@/components/console/AccountLayout";
 import { ActionDialog, ConfirmField, DANGER_SUBMIT, ReasonField } from "@/components/console/AccountDialog";
 import { InfoTip } from "@/components/console/InfoTip";
@@ -84,7 +85,7 @@ export function AccountActions({
             <DeleteAccount
               profileId={profileId}
               email={email}
-              storeManaged={subscriptionActive && !subscription.ours}
+              billingWarning={deletionBillingWarning({ active: subscriptionActive, store: subscriptionStore })}
               onDone={() => router.refresh()}
             />
           </ul>
@@ -283,12 +284,12 @@ function Disconnect({
 function DeleteAccount({
   profileId,
   email,
-  storeManaged,
+  billingWarning,
   onDone,
 }: {
   profileId: string;
   email: string;
-  storeManaged: boolean;
+  billingWarning: DeletionBillingWarning;
   onDone: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -324,9 +325,11 @@ function DeleteAccount({
     <ActionRow
       title="Delete this account"
       description={
-        storeManaged
+        billingWarning === "store"
           ? "Permanent. Their app store subscription keeps charging until they cancel it."
-          : "Permanent. Removes their login and ends any couple."
+          : billingWarning === "unknown"
+            ? "Permanent. Their subscription's store is unknown, so it may keep charging."
+            : "Permanent. Removes their login and ends any couple."
       }
     >
       <ActionDialog
@@ -354,11 +357,18 @@ function DeleteAccount({
               them 90 days later, and nobody can bring that forward or extend it.
             </li>
             <li>A website subscription is cancelled first; if that fails, nothing is deleted.</li>
-            {storeManaged && (
+            {billingWarning === "store" && (
               <li className="is-alert">
                 Their subscription was bought through an app store, so deleting will not cancel it.
                 They must cancel it themselves, or they keep being charged for an account that no
                 longer exists.
+              </li>
+            )}
+            {billingWarning === "unknown" && (
+              <li className="is-alert">
+                Their subscription has no store recorded, so this can&apos;t tell whether deleting
+                cancels it. If it was bought through an app store it won&apos;t be, and they must
+                cancel it themselves.
               </li>
             )}
           </ul>

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Loader2, TriangleAlert } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { APPLE_SUBSCRIPTIONS_URL, longDate } from "@/lib/account/subscription";
+import { APPLE_SUBSCRIPTIONS_URL, longDate, type DeletionBillingWarning } from "@/lib/account/subscription";
 
 /**
  * Deletion, with the app's own warnings rather than new ones.
@@ -26,7 +26,7 @@ export function DangerZone({
   partnerName,
   archivedCount,
   earliestArchivePurgeAt,
-  storeManagedSubscription,
+  billingWarning,
 }: {
   email: string;
   hasPartner: boolean;
@@ -35,7 +35,8 @@ export function DangerZone({
   archivedCount: number;
   /** `couples.scheduled_purge_at` of the archive that goes first, or null if there are none. */
   earliestArchivePurgeAt: string | null;
-  storeManagedSubscription: boolean;
+  /** From `deletionBillingWarning`: the same rule the subscription card above it uses. */
+  billingWarning: DeletionBillingWarning;
 }) {
   const router = useRouter();
   const [confirmation, setConfirmation] = useState("");
@@ -129,7 +130,7 @@ export function DangerZone({
           If you want to keep a copy, export it from the app before you delete your account — you
           won&apos;t be able to sign in to get it afterwards.
         </li>
-        {storeManagedSubscription && (
+        {billingWarning === "store" && (
           // The one thing deletion genuinely cannot do for them. delete-account cancels a website
           // subscription before it deletes anything, and refuses to proceed if it can't — but an
           // App Store subscription is Apple's, and saying nothing here would leave somebody
@@ -146,6 +147,24 @@ export function DangerZone({
               manage subscriptions
             </a>
             .
+          </li>
+        )}
+        {billingWarning === "unknown" && (
+          // A subscription with no store recorded yet (bought before the column existed) or one we
+          // don't recognise. Telling them it's an app store's would be a guess; saying nothing
+          // could leave them paying for an account that no longer exists.
+          <li className="account-consequence-warning">
+            We can&apos;t tell where your subscription was bought. If it was through the App Store,
+            deleting your account won&apos;t cancel it, so check{" "}
+            <a
+              href={APPLE_SUBSCRIPTIONS_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline"
+            >
+              your subscriptions
+            </a>{" "}
+            first.
           </li>
         )}
       </ul>

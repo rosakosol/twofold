@@ -64,7 +64,7 @@ const STORE_LABELS: Record<string, string> = {
   amazon: "Amazon",
 };
 
-export function subscriptionControl(snapshot: SubscriptionSnapshot): SubscriptionControl {
+export function subscriptionControl(snapshot: Pick<SubscriptionSnapshot, "active" | "store">): SubscriptionControl {
   if (!snapshot.active) return { kind: "none" };
 
   const store = snapshot.store?.trim().toLowerCase() ?? "";
@@ -93,6 +93,25 @@ export function subscriptionControl(snapshot: SubscriptionSnapshot): Subscriptio
   // A store RevenueCat has added since this list was written. Deliberately not treated as web,
   // which is the whole point of enumerating rather than defaulting.
   return { kind: "unknown" };
+}
+
+/**
+ * Which warning about billing the delete-account flows owe, on the portal's Danger Zone and in the
+ * console's delete dialog. Deleting cancels a website subscription itself, so only a subscription
+ * somebody else bills for needs one.
+ */
+export type DeletionBillingWarning = "store" | "unknown" | null;
+
+export function deletionBillingWarning(
+  snapshot: Pick<SubscriptionSnapshot, "active" | "store">,
+): DeletionBillingWarning {
+  const control = subscriptionControl(snapshot);
+  if (control.kind === "elsewhere") return "store";
+  // We can't say it is an app store's, and we can't say it isn't. "Bought through an app store"
+  // would be a guess, and silence could leave somebody paying for a deleted account.
+  if (control.kind === "unknown") return "unknown";
+  // "none", "web" (deletion cancels it) and "grant" (nothing is billed) need no warning.
+  return null;
 }
 
 export function tierLabel(tier: string | null): string {

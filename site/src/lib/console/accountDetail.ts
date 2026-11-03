@@ -1,3 +1,5 @@
+import { subscriptionControl } from "@/lib/account/subscription";
+
 /**
  * The shape `public.admin_account_detail` returns.
  *
@@ -86,22 +88,27 @@ export interface AuditEntry {
 }
 
 /** What support can actually do about this subscription, which is the first question any
- * subscription ticket resolves to. Mirrors the portal's own rule: anything not positively known to
- * be a web store is not ours to cancel. */
+ * subscription ticket resolves to. The portal's own rule, `subscriptionControl`, with console
+ * wording: anything not positively known to be a web store is not ours to cancel. */
 export function cancellability(store: string | null, active: boolean): {
   label: string;
   ours: boolean;
 } {
-  if (!active) return { label: "No active subscription", ours: false };
-  const normalised = store?.trim().toLowerCase() ?? "";
-  if (normalised === "stripe" || normalised === "rc_billing") {
-    return { label: "Web - ours to cancel", ours: true };
+  const control = subscriptionControl({ active, store });
+  switch (control.kind) {
+    case "none":
+      return { label: "No active subscription", ours: false };
+    case "web":
+      return { label: "Web - ours to cancel", ours: true };
+    case "grant":
+      return { label: "Promotional grant - no billing to end", ours: false };
+    case "elsewhere":
+    case "unknown": {
+      const normalised = store?.trim().toLowerCase() ?? "";
+      if (normalised === "") return { label: "Store unknown - not safe to cancel", ours: false };
+      return { label: `${normalised.replace(/_/g, " ")} - not ours to cancel`, ours: false };
+    }
   }
-  if (normalised === "") {
-    return { label: "Store unknown - not safe to cancel", ours: false };
-  }
-  if (normalised === "promotional") return { label: "Promotional grant - no billing to end", ours: false };
-  return { label: `${normalised.replace(/_/g, " ")} - not ours to cancel`, ours: false };
 }
 
 /** One row of `public.admin_reported_accounts`: an account somebody has reported, with counts.

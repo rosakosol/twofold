@@ -5,7 +5,11 @@ import { SubscriptionCard } from "@/components/account/SubscriptionCard";
 import { PartnerCard } from "@/components/account/PartnerCard";
 import { DangerZone } from "@/components/account/DangerZone";
 import { EmailPreferencesCard, type EmailPreferences } from "@/components/account/EmailPreferencesCard";
-import { parseSubscriptionHistory, type SubscriptionSnapshot } from "@/lib/account/subscription";
+import {
+  deletionBillingWarning,
+  parseSubscriptionHistory,
+  type SubscriptionSnapshot,
+} from "@/lib/account/subscription";
 
 export const metadata: Metadata = { title: "Your account" };
 
@@ -121,7 +125,7 @@ export default async function AccountPage() {
         partnerName={partner?.first_name || null}
         archivedCount={archives?.length ?? 0}
         earliestArchivePurgeAt={archives?.[0]?.scheduled_purge_at ?? null}
-        storeManagedSubscription={snapshot.active && snapshot.store !== "stripe" && snapshot.store !== "rc_billing"}
+        billingWarning={deletionBillingWarning(snapshot)}
       />
     </div>
   );
