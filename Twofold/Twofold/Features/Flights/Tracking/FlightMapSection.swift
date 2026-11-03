@@ -29,7 +29,9 @@ struct FlightMapSection: View {
 
     var body: some View {
         FlightMapView(flight: flight, recenterNonce: mapRecenterNonce, followsAircraft: $isCameraLocked)
-            .frame(height: 260)
+            // 260pt at phone width. At the ~900pt of iPhone Duo's inner display a fixed 260 was a
+            // letterbox strip with the route lost in the middle of it.
+            .proportionalHeight(260)
             .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
             .overlay(alignment: .topTrailing) {
                 if flight.origin.coordinate != nil, flight.destination.coordinate != nil {

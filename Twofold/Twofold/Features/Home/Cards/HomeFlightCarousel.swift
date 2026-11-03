@@ -169,7 +169,8 @@ struct ActiveFlightCard: View {
             // to fit the route in. A tighter margin lets the route fill more of the card, closer
             // to how it reads on the detail screen.
             FlightMapView(flight: flight, interactive: false, edgePadding: 12)
-                .frame(height: 200)
+                // 200pt at phone width; taller in proportion where the card is wider.
+                .proportionalHeight(200)
                 .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.image, style: .continuous))
                 .allowsHitTesting(false)
         }

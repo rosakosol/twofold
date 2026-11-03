@@ -430,8 +430,12 @@ private struct PhotoPager: View {
             }
         }
         .tabViewStyle(.page(indexDisplayMode: photos.count > 1 ? .automatic : .never))
-        .frame(height: 220)
+        // The photos fill this box, so a 220pt strip across a wide display cropped every one of
+        // them to a sliver. Taller in proportion to the width, and no wider than a column, which
+        // keeps the crop close to what a phone shows.
+        .proportionalHeight(220)
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.xsmall, style: .continuous))
+        .frame(maxWidth: Theme.Layout.columnMaxWidth)
         .accessibilityLabel(
             photos.count == 1 ? "1 photo" : "\(photos.count) photos, swipe to see more"
         )

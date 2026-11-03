@@ -127,7 +127,9 @@ struct DistanceCard: View {
             }
 
             RelationshipGlobeView(couple: appModel.session.couple, partnerACity: myCity, partnerBCity: partnerCity, activeTrip: appModel.travel.activeTrip)
-                .frame(height: 260)
+                // 260pt on a phone, and taller in proportion in a wider column, so the earth does
+                // not sit small in a wide black band.
+                .proportionalHeight(260)
                 // A preview, not a globe you turn here. Two reasons, and the first one predates
                 // this card being tappable at all: a live `Map` inside a `ScrollView` competes for
                 // every drag, so a swipe that meant "scroll Home" as often nudged the earth

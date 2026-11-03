@@ -64,7 +64,7 @@ struct MemoryLocationSearchView: View {
                     MapUserLocationButton()
                     MapCompass()
                 }
-                .frame(height: 220)
+                .proportionalHeight(220)
 
                 List {
                     // Only before typing anything — once there's a query, live search results
