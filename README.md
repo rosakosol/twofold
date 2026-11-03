@@ -571,11 +571,10 @@ flowchart LR
 2. The `memories` row is inserted.
 3. Photos upload to R2 at `memory-photos/{coupleID}/{memoryID}/{uuid}.jpg`, using a presigned PUT
    from **`storage-url`**.
-4. **`notify-couple-event`** (`memory_added`) tells the partner.
 
 Offline, the memory is queued in `PendingMemoryStore` and flushed on reconnect. Reading a photo
 also goes through `storage-url`, which checks `can_access_storage_object` before signing a URL.
-Trips work the same way: `AppModel.addTrip`, `PendingTripStore`, then `trip_added`.
+Trips work the same way: `AppModel.addTrip`, then `PendingTripStore`. Neither pushes the partner.
 
 ### 7. Unpairing and deleting an account
 
@@ -694,7 +693,7 @@ explaining why it exists. `verify_jwt` is set per function in [`supabase/config.
 | `register-live-activity-token` | `AeroFlightService.registerLiveActivityToken` | `LiveActivityManager` | Stores a Live Activity push token, after checking couple membership |
 | `end-live-activity-token` | `AeroFlightService.endLiveActivityToken` | `LiveActivityManager.endActivity` | Deletes that token |
 | `parse-flight-email` | `FlightEmailParsingService.parse` | `PendingFlightShareReviewView` | Extracts flight details with OpenAI. Rate-limited |
-| `notify-couple-event` | `BackendService.notifyPartner`, `.sendBirthdayWish` | Game views/stores, `AppModel` (trip, memory, drawing), `RootView` (birthday) | Pushes the partner about `drawing_saved`, `trip_added`, `memory_added`, `game_*`, `birthday_wish` |
+| `notify-couple-event` | `BackendService.notifyPartner`, `.sendBirthdayWish` | Game views/stores, `AppModel` (drawing), `RootView` (birthday) | Pushes the partner about `drawing_saved`, `game_*`, `birthday_wish` |
 | `notify-connection-request` | `BackendService.notifyConnectionRequest` | Redeeming a code, accepting a request, sending a reminder | Pushes about connection requests (there's no couple yet) |
 | `storage-url` | `R2Storage.readURL(s)` / `.upload` | Every photo, avatar, drawing pad and flight document | Checks `can_access_storage_object`, then signs an R2 URL |
 | `airline-logo` | URL built in `Models/AirlineLogo.swift` | `AirlineLogoView` everywhere | Serves logos from R2, falling back to kiwi.com. No auth |
