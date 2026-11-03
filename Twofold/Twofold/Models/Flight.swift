@@ -283,15 +283,6 @@ struct Flight: Identifiable, Hashable, Codable {
         return flightNumberIATA
     }
 
-    /// The number AeroAPI actually tracks this flight under, for showing next to `displayNumber`
-    /// when the traveller booked a codeshare — an airport board may list only the operating
-    /// carrier, so hiding it entirely would be its own kind of wrong. Nil when they're the same.
-    var operatingNumber: String? {
-        guard marketingFlightNumber != nil else { return nil }
-        if let airlineCode, !flightNumberIATA.hasPrefix(airlineCode) { return "\(airlineCode)\(flightNumberIATA)" }
-        return flightNumberIATA
-    }
-
     /// Confirmed live: CI5175 had `actual_off` (wheels up) populated by AeroAPI but no
     /// `actual_out`/`estimated_out`/`scheduled_out` at all (a gate-pushback report gap, not
     /// uncommon for some airline/airport combinations) — falling back to the off/on milestones
@@ -403,21 +394,6 @@ struct Flight: Identifiable, Hashable, Codable {
         }
     }
 
-    /// The freshest of the two independent refresh cadences this flight has: schedule/status
-    /// (from AeroAPI, re-checked every ~2 min while airborne) and live position (from free ADS-B
-    /// mirrors, re-checked every ~1 min while airborne — see `syncLivePositionForFaFlightId` in
-    /// `supabase/functions/_shared/flight-sync.ts`). Showing only `lastRefreshedAt` made the
-    /// tracking screen's "Updated X ago" plateau at ~2 minutes even though position data is
-    /// genuinely newer — this reflects whichever backend actually has the most current data.
-    var mostRecentUpdateAt: Date? {
-        switch (lastRefreshedAt, positionUpdatedAt) {
-        case let (.some(refreshed), .some(position)): max(refreshed, position)
-        case let (.some(refreshed), nil): refreshed
-        case let (nil, .some(position)): position
-        case (nil, nil): nil
-        }
-    }
-
     /// Legacy convenience for call sites that only ever dealt in a single scheduled window.
     var scheduledDeparture: Date { scheduledOut ?? .now }
     var scheduledArrival: Date { scheduledIn ?? scheduledOut?.addingTimeInterval(3600 * 4) ?? .now }
@@ -490,8 +466,6 @@ struct Flight: Identifiable, Hashable, Codable {
         guard let reference = bestArrival ?? bestDeparture else { return false }
         return reference <= .now
     }
-
-    var hasLivePosition: Bool { positionLatitude != nil && positionLongitude != nil }
 
     var positionCoordinate: CLLocationCoordinate2D? {
         guard let positionLatitude, let positionLongitude else { return nil }

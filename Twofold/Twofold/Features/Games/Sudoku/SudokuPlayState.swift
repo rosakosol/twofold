@@ -74,8 +74,6 @@ struct SudokuPlayState: Equatable {
         return notes[index] & (UInt16(1) << UInt16(value)) != 0
     }
 
-    var filledCount: Int { entries.count { $0 != 0 } }
-
     // MARK: - Playing
 
     /// Writes a digit, unless the cell is one of the puzzle's own.

@@ -77,10 +77,6 @@ enum SupabaseConfig {
     static var projectURL: URL { resolved.url }
     static var publishableKey: String { resolved.publishableKey }
 
-    /// True whenever this build is pointed at something other than production. Handy for putting a
-    /// visible marker in the UI so a screenshot from a local stack is never mistaken for real data.
-    static var isUsingProduction: Bool { resolved.url == Production.url }
-
     /// True only when this build talks to a Supabase on this machine — the CLI's local stack, or a
     /// custom `SUPABASE_URL` that is itself a loopback address.
     ///

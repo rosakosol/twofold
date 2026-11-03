@@ -32,7 +32,6 @@ struct Memory: Identifiable, Hashable, Codable {
     /// unlike `place`/`date` this is never inferred automatically.
     var tripID: UUID?
 
-    var photoURLs: [URL] { photos.map(\.url) }
     var photoURL: URL? { photos.first?.url }
 
     init(

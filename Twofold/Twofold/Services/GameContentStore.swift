@@ -262,13 +262,6 @@ enum GameContentStore {
         return true
     }
 
-    /// Whether a refreshed copy has ever been stored — the seed alone doesn't count. Lets the
-    /// refresh run on a schedule rather than on every foreground, while still fetching promptly
-    /// on the first launch after an install.
-    static var hasCachedCopy: Bool {
-        FileManager.default.fileExists(atPath: cacheURL.path)
-    }
-
     static var cacheAge: TimeInterval? {
         guard let modified = try? FileManager.default.attributesOfItem(atPath: cacheURL.path)[.modificationDate] as? Date
         else { return nil }

@@ -33,21 +33,6 @@ extension Color {
             traits.userInterfaceStyle == .dark ? UIColor(Color(hex: dark)) : UIColor(Color(hex: light))
         })
     }
-
-    /// Component-wise blend toward `other`, used for the timezone card's continuous day/night gradient.
-    func interpolated(to other: Color, amount: Double) -> Color {
-        let t = min(max(amount, 0), 1)
-        var (r1, g1, b1, a1) = (CGFloat(0), CGFloat(0), CGFloat(0), CGFloat(0))
-        var (r2, g2, b2, a2) = (CGFloat(0), CGFloat(0), CGFloat(0), CGFloat(0))
-        UIColor(self).getRed(&r1, green: &g1, blue: &b1, alpha: &a1)
-        UIColor(other).getRed(&r2, green: &g2, blue: &b2, alpha: &a2)
-        return Color(
-            red: r1 + (r2 - r1) * t,
-            green: g1 + (g2 - g1) * t,
-            blue: b1 + (b2 - b1) * t,
-            opacity: a1 + (a2 - a1) * t
-        )
-    }
 }
 
 enum TimeMath {
@@ -56,11 +41,6 @@ enum TimeMath {
         calendar.timeZone = timeZone
         let components = calendar.dateComponents([.hour, .minute], from: date)
         return Double(components.hour ?? 0) + Double(components.minute ?? 0) / 60
-    }
-
-    /// 0 = darkest (around 1am), 1 = brightest (around 1pm), smoothly continuous through the day.
-    static func daylightFactor(hour: Double) -> Double {
-        (1 + cos(2 * .pi * (hour - 13) / 24)) / 2
     }
 
     static func timeString(in timeZone: TimeZone, at date: Date) -> String {

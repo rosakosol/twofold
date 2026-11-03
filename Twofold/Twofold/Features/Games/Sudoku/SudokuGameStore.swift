@@ -61,7 +61,6 @@ final class SudokuGameStore: PuzzleScreenStore {
     /// Cells a "check" turned up as wrong, cleared by the next edit. Not persisted: it is the
     /// answer to a question asked a moment ago, not part of the puzzle's state.
     private(set) var mistakes: Set<Int> = []
-    private(set) var justSolved = false
     /// The partner's finished time, once there is one.
     ///
     /// Non-nil always means a genuine completed solve. RLS only reveals a partner's response after
@@ -307,7 +306,6 @@ final class SudokuGameStore: PuzzleScreenStore {
         play.markComplete()
         self.play = play
         stopClock()
-        justSolved = true
         selected = nil
         submitSolve()
     }

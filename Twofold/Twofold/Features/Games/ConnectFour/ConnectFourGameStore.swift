@@ -43,8 +43,6 @@ final class ConnectFourGameStore {
     private(set) var isPlaying = false
     /// Why the last tap did nothing, for the screen to say so and then forget.
     private(set) var rejection: String?
-    /// The column this player last dropped into, for the board to animate it.
-    private(set) var lastMoveColumn: Int?
     /// The server refused a move because the couple's Premium has lapsed (20261114005000). Set from
     /// the refusal as well as read from the subscription, because the app's idea of the tier can be
     /// a moment behind the server's.
@@ -119,7 +117,6 @@ final class ConnectFourGameStore {
 
         do {
             _ = try await BackendService.playConnectFourMove(sessionID: sessionID, column: column)
-            lastMoveColumn = column
             // Re-read rather than assume. The server decides whether that move ended the game, and
             // this is also the moment a move the partner made a fraction earlier arrives.
             await refresh()

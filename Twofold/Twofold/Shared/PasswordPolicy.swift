@@ -147,15 +147,6 @@ enum PasswordPolicy {
 
     // MARK: - Individual rules
 
-    static func varietyCount(_ password: String) -> Int {
-        var count = 0
-        if password.rangeOfCharacter(from: .uppercaseLetters) != nil { count += 1 }
-        if password.rangeOfCharacter(from: .lowercaseLetters) != nil { count += 1 }
-        if password.rangeOfCharacter(from: .decimalDigits) != nil { count += 1 }
-        if password.rangeOfCharacter(from: CharacterSet.alphanumerics.inverted) != nil { count += 1 }
-        return count
-    }
-
     /// Trailing digits and symbols are stripped before the lookup, because "password1",
     /// "password2024" and "Password1!" are the same idea as "password" and appear in the same lists.
     ///

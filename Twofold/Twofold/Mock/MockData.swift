@@ -149,5 +149,4 @@ enum MockData {
         ),
     ]
 
-    static let nextReunionDaysToGo = 47
 }

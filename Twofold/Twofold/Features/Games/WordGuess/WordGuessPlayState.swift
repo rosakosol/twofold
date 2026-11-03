@@ -157,8 +157,4 @@ struct WordGuessSummary: Equatable, Hashable {
     let guessCount: Int
     let solved: Bool
     let elapsed: TimeInterval
-
-    /// First guess, straight in. Worth naming because it is the only result that is luck rather
-    /// than play, and the comparison should not call it a victory over anybody.
-    var isHoleInOne: Bool { solved && guessCount == 1 }
 }

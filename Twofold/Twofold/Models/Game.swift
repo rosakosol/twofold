@@ -200,8 +200,6 @@ enum GameType: String, Codable, CaseIterable, Hashable, Identifiable {
         }
     }
 
-    var durationLabel: String { "\(durationMinutes) min" }
-
     var icon: String {
         switch self {
         case .triviaBattle: "questionmark.circle.fill"
@@ -265,13 +263,6 @@ enum GameType: String, Codable, CaseIterable, Hashable, Identifiable {
         case 0x1A6FD6: Brand.triviaShapes[1]
         case 0x1F8636: Brand.triviaShapes[2]
         default: Brand.triviaShapes[3]
-        }
-    }
-
-    var ctaTitle: String {
-        switch self {
-        case .deepConversations: "Start conversation"
-        default: "Play now"
         }
     }
 }
@@ -405,7 +396,6 @@ struct DeckProgress: Hashable, Codable {
     var myCompleted: Bool { myAnswered >= totalRounds }
     var partnerCompleted: Bool { partnerAnswered >= totalRounds }
     var bothCompleted: Bool { myCompleted && partnerCompleted }
-    var isInProgress: Bool { !bothCompleted && (myAnswered > 0 || partnerAnswered > 0) }
 }
 
 /// Where a specific partner is in a session — derived client-side from how many rounds they've

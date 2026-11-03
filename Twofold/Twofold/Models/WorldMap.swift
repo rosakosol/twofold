@@ -80,13 +80,4 @@ enum WorldMap {
     static func boundary(forCountryName name: String) -> WorldCountryBoundary? {
         byName[nameAliases[name] ?? name]
     }
-
-    /// Resolves a list of `Place.country` strings to this dataset's own boundary names — the set
-    /// `WorldVisitedMapView` checks membership against when filling in visited countries. A
-    /// handful of very small territories (Gibraltar, Réunion, Wake Island, …) have no boundary of
-    /// their own at this simplification level and are silently dropped rather than mismatched to
-    /// their parent country.
-    static func visitedNames<S: Sequence>(from countryNames: S) -> Set<String> where S.Element == String {
-        Set(countryNames.compactMap { boundary(forCountryName: $0)?.name })
-    }
 }

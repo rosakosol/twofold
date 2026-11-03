@@ -42,8 +42,4 @@ struct Couple: Identifiable, Hashable {
     func partner(_ id: Person.ID) -> Person? {
         [partnerA, partnerB].first { $0.id == id }
     }
-
-    func otherPartner(than id: Person.ID) -> Person? {
-        [partnerA, partnerB].first { $0.id != id }
-    }
 }
