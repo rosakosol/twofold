@@ -79,7 +79,7 @@ final class SwipeCardUITests: E2ETestCase {
     /// one would show up here as the second drag moving nothing.
     @MainActor
     func testRepeatedShortDragsKeepWorking() async throws {
-        let (app, card) = try await openSwipeGame()
+        let (_, card) = try await openSwipeGame()
 
         let origin = card.frame.midX
 

@@ -38,11 +38,6 @@ enum PendingMemoryStore {
         directory.appendingPathComponent("\(memoryID.uuidString)-\(index).jpg")
     }
 
-    /// Writes photo bytes to local files, attaches `MemoryPhoto` entries pointing at them, and
-    /// persists the memory to disk — one call covers both "show the photo right now" and
-    /// "survive a relaunch." Returns the memory with its local-URL photos attached, ready to
-    /// append straight into `AppModel.memories`.
-    @discardableResult
     /// Everything drafted but not yet synced, including the photo files.
     ///
     /// Same reasoning as `PendingTripStore.clear()`, and more to lose: a drafted memory carries
@@ -52,6 +47,11 @@ enum PendingMemoryStore {
         try? FileManager.default.removeItem(at: directory)
     }
 
+    /// Writes photo bytes to local files, attaches `MemoryPhoto` entries pointing at them, and
+    /// persists the memory to disk — one call covers both "show the photo right now" and
+    /// "survive a relaunch." Returns the memory with its local-URL photos attached, ready to
+    /// append straight into `TravelStore.memories`.
+    @discardableResult
     static func save(memory: Memory, photosData: [Data]) -> Memory {
         var memory = memory
         var photos: [MemoryPhoto] = []
