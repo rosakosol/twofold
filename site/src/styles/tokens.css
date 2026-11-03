@@ -110,7 +110,9 @@
 
   /* 2.4 Shape, space, motion */
   --radius-pill: 999px;
-  --radius-card: 28px;
+  /* The app's Theme.Radius.card (DesignSystem/Theme.swift). It was 28 here, so the same card had two
+     shapes across the app and the site. */
+  --radius-card: 26px;
   --radius-well: 24px;
   --radius-tile: 18px;
   --radius-icon: 8px;
