@@ -63,7 +63,6 @@ struct LegalDocumentSheet: UIViewControllerRepresentable {
 
         let controller = SFSafariViewController(url: document.url, configuration: configuration)
         controller.dismissButtonStyle = .done
-        controller.preferredControlTintColor = UIColor(Theme.accent)
         return controller
     }
 
