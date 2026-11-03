@@ -91,7 +91,7 @@ private struct PuzzleScreenChrome<Store: PuzzleScreenStore>: ViewModifier {
                         } label: {
                             Image(systemName: "ellipsis.circle")
                         }
-                        .accessibilityLabel("More")
+                        .accessibilityLabel("More options")
                     }
                 }
             }

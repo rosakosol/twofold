@@ -87,6 +87,8 @@ struct RelationshipTimelineView: View {
                         }
                     }
                     .disabled(isExporting || !canExport)
+                    // One name whether it shows the icon or the spinner, which had no label at all.
+                    .accessibilityLabel(isExporting ? "Exporting" : "Export")
                 }
             }
         }

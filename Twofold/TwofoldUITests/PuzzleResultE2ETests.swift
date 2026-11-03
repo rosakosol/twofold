@@ -156,7 +156,7 @@ final class PuzzleResultE2ETests: E2ETestCase {
         require(tile, "No Word Guess tile on the Games hub").tap()
         require(app.buttons["Play today's word"], "No Play button on the Word Guess screen").tap()
 
-        require(app.buttons["More"], timeout: 20, "Word Guess has no menu to abandon a board from").tap()
+        require(app.buttons["More options"], timeout: 20, "Word Guess has no menu to abandon a board from").tap()
         require(app.buttons["Abandon this word"], "No Abandon item in the menu").tap()
         require(app.buttons["Abandon"], "No confirmation for abandoning").tap()
 

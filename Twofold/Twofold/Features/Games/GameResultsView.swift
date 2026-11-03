@@ -159,6 +159,7 @@ struct GameResultsView: View {
                 } label: {
                     Image(systemName: "ellipsis.circle")
                 }
+                .accessibilityLabel("More options")
                 .disabled(isResettingDeck)
             }
         }

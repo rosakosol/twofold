@@ -100,6 +100,7 @@ struct ConnectFourGameView: View {
                     } label: {
                         Image(systemName: "ellipsis.circle")
                     }
+                    .accessibilityLabel("More options")
                 }
             }
         }
