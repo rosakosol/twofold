@@ -62,6 +62,11 @@ struct TripsListView: View {
     /// The bottom safe-area inset, read off the full-screen `GeometryReader` below. Only used when
     /// the bars are vertical, where it is the home indicator's strip and nothing else.
     @State private var bottomSafeAreaInset: CGFloat = 0
+    /// The tab's safe area as the `NavigationStack` sees it, from outside the full-screen
+    /// `GeometryReader` below. That reader ignores the safe area so the panel can reach behind a
+    /// bottom tab bar, and its proxy does not count iPhone Duo's side tab bar as an inset: measured
+    /// on the Duo simulator, the panel's add button ended 42pt under the bar.
+    @State private var containerSafeArea = EdgeInsets()
 
     /// The drag handle's own frame. `dragHandle` pins itself to exactly this, so the panel's own
     /// arithmetic can rely on it rather than measuring it too.
@@ -217,8 +222,8 @@ struct TripsListView: View {
                 // buttons, and taps went to whichever was on top. Ignoring the safe area is still
                 // what lets the panel reach behind a bottom tab bar; it just no longer forgets
                 // the sides while doing it.
-                let leadingInset = proxy.safeAreaInsets.leading + horizontalInset
-                let trailingInset = proxy.safeAreaInsets.trailing + horizontalInset
+                let leadingInset = max(proxy.safeAreaInsets.leading, containerSafeArea.leading) + horizontalInset
+                let trailingInset = max(proxy.safeAreaInsets.trailing, containerSafeArea.trailing) + horizontalInset
                 let panelWidth = max(0, proxy.size.width - leadingInset - trailingInset)
 
                 ZStack(alignment: .bottom) {
@@ -308,6 +313,7 @@ struct TripsListView: View {
                 FlightTrackingView(flight: flight)
             }
         }
+        .onGeometryChange(for: EdgeInsets.self) { $0.safeAreaInsets } action: { containerSafeArea = $0 }
         .addContentSheet(isPresented: $showingAddTrip, canAdd: appModel.subscription.canAddContent, feature: .trips) {
             NavigationStack {
                 AddTripDetailsView(mode: .standalone, partnerName: appModel.partner.name) { _ in

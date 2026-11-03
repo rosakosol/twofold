@@ -37,6 +37,33 @@ final class FlightsAndTripsE2ETests: E2ETestCase {
         return element.exists
     }
 
+    /// DUO-2. On iPhone Duo the tab bar is a column down the side, and the Travel panel ran under
+    /// it: the panel's add button, the right-hand end of every card, and the taps on them all went
+    /// to the tab bar on top. On a phone with the tab bar along the bottom this holds trivially, so
+    /// it is only a real check when run on an iPhone Duo simulator.
+    @MainActor
+    func testTheTravelPanelKeepsClearOfASideTabBar() async throws {
+        let scenario = try await Scenario.pairedPlus()
+        try await scenario.addTrip(from: .melbourne, to: .rome, daysFromNow: 20)
+        let app = launch(scenario)
+        waitForSignedInApp(app)
+        openTab("Travel", in: app)
+
+        let add = require(app.buttons["Add a trip"], timeout: 15, "The Travel panel never showed its add button")
+        capture(app, "Travel - panel beside the tab bar")
+        // The tab buttons, not `app.tabBars`: the side column is not reported as a tab bar. They
+        // are a column when they share an x, which is what makes this a side bar.
+        let tabs = ["Home", "Travel", "Memories", "Games", "Stats"].map { app.buttons[$0].frame }
+        guard let first = tabs.first, tabs.allSatisfy({ abs($0.midX - first.midX) < 2 }) else { return }
+        if first.midX > app.frame.midX {
+            let barMinX = tabs.map(\.minX).min() ?? first.minX
+            XCTAssertLessThanOrEqual(add.frame.maxX, barMinX, "The add button (\(add.frame)) sits under the side tab bar, which starts at x=\(barMinX)")
+        } else {
+            let barMaxX = tabs.map(\.maxX).max() ?? first.maxX
+            XCTAssertGreaterThanOrEqual(add.frame.minX, barMaxX, "The add button (\(add.frame)) sits under the side tab bar, which ends at x=\(barMaxX)")
+        }
+    }
+
     /// Home shows the reunion card only when no flight is in its carousel, so the flight attached
     /// here is a cancelled one: out of the carousel, and — under the old rule, which counted any
     /// flight that hadn't landed — still enough to make the trip "Right now / Together" a month
