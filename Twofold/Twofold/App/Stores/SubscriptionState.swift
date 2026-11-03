@@ -132,17 +132,31 @@ final class SubscriptionState: AccountScopedStore {
         isActive
     }
 
+    /// The plan this couple is paying for right now: `tier` while `isActive`, nil once lapsed.
+    ///
+    /// `tier` is the name of the plan somebody had, and it outlives a lapse in more than one way:
+    /// a foreground refresh that learns of the lapse changes `isActive` and leaves `tier` alone
+    /// (the snapshot has no tier to give it), the solo path reads the raw profile column, which the
+    /// webhook may leave set, and the offline cache records whatever was there. Every gate that
+    /// unlocks something reads this, never `tier`, so a lapsed Premium couple meets the gate and
+    /// the way back to Premium rather than features the server will refuse.
+    var entitledTier: String? {
+        isActive ? tier : nil
+    }
+
     /// Same "Plus can see it exists, Premium unlocks it" shape as `isDeckLocked`, for non-deck
     /// features (e.g. the Flight Details screen's delay analysis/good-to-know/flight information
-    /// cards) that are Premium-only but not backed by a `GameDeck` row.
+    /// cards) that are Premium-only but not backed by a `GameDeck` row. True for a lapsed Premium
+    /// couple — see `entitledTier`. Nothing they made is touched: a locked screen shows the gate,
+    /// and resubscribing (`markActive`) unlocks it again with everything where it was.
     var isPremiumLocked: Bool {
-        tier != "premium"
+        entitledTier != "premium"
     }
 
     /// True if this deck requires a higher tier than the couple currently has — drives the
     /// unlock badge + premium-gate screen rather than hiding the deck outright.
     func isDeckLocked(_ deck: GameDeck) -> Bool {
-        deck.tier == "premium" && tier != "premium"
+        deck.tier == "premium" && isPremiumLocked
     }
 
     // MARK: - Reconciling with the device

@@ -36,6 +36,44 @@ final class SubscriptionE2ETests: E2ETestCase {
         require(app.staticTexts["Gelato by the Pantheon"], timeout: 20, "A lapsed couple's memory is no longer readable")
     }
 
+    /// Someone whose Premium has lapsed meets the Premium gate, and its way back to Premium,
+    /// rather than screens the server will refuse.
+    ///
+    /// The RevenueCat webhook writes `subscription_active = false` on expiry and leaves the tier
+    /// column as it was. The app used to unlock Premium on the tier alone, so with "premium" still
+    /// in the column Hard and Expert stayed open: tapping one asked the server for a Premium puzzle
+    /// and got a raw refusal instead of the paywall. Unpaired here, because that is the path that
+    /// reads the column as it stands; a couple reaches the same stale tier through a foreground
+    /// refresh or an offline launch (see `SubscriptionStateTests`).
+    @MainActor
+    func testLapsedPremiumMeetsThePremiumGate() async throws {
+        let scenario = try await Scenario.solo(tier: .premium)
+        try await LocalStack.send(
+            "PATCH", "rest/v1/profiles",
+            query: [URLQueryItem(name: "id", value: "eq.\(scenario.me.id)")],
+            body: ["subscription_active": false, "subscription_will_renew": false],
+            as: .service
+        )
+        // Nothing on the device holds an entitlement any more either.
+        let app = launch(scenario, environment: ["TWOFOLD_E2E_TIER": TestTier.lapsed.rawValue])
+        waitForSignedInApp(app)
+
+        openTab("Games", in: app)
+        let tile = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Sudoku")).firstMatch
+        for _ in 0..<6 where !(tile.exists && tile.isHittable) { app.swipeUp() }
+        require(tile, "No Sudoku tile on the Games hub").tap()
+        let hard = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Hard")).firstMatch
+        require(hard, "No Hard row on the difficulty picker").tap()
+
+        // Either state of the paywall: with plans, or the "couldn't load" state it shows on a run
+        // with no StoreKit configuration, like this one.
+        let paywall = app.descendants(matching: .any).matching(NSPredicate(
+            format: "label == %@ OR label == %@", "Restore purchases", "Couldn't load subscription options"
+        )).firstMatch
+        XCTAssertTrue(paywall.waitForExistence(timeout: 15), "A lapsed Premium subscriber's tap on Hard did not reach the paywall")
+        capture(app, "Premium gate - lapsed")
+    }
+
     /// The other side of the same card: a paying couple never sees it.
     @MainActor
     func testPayingCoupleIsNotShownTheNoSubscriptionCard() async throws {

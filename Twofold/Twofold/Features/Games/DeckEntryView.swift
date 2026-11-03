@@ -134,7 +134,7 @@ struct DeckEntryView: View {
         }
         guard let local = LocalGameSessionStore.create(
             deck: deck,
-            effectiveTier: appModel.subscription.tier,
+            effectiveTier: appModel.subscription.entitledTier,
             hasPartner: appModel.session.partnerConnected
         ) else {
             errorMessage = "This one needs a connection. Other decks are ready to play offline."
