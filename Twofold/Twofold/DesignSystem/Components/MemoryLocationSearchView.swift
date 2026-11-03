@@ -213,18 +213,10 @@ struct MemoryLocationSearchView: View {
         errorMessage = nil
         Task {
             do {
-                let placemarks = try await CLGeocoder().geocodeAddressString(trimmed)
-                guard let placemark = placemarks.first, let location = placemark.location else {
+                guard let address = try await GeocodedAddress.geocode(trimmed) else {
                     throw CitySearchError.noCityFound
                 }
-                let place = Place(
-                    city: trimmed,
-                    country: placemark.country ?? "",
-                    iataCode: nil,
-                    latitude: location.coordinate.latitude,
-                    longitude: location.coordinate.longitude,
-                    timeZoneIdentifier: placemark.timeZone?.identifier
-                )
+                let place = GeocodedPlace.typedAddress(trimmed, from: address)
                 onSelect(place)
                 dismiss()
             } catch {
@@ -235,24 +227,14 @@ struct MemoryLocationSearchView: View {
     }
 
     /// Reverse-geocodes a tapped map coordinate into a `Place` — the label reads back whatever
-    /// place/street name Core Location resolves for that exact spot, falling back to a plain
+    /// place/street name MapKit resolves for that exact spot, falling back to a plain
     /// lat/lon string on the rare pin that resolves to nothing nameable (open ocean, etc.).
     private func useDroppedPin(_ coordinate: CLLocationCoordinate2D) {
         isResolving = true
         errorMessage = nil
         Task {
-            let placemark = try? await CLGeocoder().reverseGeocodeLocation(CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)).first
-            let label = [placemark?.name, placemark?.locality]
-                .compactMap { $0 }
-                .first ?? String(format: "%.4f, %.4f", coordinate.latitude, coordinate.longitude)
-            let place = Place(
-                city: label,
-                country: placemark?.country ?? "",
-                iataCode: nil,
-                latitude: coordinate.latitude,
-                longitude: coordinate.longitude,
-                timeZoneIdentifier: placemark?.timeZone?.identifier
-            )
+            let address = try? await GeocodedAddress.reverseGeocode(CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude))
+            let place = GeocodedPlace.droppedPin(at: coordinate, from: address)
             onSelect(place)
             dismiss()
             isResolving = false

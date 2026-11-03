@@ -92,18 +92,13 @@ final class HomeLocationService {
     }
 
     private static func resolvePlace(from location: CLLocation) async throws -> Place {
-        let placemarks = try await CLGeocoder().reverseGeocodeLocation(location)
-        guard let placemark = placemarks.first, let city = placemark.locality else {
+        // MapKit's reverse geocoder; `GeocodedPlace.homeCity` keeps it to the city, the way
+        // `CLPlacemark.locality` did, rather than a suburb or a street.
+        guard let address = try await GeocodedAddress.reverseGeocode(location),
+              let place = GeocodedPlace.homeCity(from: address, at: cityLevelCoordinate(for: location)) else {
             throw NSError(domain: "HomeLocationService", code: 1, userInfo: [NSLocalizedDescriptionKey: "Couldn't determine your city from your location."])
         }
-        let coordinate = cityLevelCoordinate(for: location)
-        return Place(
-            city: city,
-            country: placemark.country ?? "",
-            latitude: coordinate.latitude,
-            longitude: coordinate.longitude,
-            timeZoneIdentifier: placemark.timeZone?.identifier
-        )
+        return place
     }
 
     /// The coordinate that leaves the device is the city's, never the fix itself.

@@ -64,7 +64,7 @@ final class MemoryLocationSearchCompleter {
 
         return Place(
             city: label,
-            country: item.placemark.country ?? item.addressRepresentations?.regionName ?? "",
+            country: item.addressRepresentations?.regionName ?? "",
             iataCode: nil,
             latitude: item.location.coordinate.latitude,
             longitude: item.location.coordinate.longitude,
