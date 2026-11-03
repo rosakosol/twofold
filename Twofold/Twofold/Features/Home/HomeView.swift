@@ -81,82 +81,12 @@ struct HomeView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: Theme.Spacing.md) {
-                    // Neither card is dismissable, so the subscription state is what takes them
-                    // away: resubscribing clears both without anything having to be acknowledged.
-                    // Nested rather than two sibling conditions so the lapsed card cannot outlive
-                    // the situation it describes.
-                    // Waits to be told, rather than assuming the worst while it finds out.
-                    // `canAddContent` is false before the first answer lands as well as when
-                    // somebody genuinely has not paid, and rendering the second on the way to the
-                    // first flashed "No active subscription" at a paying subscriber on every
-                    // launch. Same shape as the invite card in `PartnerStatusSection` below, and for the same reason: no
-                    // card is better than the wrong one, and the gap is one round trip.
-                    if appModel.subscription.hasResolved, !appModel.subscription.canAddContent {
-                        if let lapsedPartnerName = appModel.prompts.partnerSubscriptionLapsedPartnerName {
-                            // The specific reason, when there is one. Shown instead of the general
-                            // card rather than as well as it — two cards saying "you have no
-                            // subscription" one above the other is noise, and this one says more.
-                            SubscriptionLapsedCard(partnerName: lapsedPartnerName, onSeePlans: { showingPaywall = true })
-                        } else {
-                            NoSubscriptionCard(onSeePlans: { showingPaywall = true })
-                        }
-                    }
-
-                    PartnerStatusSection(
-                        onReviewRequest: { reviewingConnectionRequest = $0 },
-                        onShowOutgoingRequest: { showingPendingOutgoingDetail = true },
-                        onSetUpPartner: { showingPartnerSetup = true }
-                    )
-                    SetupChecklistCard(
-                        onAddTrip: { showingAddTrip = true },
-                        onAddFlight: { showingAddFlight = true },
-                        onTurnOnLocation: { showingLocationPermission = true }
-                    )
-                    PendingSharesCard(shares: pendingShares, onReview: { reviewingShare = $0 })
-                    if let partnerTimeZone = appModel.partner.homeCity?.timeZone {
-                        TimeZoneCard(
-                            person: appModel.partner,
-                            timeZone: partnerTimeZone,
-                            comparisonTimeZone: appModel.currentUser.homeCity?.timeZone,
-                            sameCity: sameCity,
-                            cityName: appModel.partner.homeCity?.displayCity,
-                            weather: weatherReading,
-                            myWeather: myWeatherReading
-                        )
-                    }
-                    if !appModel.travel.activeOrUpcomingFlights.isEmpty {
-                        HomeFlightCarousel(flights: appModel.travel.activeOrUpcomingFlights, page: $flightCarouselPage)
-                    } else if let soonestTrip {
-                        NextReunionCard(trip: soonestTrip)
-                    }
-                    if let myCity = appModel.currentUser.homeCity, let partnerCity = appModel.partner.homeCity {
-                        if sameCity {
-                            SameCityCard(city: myCity)
-                        } else if let distanceKm {
-                            DistanceCard(
-                                distanceKm: distanceKm,
-                                myCity: myCity,
-                                partnerCity: partnerCity,
-                                onShare: {
-                                    distanceShareContext = DistanceShareContext(myCity: myCity, partnerCity: partnerCity, distanceKm: distanceKm)
-                                },
-                                onOpenGlobe: {
-                                    globeFullScreenContext = GlobeFullScreenContext(myCity: myCity, partnerCity: partnerCity, distanceKm: distanceKm)
-                                }
-                            )
-                        }
-                    } else if appModel.session.hasLoadedCoupleState, appModel.needsOwnHomeCity {
-                        HomeCityPromptCard(onTap: { showingLocationPermission = true })
-                    } else if appModel.session.hasLoadedCoupleState, appModel.needsPartnerHomeCity {
-                        PartnerHomeCityPendingCard()
-                    }
-                    // Nothing in the remaining case — a solo user who has set their own city. There
-                    // is no distance to show and nobody to wait on, and `PartnerStatusSection` above
-                    // already owns the "connect with someone" prompt.
-                    if appModel.session.partnerConnected {
-                        DrawingPadCard()
-                    }
-                    RecommendedGamesSection(onSeeAllGames: onSeeAllGames)
+                    statusCards
+                    timeZoneCard
+                    travelCard
+                    distanceCard
+                    drawingPadCard
+                    gamesSection
                 }
                 .padding(Theme.Spacing.md)
             }
@@ -287,6 +217,110 @@ struct HomeView: View {
                 Text(partnerDisconnectedAlert ?? "")
             }
         }
+    }
+
+    // MARK: - Cards
+
+    /// The cards that ask for something: a lapsed subscription, the partner's status, the setup
+    /// checklist, flight shares waiting for review. Each draws nothing when there is nothing to ask.
+    @ViewBuilder
+    private var statusCards: some View {
+        // Neither card is dismissable, so the subscription state is what takes them
+        // away: resubscribing clears both without anything having to be acknowledged.
+        // Nested rather than two sibling conditions so the lapsed card cannot outlive
+        // the situation it describes.
+        // Waits to be told, rather than assuming the worst while it finds out.
+        // `canAddContent` is false before the first answer lands as well as when
+        // somebody genuinely has not paid, and rendering the second on the way to the
+        // first flashed "No active subscription" at a paying subscriber on every
+        // launch. Same shape as the invite card in `PartnerStatusSection` below, and for the same reason: no
+        // card is better than the wrong one, and the gap is one round trip.
+        if appModel.subscription.hasResolved, !appModel.subscription.canAddContent {
+            if let lapsedPartnerName = appModel.prompts.partnerSubscriptionLapsedPartnerName {
+                // The specific reason, when there is one. Shown instead of the general
+                // card rather than as well as it — two cards saying "you have no
+                // subscription" one above the other is noise, and this one says more.
+                SubscriptionLapsedCard(partnerName: lapsedPartnerName, onSeePlans: { showingPaywall = true })
+            } else {
+                NoSubscriptionCard(onSeePlans: { showingPaywall = true })
+            }
+        }
+
+        PartnerStatusSection(
+            onReviewRequest: { reviewingConnectionRequest = $0 },
+            onShowOutgoingRequest: { showingPendingOutgoingDetail = true },
+            onSetUpPartner: { showingPartnerSetup = true }
+        )
+        SetupChecklistCard(
+            onAddTrip: { showingAddTrip = true },
+            onAddFlight: { showingAddFlight = true },
+            onTurnOnLocation: { showingLocationPermission = true }
+        )
+        PendingSharesCard(shares: pendingShares, onReview: { reviewingShare = $0 })
+    }
+
+    @ViewBuilder
+    private var timeZoneCard: some View {
+        if let partnerTimeZone = appModel.partner.homeCity?.timeZone {
+            TimeZoneCard(
+                person: appModel.partner,
+                timeZone: partnerTimeZone,
+                comparisonTimeZone: appModel.currentUser.homeCity?.timeZone,
+                sameCity: sameCity,
+                cityName: appModel.partner.homeCity?.displayCity,
+                weather: weatherReading,
+                myWeather: myWeatherReading
+            )
+        }
+    }
+
+    /// The next flight, or failing that the next trip.
+    @ViewBuilder
+    private var travelCard: some View {
+        if !appModel.travel.activeOrUpcomingFlights.isEmpty {
+            HomeFlightCarousel(flights: appModel.travel.activeOrUpcomingFlights, page: $flightCarouselPage)
+        } else if let soonestTrip {
+            NextReunionCard(trip: soonestTrip)
+        }
+    }
+
+    @ViewBuilder
+    private var distanceCard: some View {
+        if let myCity = appModel.currentUser.homeCity, let partnerCity = appModel.partner.homeCity {
+            if sameCity {
+                SameCityCard(city: myCity)
+            } else if let distanceKm {
+                DistanceCard(
+                    distanceKm: distanceKm,
+                    myCity: myCity,
+                    partnerCity: partnerCity,
+                    onShare: {
+                        distanceShareContext = DistanceShareContext(myCity: myCity, partnerCity: partnerCity, distanceKm: distanceKm)
+                    },
+                    onOpenGlobe: {
+                        globeFullScreenContext = GlobeFullScreenContext(myCity: myCity, partnerCity: partnerCity, distanceKm: distanceKm)
+                    }
+                )
+            }
+        } else if appModel.session.hasLoadedCoupleState, appModel.needsOwnHomeCity {
+            HomeCityPromptCard(onTap: { showingLocationPermission = true })
+        } else if appModel.session.hasLoadedCoupleState, appModel.needsPartnerHomeCity {
+            PartnerHomeCityPendingCard()
+        }
+        // Nothing in the remaining case — a solo user who has set their own city. There
+        // is no distance to show and nobody to wait on, and `PartnerStatusSection` above
+        // already owns the "connect with someone" prompt.
+    }
+
+    @ViewBuilder
+    private var drawingPadCard: some View {
+        if appModel.session.partnerConnected {
+            DrawingPadCard()
+        }
+    }
+
+    private var gamesSection: some View {
+        RecommendedGamesSection(onSeeAllGames: onSeeAllGames)
     }
 
     private func refreshPendingShares() {
