@@ -11,7 +11,6 @@ export interface FeatureListItem {
   category: string;
   status: string;
   upvote_count: number;
-  comment_count: number;
   is_pinned: boolean;
   merged_into: string | null;
   created_at: string;

@@ -9,7 +9,7 @@ import type { FeatureListItem } from "@/lib/queries/useFeatureList";
 // see useAdminFeatures.ts, which fills `author: null` in to satisfy FeatureDetail's
 // (aka FeatureListItem's) shape instead.
 export const FEATURE_DETAIL_SELECT = `
-  id, title, slug, description, category, status, upvote_count, comment_count,
+  id, title, slug, description, category, status, upvote_count,
   is_pinned, merged_into, created_at, updated_at, author_id
 `;
 

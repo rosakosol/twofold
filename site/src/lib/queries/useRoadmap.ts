@@ -11,7 +11,6 @@ export interface RoadmapItem {
   category: string;
   status: FeatureStatus;
   upvote_count: number;
-  comment_count: number;
   created_at: string;
   // Only display_name, not the full PublicAuthorProfile shape — RequestsList's
   // FeatureCard is the only consumer (RoadmapColumn itself never renders author).
@@ -25,7 +24,7 @@ export function useRoadmap() {
       const supabase = createClient();
       const { data, error } = await supabase
         .from("feature_requests")
-        .select("id, title, description, category, status, upvote_count, comment_count, created_at, author_id")
+        .select("id, title, description, category, status, upvote_count, created_at, author_id")
         .in("status", ROADMAP_STATUSES)
         .is("merged_into", null)
         .order("upvote_count", { ascending: false });

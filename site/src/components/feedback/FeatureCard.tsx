@@ -1,4 +1,4 @@
-import { MessageCircle, Pin } from "lucide-react";
+import { Pin } from "lucide-react";
 import { VoteButton } from "@/components/feedback/VoteButton";
 import { FeatureStatusPill } from "@/components/feedback/FeatureStatusPill";
 import { CATEGORY_LABELS, type FeatureCategory, type FeatureStatus } from "@/lib/utils/constants";
@@ -15,17 +15,16 @@ export interface FeatureCardData {
   category: string;
   status: string;
   upvote_count: number;
-  comment_count: number;
   created_at: string;
   is_pinned?: boolean;
   author: { display_name: string } | null;
 }
 
 /** A request on the board (docs/TWOFOLD_WEBSITE.md, section 8): the vote on the left, then the
- *  title, description, status, category, who asked and when, and the comment count. */
+ *  title, description, status, category, and who asked and when. There are no comments on the board,
+ *  so there is no comment count (feature_requests.comment_count is always 0 and isn't selected). */
 export function FeatureCard({ feature }: { feature: FeatureCardData }) {
   const status = feature.status as FeatureStatus;
-  const comments = feature.comment_count;
 
   return (
     <article className="fb-item" aria-labelledby={`req-${feature.id}`}>
@@ -42,10 +41,6 @@ export function FeatureCard({ feature }: { feature: FeatureCardData }) {
           <span className="pill pill-raised">{CATEGORY_LABELS[feature.category as FeatureCategory]}</span>
           <span className="fb-meta">
             {feature.author?.display_name ?? "Anonymous"}, {formatRelativeTime(feature.created_at)}
-          </span>
-          <span className="fb-comments" aria-label={`${comments} ${comments === 1 ? "comment" : "comments"}`}>
-            <MessageCircle aria-hidden />
-            {comments}
           </span>
         </div>
       </div>

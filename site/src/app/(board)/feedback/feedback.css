@@ -109,20 +109,9 @@
   gap: 8px 10px;
   margin-top: 6px;
 }
-.fb-meta,
-.fb-comments {
+.fb-meta {
   font-size: var(--text-caption);
   color: var(--text-secondary);
-}
-.fb-comments {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  margin-left: auto;
-}
-.fb-comments svg {
-  width: 15px;
-  height: 15px;
 }
 
 /* The vote: 60x68, arrow over count, filled with the accent once voted. */
