@@ -78,9 +78,12 @@ conversation for the reasoning against building analytics nobody asked for), no 
 `{{first_name}}`, `{{response_time}}`, `{{ticket_id}}`, `{{received_at}}`,
 `{{message_body}}`, `{{wait_tips_html}}`, `{{help_center_url}}`, `{{support_email}}`
 
-`{{ticket_id}}` is a short generated reference (see `generateTicketId()` in the support
-route) for keeping a reply thread together — **not** a real ticketing system; there's
-nowhere to look it up. `{{wait_tips_html}}` is a full HTML block built server-side per
+`{{ticket_id}}` is the console conversation's reference: the first eight characters of its
+`support_threads` id (`threadReference()` in `lib/console/threadReference.ts`). The console
+prints it beside the conversation's subject and its search finds it, so a visitor quoting it
+can be looked up. Only when the request could not be recorded does the route fall back to a
+random one (`generateTicketId()`), which then matches nothing but still ties the receipt to
+the internal alert. `{{wait_tips_html}}` is a full HTML block built server-side per
 category (`waitTipsHtml()` in the route): concrete sync/tracking troubleshooting steps for
 Bug Report/Flight Tracking, a generic FAQ pointer for every other category — the original
 two hardcoded tips only made sense for sync issues specifically.

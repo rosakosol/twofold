@@ -7,6 +7,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { nullableArg } from "@/lib/db/nullableArg";
 import { validateSupportRequest } from "@/lib/validation/support";
 import { emailTimestamp } from "@/lib/console/format";
+import { threadReference } from "@/lib/console/threadReference";
 
 // Web counterpart to the iOS app's submit-help-message edge function
 // (supabase/functions/submit-help-message) - same category list and same recipient
@@ -108,19 +109,28 @@ export async function POST(request: Request) {
   //
   // The email is what actually notifies anybody; the row is what makes a queue possible, so a
   // visitor's request still reaches somebody even if this fails. It runs as the service role, with
-  // no user, so `submit_support_request` records a null profile and the address typed, which the
-  // console matches to an account at read time.
+  // no user, so the request is filed with a null profile and the address typed, which the console
+  // matches to an account at read time.
+  //
+  // `submit_support_request_with_thread` files it exactly as `submit_support_request` does (it
+  // calls it), and also says which console conversation it landed in, so the emails can quote a
+  // reference somebody in the console can find.
   let recorded = false;
+  let threadId: string | null = null;
   try {
-    const { error } = await supabase.rpc("submit_support_request", {
+    const { data, error } = await supabase.rpc("submit_support_request_with_thread", {
       p_category: category,
       p_message: message,
       p_email: email,
       p_name: nullableArg(name || null),
       p_source: "web",
     });
-    if (error) console.error("[support] could not record the request:", error.message);
-    else recorded = true;
+    if (error) {
+      console.error("[support] could not record the request:", error.message);
+    } else {
+      recorded = true;
+      threadId = data?.[0]?.thread_id ?? null;
+    }
   } catch (err) {
     console.error("[support] could not record the request:", (err as Error).message);
   }
@@ -137,6 +147,7 @@ export async function POST(request: Request) {
     message,
     sendReceipt: allowed === "allowed",
     recorded,
+    threadId,
   });
 
   // Success means support has it: the row is in the console's queue, or the alert is in the
@@ -149,9 +160,9 @@ export async function POST(request: Request) {
   return NextResponse.json({ ok: true });
 }
 
-/** Not a real ticketing system (see the "what are my free options" conversation) - just a
- * short reference so a reply-thread subject line stays stable and the two emails below
- * visibly refer to the same submission. */
+/** Only for when the request could not be recorded, so there is no conversation to name: the two
+ * emails still need to visibly refer to the same submission. Otherwise the reference is the
+ * thread's (`threadReference`), which is what the console shows. */
 function generateTicketId(): string {
   return Math.random().toString(36).slice(2, 8).toUpperCase();
 }
@@ -194,6 +205,9 @@ async function sendSupportEmails(input: {
   /// Whether the request row was stored. A receipt is a promise that support has the message, so
   /// it goes only once the row or the alert landed.
   recorded: boolean;
+  /// The console conversation the request was filed in, when it was. Its reference is the one both
+  /// emails quote.
+  threadId: string | null;
 }): Promise<{ alerted: boolean }> {
   // Never throws: the caller decides what a failure means from what did get through. Errors are
   // logged by message only, which never includes the visitor's address.
@@ -206,7 +220,7 @@ async function sendSupportEmails(input: {
   }
   const { transport, from } = mailer;
   const firstName = input.name.split(/\s+/)[0] || "there";
-  const ticketId = generateTicketId();
+  const ticketId = input.threadId ? threadReference(input.threadId) : generateTicketId();
   const receivedAt = formatDateTime(new Date());
   const escapedMessage = escapeHtml(input.message).replace(/\n/g, "<br>");
 

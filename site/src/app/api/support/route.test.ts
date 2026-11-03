@@ -10,8 +10,12 @@ const createZohoTransport = vi.fn();
 vi.mock("@/lib/mail/zoho", () => ({ createZohoTransport: () => createZohoTransport() }));
 
 const { POST } = await import("./route");
+const { SUPPORT_EMAIL } = await import("@/lib/mail/companyInfo");
 
 const VISITOR = "visitor@example.com";
+/** The console conversation the mock files every request in. Its reference is 4F1C09AB. */
+const THREAD_ID = "4f1c09ab-77de-4b2a-9e3c-0123456789ab";
+const RECORDED = { data: [{ request_id: "row-id", thread_id: THREAD_ID }], error: null };
 
 function submit(body: Record<string, unknown> = {}) {
   return POST(
@@ -32,12 +36,16 @@ function submit(body: Record<string, unknown> = {}) {
 /** The rpc mock: every rate-limit bucket allows, and the request row records. */
 function databaseUp() {
   rpc.mockImplementation(async (fn: string) =>
-    fn === "consume_anon_rate_limit" ? { data: true, error: null } : { data: "row-id", error: null },
+    fn === "consume_anon_rate_limit" ? { data: true, error: null } : RECORDED,
   );
 }
 
 function sentTo(address: string) {
   return sendMail.mock.calls.some(([mail]) => mail.to === address);
+}
+
+function subjectTo(address: string): string | undefined {
+  return sendMail.mock.calls.find(([mail]) => mail.to === address)?.[0].subject;
 }
 
 beforeEach(() => {
@@ -54,9 +62,33 @@ describe("POST /api/support", () => {
     sendMail.mockResolvedValue({});
     const res = await submit();
     expect(res.status).toBe(200);
-    expect(rpc).toHaveBeenCalledWith("submit_support_request", expect.objectContaining({ p_email: VISITOR }));
+    expect(rpc).toHaveBeenCalledWith(
+      "submit_support_request_with_thread",
+      expect.objectContaining({ p_email: VISITOR, p_source: "web" }),
+    );
     expect(sendMail).toHaveBeenCalledTimes(2);
     expect(sentTo(VISITOR)).toBe(true);
+  });
+
+  it("quotes the console conversation's reference on the receipt and the alert", async () => {
+    // SITE-18: the receipt's number used to be made up per email and matched nothing in the
+    // console. It is now the thread's, which the console prints beside the subject.
+    sendMail.mockResolvedValue({});
+    await submit();
+    expect(subjectTo(VISITOR)).toBe("We got your message - #4F1C09AB");
+    expect(subjectTo(SUPPORT_EMAIL)).toContain("#4F1C09AB");
+  });
+
+  it("still gives both emails one shared reference when the request couldn't be recorded", async () => {
+    rpc.mockImplementation(async (fn: string) =>
+      fn === "consume_anon_rate_limit" ? { data: true, error: null } : { data: null, error: { message: "down" } },
+    );
+    sendMail.mockResolvedValue({});
+    await submit();
+    const reference = subjectTo(VISITOR)?.match(/#(\w+)$/)?.[1];
+    expect(reference).toBeTruthy();
+    expect(reference).not.toBe("4F1C09AB");
+    expect(subjectTo(SUPPORT_EMAIL)).toContain("#" + reference);
   });
 
   it("doesn't ask the visitor to retry when only their receipt failed", async () => {
@@ -100,17 +132,17 @@ describe("POST /api/support", () => {
 
   it("records and sends nothing once rate limited", async () => {
     rpc.mockImplementation(async (fn: string) =>
-      fn === "consume_anon_rate_limit" ? { data: false, error: null } : { data: "row-id", error: null },
+      fn === "consume_anon_rate_limit" ? { data: false, error: null } : RECORDED,
     );
     const res = await submit();
     expect(res.status).toBe(429);
-    expect(rpc).not.toHaveBeenCalledWith("submit_support_request", expect.anything());
+    expect(rpc).not.toHaveBeenCalledWith("submit_support_request_with_thread", expect.anything());
     expect(sendMail).not.toHaveBeenCalled();
   });
 
   it("alerts support but sends no receipt when the limiter is unavailable", async () => {
     rpc.mockImplementation(async (fn: string) =>
-      fn === "consume_anon_rate_limit" ? { data: null, error: { message: "timeout" } } : { data: "row-id", error: null },
+      fn === "consume_anon_rate_limit" ? { data: null, error: { message: "timeout" } } : RECORDED,
     );
     sendMail.mockResolvedValue({});
     const res = await submit();

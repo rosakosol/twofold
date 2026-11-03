@@ -30,6 +30,7 @@ import { ReportedAccountPanel } from "@/components/console/ReportedAccountPanel"
 import { SupportMacros } from "@/components/console/SupportMacros";
 import { CustomerPanel, type OtherConversation } from "@/components/console/CustomerPanel";
 import { dayMonth, shortDateTime } from "@/lib/console/format";
+import { threadReference } from "@/lib/console/threadReference";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 
 export interface SupportRequest {
@@ -176,7 +177,13 @@ export function SupportQueue({
     const needle = query.trim().toLowerCase();
     const scoped = reportsOnly ? threads.filter((t) => reportOf(t) !== null) : threads;
     if (!needle) return scoped;
+    // A receipt's reference ("#4F1C09AB"), pasted with or without the #. Bare text only counts when
+    // it is a whole reference, so a word like "bad" still searches the messages.
+    const reference = needle.startsWith("#") ? needle.slice(1) : /^[0-9a-f]{8}$/.test(needle) ? needle : null;
     return scoped.filter((thread) =>
+      (reference !== null &&
+        reference.length > 0 &&
+        threadReference(thread[0].thread_id).toLowerCase().startsWith(reference)) ||
       thread.some((m) =>
         [m.name, m.email, m.subject, m.message, m.category, m.reported_name].some((field) =>
           field?.toLowerCase().includes(needle),
@@ -550,6 +557,11 @@ function Conversation({
             <h2 className="truncate text-sm font-semibold">{latest.subject || "(no subject)"}</h2>
             <CategoryPill category={latest.category} />
             <ChannelPill category={latest.category} source={latest.source} />
+            {/* The reference the website's receipt quotes, so "#4F1C09AB" from a visitor can be
+                matched to this conversation by eye. */}
+            <span className="font-mono text-xs text-muted-foreground" title="Reference quoted on the receipt">
+              #{threadReference(latest.thread_id)}
+            </span>
           </div>
           <p className="mt-0.5 truncate text-xs text-muted-foreground">
             {latest.name ? `${latest.name}, ` : ""}
