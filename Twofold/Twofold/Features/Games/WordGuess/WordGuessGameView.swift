@@ -4,8 +4,8 @@
 //
 //  The play screen: board, keyboard, and whatever the result turned out to be.
 //
-//  Keeps the system back button for the same reason sudoku does — every guess is already written to
-//  `PuzzleProgressCache`, so leaving costs nothing and there is nothing to confirm.
+//  Leaving needs no confirmation: every guess is already written to `PuzzleProgressCache`, so
+//  leaving costs nothing. The back button itself comes from `puzzleScreenChrome`.
 //
 
 import PostHog

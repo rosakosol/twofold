@@ -4,8 +4,8 @@
 //
 //  The play screen: the grid, the words still to find, and the clock.
 //
-//  Keeps the system back button for the reason sudoku does — every find is already written to
-//  `PuzzleProgressCache`, so leaving costs nothing and there is nothing to confirm.
+//  Leaving needs no confirmation: every find is already written to `PuzzleProgressCache`, so
+//  leaving costs nothing. The back button itself comes from `puzzleScreenChrome`.
 //
 
 import PostHog

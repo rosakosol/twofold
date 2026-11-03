@@ -4,11 +4,8 @@
 //
 //  The play screen: clock, grid, keypad.
 //
-//  It keeps the system back button rather than the custom `GameBackButton` the other games use.
-//  Those hide it so leaving mid-round can ask for confirmation, because their progress is only in
-//  memory. Here every tap is already written to `SudokuProgressCache`, so leaving costs nothing and
-//  there is nothing to confirm — and the system button comes with the large tap target UIKit gives
-//  it, which a custom one does not.
+//  Leaving needs no confirmation: every tap is already written to `SudokuProgressCache`, so leaving
+//  costs nothing. The back button itself comes from `puzzleScreenChrome`.
 //
 
 import SwiftUI

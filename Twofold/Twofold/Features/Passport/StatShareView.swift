@@ -8,12 +8,6 @@
 import PostHog
 import SwiftUI
 
-/// The icon-circle + title row every `FlightStatsCard`-family card leads with, followed by the
-/// big colored value/unit line — same visual role as `FlightStatsCard.heroStat`, just a single
-/// value instead of three across. Free function (not a method on either view) so both
-/// `FullStatsView`'s in-app card and `StatShareView`'s full-screen preview render an identical
-/// header from the same source.
-
 /// Everything `StatShareView` needs to re-render one full-stats section standalone — captured once
 /// when its share button is tapped, since `rows` closures only read already-available stats/scope
 /// state, not anything that changes while the sheet is open. Shared with `FullTripStatsView`.
