@@ -25,9 +25,28 @@
 import PostHog
 import SwiftUI
 
+/// What the archive list has to show once a load is over.
+///
+/// A failure is its own case. It used to be `(try? fetch()) ?? []`, so a dropped connection showed
+/// "No archived data", which tells someone who has just removed a partner that their shared
+/// history is gone (UX-3).
+enum ArchivedDataLoadResult: Equatable {
+    case loaded([ArchivedCouple])
+    case failed(String)
+
+    static func load(_ fetch: () async throws -> [ArchivedCouple]) async -> Self {
+        do {
+            return .loaded(try await fetch())
+        } catch {
+            return .failed(ErrorStateView.message(for: error))
+        }
+    }
+}
+
 struct ArchivedDataView: View {
     @State private var archivedCouples: [ArchivedCouple] = []
     @State private var isLoading = true
+    @State private var loadError: String?
     /// Hidden archives are still here and still readable — this is what makes hiding reversible,
     /// and the difference between hiding and deleting worth having.
     @State private var showingHidden = false
@@ -42,8 +61,16 @@ struct ArchivedDataView: View {
         Group {
             if isLoading {
                 ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if let loadError {
+                ErrorStateView(title: "Couldn't load your archive", message: loadError) {
+                    await load()
+                }
             } else if visibleCouples.isEmpty && hiddenCount == 0 {
-                emptyState
+                EmptyStateView(
+                    systemImage: "archivebox",
+                    title: "No archived data",
+                    message: "If you ever remove a partner, everything you shared with them will show up here."
+                )
             } else {
                 List {
                     ForEach(visibleCouples) { couple in
@@ -94,23 +121,14 @@ struct ArchivedDataView: View {
         .postHogScreenView("Settings: Archived Data")
     }
 
-    private var emptyState: some View {
-        VStack(spacing: Theme.Spacing.sm) {
-            Image(systemName: "archivebox")
-                .font(.largeTitle)
-                .foregroundStyle(Theme.textSecondary)
-            Text("No archived data").font(.headline)
-            Text("If you ever remove a partner, everything you shared with them will show up here.")
-                .font(.caption)
-                .foregroundStyle(Theme.textSecondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, Theme.Spacing.lg)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
     private func load() async {
-        archivedCouples = (try? await BackendService.fetchArchivedCouples()) ?? []
+        switch await ArchivedDataLoadResult.load({ try await BackendService.fetchArchivedCouples() }) {
+        case .loaded(let couples):
+            archivedCouples = couples
+            loadError = nil
+        case .failed(let message):
+            loadError = message
+        }
         isLoading = false
     }
 }
@@ -124,6 +142,8 @@ struct ArchivedCoupleDetailView: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var summary: ArchivedCoupleSummary?
+    /// Set when the counts could not be fetched. The card used to vanish without a word.
+    @State private var summaryError: String?
     @State private var isLoading = true
     @State private var hideError: String?
     @State private var isHidden = false
@@ -201,6 +221,24 @@ struct ArchivedCoupleDetailView: View {
                         summaryRow("Flights", summary.flightCount)
                         summaryRow("Game sessions", summary.gameSessionCount)
                     }
+                } else if let summaryError {
+                    SectionCard {
+                        Text("Couldn't load what's in this archive")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Theme.textPrimary)
+                        Text(summaryError)
+                            .font(.caption)
+                            .foregroundStyle(Theme.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Button("Try again") {
+                            Task {
+                                isLoading = true
+                                await load()
+                            }
+                        }
+                        .buttonStyle(.twofoldPrimaryCompact)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
                 if let hideError {
@@ -408,7 +446,12 @@ struct ArchivedCoupleDetailView: View {
     }
 
     private func load() async {
-        summary = try? await BackendService.fetchArchivedCoupleSummary(coupleID: couple.id)
+        do {
+            summary = try await BackendService.fetchArchivedCoupleSummary(coupleID: couple.id)
+            summaryError = nil
+        } catch {
+            summaryError = ErrorStateView.message(for: error)
+        }
         isHidden = (try? await BackendService.coupleArchiveState(coupleID: couple.id))?.hidden ?? couple.isHidden
         isLoading = false
     }
