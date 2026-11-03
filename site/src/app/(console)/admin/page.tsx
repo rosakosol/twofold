@@ -5,7 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { SearchBar } from "@/components/feedback/SearchBar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AdminFeatureTable } from "@/components/admin/AdminFeatureTable";
-import { ConsoleEmpty, ConsolePageHead, StatTiles } from "@/components/console/ConsoleUI";
+import { ConsoleEmpty, ConsolePageHead, StatTiles, ConsoleError } from "@/components/console/ConsoleUI";
 import { useAdminFeatureList, type AdminFeatureFilters } from "@/lib/queries/useAdminFeatures";
 import { STATUS_LABELS, STATUS_VALUES, type FeatureStatus } from "@/lib/utils/constants";
 
@@ -18,7 +18,7 @@ export default function AdminPage() {
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<AdminFeatureFilters["sort"]>("newest");
 
-  const { data: features, isLoading } = useAdminFeatureList({ status, search: search || undefined, sort });
+  const { data: features, isLoading, isError, refetch } = useAdminFeatureList({ status, search: search || undefined, sort });
   // Every request, whatever the filters, for the tiles: they describe the board, not the view of it.
   const { data: everything } = useAdminFeatureList({ sort: "newest" });
 
@@ -83,7 +83,14 @@ export default function AdminPage() {
             </Select>
           </div>
 
-          {isLoading ? <Skeleton className="h-64 w-full rounded-2xl" /> : <AdminFeatureTable features={features ?? []} />}
+          {isLoading ? (
+            <Skeleton className="h-64 w-full rounded-2xl" />
+          ) : isError ? (
+            // Not the table's "No requests match these filters", which is what a failed read used to say.
+            <ConsoleError title="Requests didn't load" onRetry={() => void refetch()} />
+          ) : (
+            <AdminFeatureTable features={features ?? []} />
+          )}
         </>
       )}
     </div>

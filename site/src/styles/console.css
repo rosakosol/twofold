@@ -152,6 +152,16 @@
   border-color: color-mix(in srgb, var(--success) 35%, var(--line));
   background: var(--success-bg);
 }
+/* A failed read (ConsoleError). Solid like is-success, so it never reads as the dashed "nothing
+   here" state. */
+.console-empty.is-error {
+  border-style: solid;
+  border-color: color-mix(in srgb, var(--error) 35%, var(--line));
+  background: var(--error-bg);
+}
+.console-empty-action {
+  margin-top: 16px;
+}
 .console-empty-title {
   font-size: var(--text-body);
   font-weight: 600;

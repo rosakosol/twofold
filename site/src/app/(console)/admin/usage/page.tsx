@@ -5,6 +5,7 @@ import { UsageMeter } from "@/components/console/usage/UsageMeter";
 import { UsageTrend, type UsageDay } from "@/components/console/usage/UsageTrend";
 import { UsageEndpointTable, type UsageEndpoint } from "@/components/console/usage/UsageEndpointTable";
 import { ConsolePageHead } from "@/components/console/ConsoleUI";
+import { dataOrThrow, listOrThrow } from "@/lib/console/readResult";
 import { TriangleAlert } from "lucide-react";
 
 /** Calls per distinct flight above which an endpoint is called out: one flight polled this many
@@ -33,20 +34,21 @@ export default async function UsagePage() {
   // The gate joins the batch rather than gating it, for the same reason as the account page: each
   // of these RPCs enforces is_billing_admin() itself, so running them together costs a non-admin
   // three refusals and saves every real load a round trip to Sydney.
-  const [{ data: isBillingAdmin }, summaryResult, endpointResult, seriesResult] = await Promise.all([
+  const [roleResult, summaryResult, endpointResult, seriesResult] = await Promise.all([
     supabase.rpc("is_billing_admin"),
     supabase.rpc("api_usage_summary", { p_provider: "aeroapi" }),
     supabase.rpc("api_usage_by_endpoint", { p_provider: "aeroapi" }),
     supabase.rpc("api_usage_daily_series", { p_provider: "aeroapi" }),
   ]);
 
-  if (isBillingAdmin !== true) redirect("/admin");
+  if (dataOrThrow(roleResult, "your console role") !== true) redirect("/admin");
 
   // `api_usage_summary` returns a single row; supabase-js gives a one-element array for a
-  // table-returning function.
-  const summary = Array.isArray(summaryResult.data) ? summaryResult.data[0] : null;
-  const endpoints = (endpointResult.data ?? []) as UsageEndpoint[];
-  const days = (seriesResult.data ?? []) as UsageDay[];
+  // table-returning function. A failed read throws rather than showing $0 of spend.
+  const summaryRows = listOrThrow(summaryResult, "this month's usage");
+  const summary = summaryRows[0] ?? null;
+  const endpoints = listOrThrow(endpointResult, "usage by endpoint") as UsageEndpoint[];
+  const days = listOrThrow(seriesResult, "daily usage") as UsageDay[];
 
   const hot = endpoints
     .map((e) => ({ endpoint: e.endpoint, ratio: e.distinct_upstream > 0 ? e.calls / e.distinct_upstream : 0 }))

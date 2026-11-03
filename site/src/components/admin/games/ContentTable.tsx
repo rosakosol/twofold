@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { ChevronLeft, ChevronRight, Pencil, Trash2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StatusPill } from "@/components/site/StatusPill";
-import { ConsoleEmpty } from "@/components/console/ConsoleUI";
+import { ConsoleEmpty, ConsoleError } from "@/components/console/ConsoleUI";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -108,7 +108,8 @@ export function ContentTable({
   const [editingRow, setEditingRow] = useState<ContentRow | null>(null);
   const [formOpen, setFormOpen] = useState(false);
 
-  const isLoading = deckFilter ? deckQuery.isLoading : pageQuery.isLoading;
+  const activeQuery = deckFilter ? deckQuery : pageQuery;
+  const isLoading = activeQuery.isLoading;
   const rows = deckFilter ? deckQuery.data : pageQuery.data?.rows;
   const total = deckFilter ? (deckQuery.data?.length ?? 0) : (pageQuery.data?.total ?? 0);
   const lastPage = Math.max(0, Math.ceil(total / PAGE_SIZE) - 1);
@@ -121,6 +122,8 @@ export function ContentTable({
   const inDeck = Boolean(deckFilter);
 
   if (isLoading) return <Skeleton className="h-64 w-full rounded-lg" />;
+  // Before the empty state: "No entries yet" is what a failed read used to say.
+  if (activeQuery.isError) return <ConsoleError title="Entries didn't load" onRetry={() => void activeQuery.refetch()} />;
 
   return (
     <div>

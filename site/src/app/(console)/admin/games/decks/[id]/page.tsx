@@ -10,11 +10,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useGameDeck } from "@/lib/queries/useGameContent";
 import { DeckForm } from "@/components/admin/games/DeckForm";
 import { ContentTable } from "@/components/admin/games/ContentTable";
+import { ConsoleEmpty, ConsoleError } from "@/components/console/ConsoleUI";
+import { isNotFoundError } from "@/lib/console/readResult";
 import { contentTypeForGameType } from "@/lib/games/contentTypes";
 
 export default function DeckDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const { data: deck, isLoading } = useGameDeck(id);
+  const { data: deck, isLoading, error, refetch } = useGameDeck(id);
   const [formOpen, setFormOpen] = useState(false);
 
   return (
@@ -26,8 +28,17 @@ export default function DeckDetailPage() {
         <ArrowLeft className="h-4 w-4" aria-hidden /> Back to games
       </Link>
 
-      {isLoading || !deck ? (
+      {isLoading ? (
         <Skeleton className="mt-4 h-24 w-full rounded-lg" />
+      ) : error && isNotFoundError(error) ? (
+        // An unknown or mistyped id used to keep the skeleton up forever.
+        <div className="mt-4">
+          <ConsoleEmpty title="There's no deck with this id">It may have been deleted.</ConsoleEmpty>
+        </div>
+      ) : error || !deck ? (
+        <div className="mt-4">
+          <ConsoleError title="This deck didn't load" onRetry={() => void refetch()} />
+        </div>
       ) : (
         <>
           {/* The deck in its game's gradient (docs/TWOFOLD_WEBSITE.md, section 9.2). */}

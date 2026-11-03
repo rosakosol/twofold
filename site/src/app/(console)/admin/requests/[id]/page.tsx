@@ -12,11 +12,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAdminFeature } from "@/lib/queries/useAdminFeatures";
 import { useUpdateFeatureDetails } from "@/lib/queries/useAdminMutations";
+import { ConsoleError } from "@/components/console/ConsoleUI";
+import { isNotFoundError } from "@/lib/console/readResult";
 import { CATEGORY_LABELS, CATEGORY_VALUES, type FeatureCategory } from "@/lib/utils/constants";
 
 export default function AdminEditFeaturePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const { data: feature, isLoading } = useAdminFeature(id);
+  const { data: feature, isLoading, error, refetch } = useAdminFeature(id);
   const updateDetails = useUpdateFeatureDetails(id);
 
   const [title, setTitle] = useState("");
@@ -54,6 +56,11 @@ export default function AdminEditFeaturePage({ params }: { params: Promise<{ id:
         <Skeleton className="h-32 w-full" />
       </div>
     );
+  }
+
+  if (error && !isNotFoundError(error)) {
+    // A failed read is not a missing request; this used to say "Request not found." for both.
+    return <ConsoleError title="This request didn't load" onRetry={() => void refetch()} />;
   }
 
   if (!feature) {

@@ -966,18 +966,29 @@ interface ThreadAttachment {
 function ThreadAttachments({ threadId }: { threadId: string }) {
   const [files, setFiles] = useState<ThreadAttachment[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
+  // A failed read used to look exactly like a thread with no files.
+  const [failedThreadId, setFailedThreadId] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  const loadFailed = failedThreadId === threadId;
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       const supabase = createClient();
-      const { data } = await supabase.rpc("admin_thread_attachments", { p_thread_id: threadId });
-      if (!cancelled) setFiles((data ?? []) as ThreadAttachment[]);
+      const { data, error } = await supabase.rpc("admin_thread_attachments", { p_thread_id: threadId });
+      if (cancelled) return;
+      if (error) {
+        setFiles([]);
+        setFailedThreadId(threadId);
+        return;
+      }
+      setFailedThreadId(null);
+      setFiles((data ?? []) as ThreadAttachment[]);
     })();
     return () => {
       cancelled = true;
     };
-  }, [threadId]);
+  }, [threadId, attempt]);
 
   async function open(file: ThreadAttachment) {
     setBusy(file.id);
@@ -991,6 +1002,19 @@ function ThreadAttachments({ threadId }: { threadId: string }) {
       return;
     }
     window.open(data.url, "_blank", "noopener,noreferrer");
+  }
+
+  if (loadFailed) {
+    return (
+      <div className="space-y-1.5 border-t pt-3" role="alert">
+        <p className="text-xs text-muted-foreground">
+          This thread&apos;s files didn&apos;t load, so it may have attachments you can&apos;t see.{" "}
+          <button type="button" className="underline" onClick={() => setAttempt((n) => n + 1)}>
+            Try again
+          </button>
+        </p>
+      </div>
+    );
   }
 
   if (files.length === 0) return null;

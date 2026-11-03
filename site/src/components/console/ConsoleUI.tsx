@@ -50,3 +50,32 @@ export function ConsoleEmpty({ title, children, tone }: { title: string; childre
     </div>
   );
 }
+
+/**
+ * A read that failed, said as such. The counterpart to ConsoleEmpty, and deliberately unlike it: an
+ * empty state says "nothing needs you", and a failed read must never look like one. `onRetry` is
+ * optional so server markup can use it too; client pages pass their query's `refetch`.
+ */
+export function ConsoleError({
+  title = "This didn't load",
+  children,
+  onRetry,
+}: {
+  title?: string;
+  children?: ReactNode;
+  onRetry?: () => void;
+}) {
+  return (
+    <div className="console-empty is-error" role="alert">
+      <p className="console-empty-title">{title}</p>
+      <div className="console-empty-body">
+        {children ?? "The read failed, so nothing below is known to be empty. Try again, or check the logs if it keeps happening."}
+      </div>
+      {onRetry && (
+        <button type="button" className="btn btn-secondary btn-sm console-empty-action" onClick={onRetry}>
+          Try again
+        </button>
+      )}
+    </div>
+  );
+}

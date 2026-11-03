@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { nullableArg } from "@/lib/db/nullableArg";
+import { dataOrThrow, listOrThrow } from "@/lib/console/readResult";
 import { SupportQueue, type SupportRequest } from "@/components/console/SupportQueue";
 
 export const metadata: Metadata = { title: "Support" };
@@ -32,13 +33,15 @@ export default async function SupportPage({
   // Together, not one behind the other: admin_support_requests enforces is_support_admin() in its
   // own body, so gating on the check first only makes every real load wait a round trip for an
   // answer that is almost always yes.
-  const [{ data: isSupportAdmin }, { data }] = await Promise.all([
+  const [roleResult, requestsResult] = await Promise.all([
     supabase.rpc("is_support_admin"),
     supabase.rpc("admin_support_requests", { p_status: nullableArg(filter), p_limit: 200 }),
   ]);
 
-  if (isSupportAdmin !== true) redirect("/admin");
-  const requests = (data ?? []) as SupportRequest[];
+  // Role first (the inbox read fails on purpose without it), then a failed inbox read throws to
+  // the console's error page rather than rendering as an empty inbox.
+  if (dataOrThrow(roleResult, "your console role") !== true) redirect("/admin");
+  const requests = listOrThrow(requestsResult, "the support inbox") as SupportRequest[];
 
   return (
     <SupportQueue

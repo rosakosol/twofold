@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ConsoleEmpty, ConsolePageHead, StatTiles } from "@/components/console/ConsoleUI";
 import { StatusPill } from "@/components/site/StatusPill";
 import type { ReportedAccount } from "@/lib/console/accountDetail";
+import { dataOrThrow, listOrThrow } from "@/lib/console/readResult";
 
 export const metadata: Metadata = { title: "Moderation" };
 export const dynamic = "force-dynamic";
@@ -40,7 +41,7 @@ export default async function ModerationPage() {
 
   // Same as every other console page: the read enforces the role itself, so the check rides
   // alongside it rather than in front of it.
-  const [{ data: isSupportAdmin }, { data }, { data: openRequests }, { data: reportedData }] = await Promise.all([
+  const [roleResult, blockedResult, openResult, reportedResult] = await Promise.all([
     supabase.rpc("is_support_admin"),
     supabase.rpc("admin_most_blocked", { p_min_blocks: 2, p_limit: 50 }),
     // The same read the Support page makes, for the count of open abuse reports.
@@ -48,13 +49,18 @@ export default async function ModerationPage() {
     supabase.rpc("admin_reported_accounts", { p_limit: 200 }),
   ]);
 
-  if (isSupportAdmin !== true) redirect("/admin");
-  const rows = (data ?? []) as MostBlocked[];
+  // The role first: for anybody without it the other three reads fail on purpose (42501), and they
+  // belong on /admin rather than on an error page. Then every read has to have worked, because this
+  // page's empty state says "nothing to look at", which a failed read must never say.
+  if (dataOrThrow(roleResult, "your console role") !== true) redirect("/admin");
+  const rows = listOrThrow(blockedResult, "repeatedly blocked accounts") as MostBlocked[];
   // Block notices ride along in the same rows; an account only blocked, never reported, is the
   // other card's business.
-  const reported = ((reportedData ?? []) as ReportedAccount[]).filter((row) => row.report_count > 0);
+  const reported = (listOrThrow(reportedResult, "reported accounts") as ReportedAccount[]).filter(
+    (row) => row.report_count > 0,
+  );
   const openReports = new Set(
-    ((openRequests ?? []) as { thread_id: string; category: string }[])
+    (listOrThrow(openResult, "open abuse reports") as { thread_id: string; category: string }[])
       .filter((r) => r.category === "Report Abuse")
       .map((r) => r.thread_id),
   ).size;

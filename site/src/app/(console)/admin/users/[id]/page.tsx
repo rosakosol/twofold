@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { AccountDetailView } from "@/components/console/AccountDetailView";
 import type { CoupleArchive } from "@/components/console/AccountArchives";
 import type { FlightOverride } from "@/components/console/AccountGrants";
+import { dataOrThrow, isNotFoundError, listOrThrow } from "@/lib/console/readResult";
 import type { AccountDetail, AuditEntry, ReportAboutAccount } from "@/lib/console/accountDetail";
 
 export const metadata: Metadata = { title: "Account" };
@@ -35,7 +36,7 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
   // is_support_admin() in its own body and raises 42501 otherwise, so a non-admin firing the other
   // five costs five refusals and learns nothing; the alternative is making every legitimate load
   // wait for a permission check whose answer is almost always yes.
-  const [{ data: isSupportAdmin }, detailResult, auditResult, overrideResult, archivesResult, reportsResult] = await Promise.all([
+  const [roleResult, detailResult, auditResult, overrideResult, archivesResult, reportsResult] = await Promise.all([
     supabase.rpc("is_support_admin"),
     supabase.rpc("admin_account_detail", { p_profile_id: id }),
     supabase.rpc("admin_audit_for_subject", { p_profile_id: id, p_limit: AUDIT_LIMIT }),
@@ -44,13 +45,19 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
     supabase.rpc("admin_reports_about", { p_profile_id: id }),
   ]);
 
-  if (isSupportAdmin !== true) redirect("/admin");
-  if (detailResult.error || !detailResult.data) notFound();
+  if (dataOrThrow(roleResult, "your console role") !== true) redirect("/admin");
+  // "No such account" only when it is one: a null row (unknown id) or a malformed id. A refusal or
+  // an outage used to land here too, telling the operator an account they could see a moment ago
+  // did not exist.
+  if (isNotFoundError(detailResult.error)) notFound();
+  const detailData = dataOrThrow(detailResult, "this account");
+  if (!detailData) notFound();
 
-  const detail = detailResult.data as unknown as AccountDetail;
-  const audit = (auditResult.data ?? []) as AuditEntry[];
-  const override = (overrideResult.data ?? null) as FlightOverride | null;
-  const archives = (archivesResult.data ?? []) as CoupleArchive[];
+  const detail = detailData as unknown as AccountDetail;
+  const audit = listOrThrow(auditResult, "this account's history") as AuditEntry[];
+  const override = dataOrThrow(overrideResult, "this account's flight limit") as FlightOverride | null;
+  const archives = listOrThrow(archivesResult, "this account's archives") as CoupleArchive[];
+  // Reports keep their own inline failure state (AccountReports), so they don't take the page down.
   const reports = (reportsResult.data ?? []) as ReportAboutAccount[];
 
   return (
