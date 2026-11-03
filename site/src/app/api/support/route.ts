@@ -39,8 +39,7 @@ type RateLimitOutcome = "allowed" | "refused" | "unavailable";
 /// outage must not take the support form down with it. The caller decides what a degraded mode
 /// means — here, the internal alert still goes and the caller-addressed receipt does not.
 async function withinRateLimit(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  supabase: any,
+  supabase: ReturnType<typeof createServiceClient>,
   buckets: { bucket: string; subject: string; limit: number }[],
 ): Promise<RateLimitOutcome> {
   for (const { bucket, subject, limit } of buckets) {
