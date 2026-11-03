@@ -20,8 +20,7 @@ matter most, the games, and every Supabase edge function with its caller. For wh
 6. [Screen map](#screen-map)
    - [Top level](#top-level) · [Onboarding](#onboarding) · [Home](#home-tab) · [Travel](#travel-tab) ·
      [Memories](#memories-tab) · [Games](#games-tab) · [Stats](#stats-tab) · [Settings](#settings) ·
-     [App-wide presentations](#app-wide-presentations) · [Deep links and notification taps](#deep-links-and-notification-taps) ·
-     [Unreachable screens](#screens-with-no-way-in)
+     [App-wide presentations](#app-wide-presentations) · [Deep links and notification taps](#deep-links-and-notification-taps)
 7. [Critical flows](#critical-flows)
    - [Sign-up and onboarding](#1-sign-up-and-onboarding) · [Pairing partners](#2-pairing-partners) ·
      [Adding and tracking a flight](#3-adding-and-tracking-a-flight) ·
@@ -101,7 +100,7 @@ Everything below is under [`Twofold/Twofold/`](Twofold/Twofold/).
 | [`Features/Games/`](Twofold/Twofold/Features/Games/) | Games hub, the four conversation games, and a subfolder per puzzle game |
 | [`Features/DrawingPad/`](Twofold/Twofold/Features/DrawingPad/) | Shared drawing pad (card on Home, editor, full-screen views) |
 | [`Features/Passport/`](Twofold/Twofold/Features/Passport/) | Stats tab (named Passport in code) and its share cards |
-| [`Features/Snapshot/`](Twofold/Twofold/Features/Snapshot/) | Distance share card, snapshot themes |
+| [`Features/Snapshot/`](Twofold/Twofold/Features/Snapshot/) | Distance share card |
 | [`Features/Paywall/`](Twofold/Twofold/Features/Paywall/) | `PaywallView`, `SubscriptionStore`, partner-manages and pending-approval screens |
 | [`Features/Settings/`](Twofold/Twofold/Features/Settings/) | Settings and everything under it |
 | [`DesignSystem/`](Twofold/Twofold/DesignSystem/) | `Theme.swift`, the Aurora dark palette, and shared components (including `AddContentGate`, which swaps an add sheet for the paywall when there's no subscription) |
@@ -235,8 +234,6 @@ Notes:
   `ResetPasswordView` as a full-screen cover.
 * `AddTripDetailsView` is shared. Onboarding uses `mode: .onboarding`, and Home and Travel use
   `mode: .standalone`.
-* `ShareInviteView` and `ConnectPartnerView` belong to an older inviter path. `ShareInviteView`
-  is still reachable; `ConnectPartnerView` isn't (see [Screens with no way in](#screens-with-no-way-in)).
 * Launch arguments like `-onboardingStep <name>` (DEBUG only) jump to a step for UI tests. See
   `OnboardingStep(debugArgument:)`.
 
@@ -430,23 +427,6 @@ and [`InviteCode.swift`](Twofold/Twofold/Features/Onboarding/InviteCode.swift), 
 | `route: daily_question` | `.dailyQuestion` | Games tab (the Daily card opens today's session) |
 | `route: drawing_pad` / `partner_drawing_pad` | `.drawingPad` / `.partnerDrawingPad` | Drawing pad |
 | `route: invite_partner` | `.invitePartner` | Home tab |
-
-### Screens with no way in
-
-These views compile, but nothing in the app presents them. Delete them, or wire them up:
-
-* `Settings/WidgetsCatalogView.swift`: a placeholder list of widgets
-* `Settings/LanguageSettingsView.swift`: links to the system per-app language page
-* `Onboarding/ConnectPartnerView.swift`: the `.connectPartner` step exists, but nothing pushes it
-  (only `OnboardingInviteContinueTests` does). It lost its caller in the onboarding revamp
-  (`843eb7c`). The pairing UI in use is `Onboarding/PartnerConnectCard.swift` ("share my code / enter
-  theirs"), embedded in `InvitePartnerView`, `PartnerSetupView`, `PartnerRequiredGateView` and
-  `PartnerInviteNudgeView`. It leads to `ShareInviteView` and `RedeemPartnerCodeView`.
-* `Snapshot/SnapshotShareView.swift` (with `SnapshotThemeCard`): `HomeView` still attaches its sheet,
-  but nothing sets `showingSnapshot`. `de5e443` pointed Home's share button at
-  `Snapshot/DistanceShareView` instead. The share screens in use are `DistanceShareView` (Home's
-  distance card) and the Stats tab's `RelationshipStatsShareView`, `TripStatsShareView` and
-  `PassportShareView`.
 
 ---
 
@@ -1035,4 +1015,3 @@ label is not unique.
 * The privacy policy and terms still carry a "pending legal review" notice. Every `[TO CONFIRM]`
   placeholder has been answered, so both are complete but unpublished.
   `site/scripts/seed-privacy-policy.mjs` and `seed-terms.mjs` are dry runs unless passed `--write`.
-* Four screens have no way in (see [Screens with no way in](#screens-with-no-way-in)).
