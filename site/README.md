@@ -235,12 +235,12 @@ paid a round trip to Sydney on every marketing page — pure latency on the page
 ## Deploy
 
 Vercel project, Root Directory = `site`, region `syd1` (`vercel.json`) to sit next to the
-Supabase project. Add an Ignored Build Step so commits to `Twofold/` or the repo-root
-`supabase/` don't trigger a rebuild:
-
-```
-git diff --quiet HEAD^ HEAD -- site
-```
+Supabase project. Commits that touch only `Twofold/` or the repo-root `supabase/` don't rebuild
+the site: `vercel.json`'s `ignoreCommand` runs `scripts/vercel-ignore-build.sh`, which compares
+`site/` against `VERCEL_GIT_PREVIOUS_SHA` (the last successful deployment), so a push of several
+commits is judged as a whole rather than by its last commit. It builds whenever it can't tell:
+first deploy, a redeploy of the same commit, or a previous commit missing from the clone. Leave the
+dashboard's Ignored Build Step empty: `vercel.json` is the one place it's set.
 
 Set every variable from the table above in Vercel. Then, in the shared Supabase project:
 
