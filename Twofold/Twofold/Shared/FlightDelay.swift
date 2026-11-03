@@ -25,9 +25,6 @@ nonisolated enum FlightDelay {
     /// More than this is delayed. Matches the server's `DELAY_THRESHOLD_SECONDS`.
     static let thresholdSeconds = 300
 
-    /// The on-time-performance bucket the historical delay stats use — never a live reading.
-    static let onTimePerformanceWindowSeconds = 15 * 60
-
     /// How far a time ran from its schedule, in the terms the departure and arrival cards print.
     enum Deviation: Equatable {
         case early(minutes: Int)

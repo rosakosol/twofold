@@ -106,8 +106,7 @@ extension JourneyActivityAttributes {
             flightID: UUID(),
             travelerName: "Erin",
             partnerName: "Sam",
-            // The partner's view: Erin is flying, Sam is waiting. `previewTravelling` below is the
-            // same flight from Erin's own phone.
+            // The partner's view: Erin is flying, Sam is waiting.
             viewerIsTraveler: false,
             flightNumber: "QF9",
             airlineName: "Qantas",
@@ -116,17 +115,6 @@ extension JourneyActivityAttributes {
             destinationCode: "SIN",
             destinationCity: "Singapore"
         )
-    }
-}
-
-extension JourneyActivityAttributes {
-    /// The same journey as `preview`, seen by the person actually on the plane.
-    fileprivate static var previewTravelling: JourneyActivityAttributes {
-        var attributes = preview
-        attributes.travelerName = "Sam"
-        attributes.partnerName = "Erin"
-        attributes.viewerIsTraveler = true
-        return attributes
     }
 }
 
