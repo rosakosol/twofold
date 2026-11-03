@@ -117,9 +117,14 @@ struct AirlineLogoView: View {
                 .background(Theme.accentBackground, in: RoundedRectangle(cornerRadius: min(width, height) * 0.28, style: .continuous))
                 .accessibilityLabel(fallbackCode)
         } else {
+            // Sized to the frame, not the text style: the glyph sits in a fixed slot beside the
+            // airline's name, and at an accessibility size a body-sized plane spilled out of it
+            // and over the name.
             Image(systemName: "airplane")
+                .font(.system(size: min(width, height) * 0.75))
                 .foregroundStyle(Theme.textSecondary)
                 .frame(width: width, height: height)
+                .accessibilityHidden(true)
         }
     }
 

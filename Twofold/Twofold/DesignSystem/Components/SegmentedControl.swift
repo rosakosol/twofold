@@ -38,6 +38,10 @@ struct TwofoldSegmentedControl<Value: Hashable>: View {
                         .font(.subheadline.weight(.semibold))
                         .lineLimit(1)
                         .minimumScaleFactor(0.75)
+                        // Each segment gets an equal share of one row, so past the largest
+                        // non-accessibility size a longer label ("Relationship") was cut to
+                        // "Relati…". The system's own segmented control stops growing there too.
+                        .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                         .foregroundStyle(isSelected ? Theme.textPrimary : Theme.textSecondary)
                         .frame(maxWidth: .infinity, minHeight: segmentHeight)
                         .padding(.horizontal, Theme.Spacing.sm)

@@ -131,10 +131,17 @@ struct DrawingPadCard: View {
     }
 
     private var emptyPadHint: some View {
-        VStack(spacing: 4) {
+        VStack(spacing: Theme.Spacing.xs) {
             Image(systemName: "pencil.and.scribble")
-            Text("Tap to draw").font(.caption2)
+            Text("Tap to draw")
+                .font(.caption2)
+                .multilineTextAlignment(.center)
+                .minimumScaleFactor(0.7)
         }
+        .padding(Theme.Spacing.xs)
+        // The pad is a fixed 120pt high and half the card wide, so past this the hint cannot fit
+        // whatever it does, and was cut to "Tap to dr…".
+        .dynamicTypeSize(...DynamicTypeSize.accessibility1)
         // The paper's own ink, not `textSecondary`: the paper stays light in dark mode, where the
         // adaptive token turns pale and would vanish on it.
         .foregroundStyle(Brand.paperInkSecondary)
