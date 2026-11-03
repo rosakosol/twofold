@@ -20,8 +20,8 @@ enum DistanceShareTheme: String, CaseIterable, Identifiable {
         }
     }
 
-    /// Colors drawn from `ShareCardPalette`'s canvases (the `sky` accent on the dark canvas and
-    /// the light pastel one). All three are fixed:
+    /// Colors drawn from `ShareCardPalette` (the `sky` accent on the dark canvas and the light
+    /// pastel one, and the light `heart`), not copied out of it. All three are fixed:
     /// `.classic` is the light canvas, `.dark` the dark one and `.pink` the light-heart one, so
     /// picking a theme looks the same regardless of the system's own setting.
     ///
@@ -35,40 +35,21 @@ enum DistanceShareTheme: String, CaseIterable, Identifiable {
     /// same reason `ShareCardPalette` exists at all rather than these cards using `Theme.*`. A
     /// theme picker naming a colour should produce that colour.
     var backgroundGradient: LinearGradient {
-        switch self {
-        case .classic:
-            LinearGradient(
-                colors: [
-                    Color(hex: "E4F2FC"),
-                    Color(hex: "D3E9F8"),
-                    Color(hex: "DFF2EC"),
-                ],
-                startPoint: .top, endPoint: .bottom
-            )
-        case .dark:
-            LinearGradient(colors: [Color(hex: "123045"), Color(hex: "0C2233"), Color(hex: "08161F")], startPoint: .top, endPoint: .bottom)
-        case .pink:
-            LinearGradient(colors: [Color(hex: "FDEAEC"), Color(hex: "FBE0E4"), Color(hex: "F6E6EE")], startPoint: .top, endPoint: .bottom)
-        }
+        LinearGradient(colors: palette.canvas, startPoint: .top, endPoint: .bottom)
     }
+
+    /// The `ShareCardPalette` this theme is.
+    private var palette: ShareCardPalette {
+        ShareCardPalette.resolve(accent, dark: self == .dark)
+    }
+
+    private var accent: ShareCardAccent { self == .pink ? .heart : .sky }
 
     /// The soft radial highlight glow layered over the background gradient's top — the accent's
     /// own base hue (`DistanceShareCard` applies the opacity).
-    var glowColor: Color {
-        switch self {
-        case .classic: Color(hex: "6EC1F0")
-        case .dark: Color(hex: "4FA9E0")
-        case .pink: Color(hex: "E85C6B")
-        }
-    }
+    var glowColor: Color { ShareCardPalette.glowHue(accent, dark: self == .dark) }
 
-    var primaryTextColor: Color {
-        switch self {
-        case .classic: Color(hex: "16232F")
-        case .dark: Color(hex: "F4F9FC")
-        case .pink: Color(hex: "16232F")
-        }
-    }
+    var primaryTextColor: Color { palette.foreground }
 
     var secondaryTextColor: Color {
         switch self {
@@ -81,11 +62,5 @@ enum DistanceShareTheme: String, CaseIterable, Identifiable {
     /// The comparison-stat line's color — the accent's own text-safe tone (never the fill tone),
     /// needs to read clearly against its own background, not just be "the accent color" in the
     /// abstract.
-    var accentTextColor: Color {
-        switch self {
-        case .classic: Color(hex: "1F6F9E")
-        case .dark: Color(hex: "8ACFF5")
-        case .pink: Color(hex: "C2334A")
-        }
-    }
+    var accentTextColor: Color { palette.accent }
 }

@@ -133,8 +133,8 @@ struct LiveActivitySellView: View {
         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
     }
 
-    /// The Live Activity's one accent, the same value `LiveActivityPalette.liveActivityAccent` uses.
-    private var accent: Color { Color(hex: 0x6AA5F5) }
+    /// The Live Activity's one accent, the same token `LiveActivityPalette.liveActivityAccent` reads.
+    private var accent: Color { Brand.accentOnDark }
 
     /// The photo they added for their partner a few screens back, or their initial.
     @ViewBuilder
@@ -178,7 +178,7 @@ struct LiveActivitySellView: View {
                 Capsule().fill(accent).frame(width: x, height: 4)
                 Image(systemName: "airplane")
                     .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(Color(hex: 0x0B0F16))
+                    .foregroundStyle(Brand.inkOnAccentOnDark)
                     .frame(width: 26, height: 26)
                     .background(accent, in: Circle())
                     .position(x: x, y: geo.size.height / 2)

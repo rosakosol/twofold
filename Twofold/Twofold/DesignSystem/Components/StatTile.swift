@@ -20,7 +20,7 @@ struct StatTile: View {
 
         var gradient: LinearGradient {
             switch self {
-            case .blue: Brand.gradient(0x1A6FD6, 0x0B5FB0)
+            case .blue: Brand.flight
             case .green: Brand.greenGradient
             case .indigo: Brand.indigoGradient
             case .coral: Brand.coralGradient

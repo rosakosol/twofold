@@ -217,10 +217,8 @@ enum GameType: String, Codable, CaseIterable, Hashable, Identifiable {
         switch self {
         // Section 2.5's game colours for the four conversation games, as fixed fills so white
         // icons stay legible in both appearances. Puzzles take one brand hue each.
-        case .triviaBattle: [Color(hex: 0x1F8636), Color(hex: 0x16702A)]
-        case .moreLikely: [Color(hex: 0xD23A52), Color(hex: 0xB8274A)]
-        case .thisOrThat: [Color(hex: 0x1A6FD6), Color(hex: 0x0B5FB0)]
-        case .deepConversations: [Color(hex: 0x3A56D9), Color(hex: 0x2B3FB0)]
+        case .triviaBattle, .moreLikely, .thisOrThat, .deepConversations:
+            [Color(hex: gradientStops.from), Color(hex: gradientStops.to)]
         case .sudoku: [Theme.indigoFill, Theme.accentFill]
         case .wordGuess: [Theme.successFill, Theme.accentFill]
         case .wordSearch: [Theme.accentFill, Theme.indigoFill]
@@ -230,28 +228,21 @@ enum GameType: String, Codable, CaseIterable, Hashable, Identifiable {
 
     /// The game's colour (docs/TWOFOLD_DESIGN.md, section 2.5). It follows the game everywhere:
     /// its tile, its play card, its results header and its share card. White text on all of them.
-    var gradient: LinearGradient { Brand.gradient(gradientStops.from, gradientStops.to) }
+    var gradient: LinearGradient { Brand.gradient(gradientStops) }
 
     /// The two stops of `gradient`, for anything that needs the colours rather than the gradient
     /// (a share card's canvas).
-    var gradientStops: (from: UInt32, to: UInt32) {
+    var gradientStops: Brand.Stops {
         switch self {
-        case .deepConversations, .sudoku: (0x3A56D9, 0x2B3FB0)
-        case .thisOrThat, .wordSearch: (0x1A6FD6, 0x0B5FB0)
-        case .triviaBattle, .wordGuess: (0x1F8636, 0x16702A)
-        case .moreLikely, .connectFour: (0xD23A52, 0xB8274A)
+        case .deepConversations, .sudoku: Brand.indigoStops
+        case .thisOrThat, .wordSearch: Brand.blueStops
+        case .triviaBattle, .wordGuess: Brand.greenStops
+        case .moreLikely, .connectFour: Brand.coralStops
         }
     }
 
     /// The hue behind `gradient`, for the tinted icon chips puzzles use on neutral cards (2.6).
-    var baseHue: UInt32 {
-        switch self {
-        case .deepConversations, .sudoku: 0x3A56D9
-        case .thisOrThat, .wordSearch: 0x1A6FD6
-        case .triviaBattle, .wordGuess: 0x1F8636
-        case .moreLikely, .connectFour: 0xD23A52
-        }
-    }
+    var baseHue: UInt32 { gradientStops.from }
 
     /// A tinted chip behind the game's icon: 26% of the hue over white, 45% over the night colour.
     var chipTint: Color { Brand.tint(baseHue) }

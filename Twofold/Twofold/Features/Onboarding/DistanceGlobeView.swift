@@ -205,7 +205,7 @@ struct DistanceGlobeView: View {
                         path.addLine(to: point)
                     }
                 }
-                .stroke(Color(hex: 0x6AA5F5), style: StrokeStyle(lineWidth: 3, lineCap: .round, dash: [2, 11]))
+                .stroke(Brand.accentOnDark, style: StrokeStyle(lineWidth: 3, lineCap: .round, dash: [2, 11]))
             }
             .frame(width: Self.globeSize, height: Self.globeSize)
             .scaleEffect(Self.globeOverscan)

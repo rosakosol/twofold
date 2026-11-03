@@ -105,16 +105,16 @@ struct ShareCardPalette {
                 globeLine: Color.white.opacity(0.3)
             )
         case .night:
-            let night = Color(hex: 0x141A23)
+            let night = Theme.Share.night, accent = Brand.accentOnDark
             return ShareCardPalette(
                 canvas: [night, night, night],
-                glow: Color(hex: 0x6AA5F5, alpha: 0.16),
-                accent: Color(hex: 0x6AA5F5),
-                chip: Color(hex: 0x6AA5F5, alpha: 0.18),
-                chipLine: Color(hex: 0x6AA5F5, alpha: 0.4),
-                fill: Color(hex: 0x6AA5F5),
-                bubbleForeground: Color(hex: 0x0B0F16),
-                foreground: Color(hex: 0xF3F5F8),
+                glow: accent.opacity(0.16),
+                accent: accent,
+                chip: accent.opacity(0.18),
+                chipLine: accent.opacity(0.4),
+                fill: accent,
+                bubbleForeground: Brand.inkOnAccentOnDark,
+                foreground: Theme.Share.nightInk,
                 surface: Color.white.opacity(0.07),
                 surfaceLine: Color.white.opacity(0.14),
                 track: Color.white.opacity(0.16),
@@ -124,14 +124,14 @@ struct ShareCardPalette {
                 globeLine: Color.white.opacity(0.22)
             )
         case .paper:
-            let paper = Color(hex: 0xFAF7F2), ink = Color(hex: 0x2A2118)
+            let paper = Theme.Share.paper, ink = Theme.Share.paperInk, stamp = Theme.Share.stampInk
             return ShareCardPalette(
                 canvas: [paper, paper, paper],
                 glow: .clear,
-                accent: Color(hex: 0x1767D0),
-                chip: Color(hex: 0x1767D0, alpha: 0.1),
-                chipLine: Color(hex: 0x1767D0, alpha: 0.3),
-                fill: Color(hex: 0x1767D0),
+                accent: stamp,
+                chip: stamp.opacity(0.1),
+                chipLine: stamp.opacity(0.3),
+                fill: stamp,
                 bubbleForeground: .white,
                 foreground: ink,
                 surface: ink.opacity(0.05),
@@ -147,7 +147,10 @@ struct ShareCardPalette {
 
     private struct AccentColors {
         let canvas: [Color]
-        let glow: Color
+        /// The glow's own hue, before the opacity it is drawn at.
+        let glowHue: Color
+        let glowOpacity: Double
+        var glow: Color { glowHue.opacity(glowOpacity) }
         let accent: Color
         let chip: Color
         let chipLine: Color
@@ -158,7 +161,7 @@ struct ShareCardPalette {
     private static let darkAccents: [ShareCardAccent: AccentColors] = [
         .sky: AccentColors(
             canvas: [Color(hex: "123045"), Color(hex: "0C2233"), Color(hex: "08161F")],
-            glow: Color(hex: "4FA9E0").opacity(0.3),
+            glowHue: Color(hex: "4FA9E0"), glowOpacity: 0.3,
             accent: Color(hex: "8ACFF5"),
             chip: Color(hex: "4FA9E0").opacity(0.22),
             chipLine: Color(hex: "8ACFF5").opacity(0.4),
@@ -167,7 +170,7 @@ struct ShareCardPalette {
         ),
         .leaf: AccentColors(
             canvas: [Color(hex: "0F3229"), Color(hex: "0C2A2A"), Color(hex: "07171B")],
-            glow: Color(hex: "6FBF8B").opacity(0.3),
+            glowHue: Color(hex: "6FBF8B"), glowOpacity: 0.3,
             accent: Color(hex: "8FE3AE"),
             chip: Color(hex: "6FBF8B").opacity(0.22),
             chipLine: Color(hex: "8FE3AE").opacity(0.4),
@@ -176,7 +179,7 @@ struct ShareCardPalette {
         ),
         .heart: AccentColors(
             canvas: [Color(hex: "331B26"), Color(hex: "2A1620"), Color(hex: "170D14")],
-            glow: Color(hex: "E85C6B").opacity(0.28),
+            glowHue: Color(hex: "E85C6B"), glowOpacity: 0.28,
             accent: Color(hex: "FFA3AB"),
             chip: Color(hex: "E85C6B").opacity(0.22),
             chipLine: Color(hex: "FFA3AB").opacity(0.4),
@@ -188,7 +191,7 @@ struct ShareCardPalette {
     private static let lightAccents: [ShareCardAccent: AccentColors] = [
         .sky: AccentColors(
             canvas: [Color(hex: "E4F2FC"), Color(hex: "D3E9F8"), Color(hex: "DFF2EC")],
-            glow: Color(hex: "6EC1F0").opacity(0.4),
+            glowHue: Color(hex: "6EC1F0"), glowOpacity: 0.4,
             accent: Color(hex: "1F6F9E"),
             chip: Color(hex: "4FA9E0").opacity(0.18),
             chipLine: Color(hex: "3D8FC9").opacity(0.34),
@@ -197,7 +200,7 @@ struct ShareCardPalette {
         ),
         .leaf: AccentColors(
             canvas: [Color(hex: "E3F5EA"), Color(hex: "D6EFE2"), Color(hex: "E7F5DE")],
-            glow: Color(hex: "6FBF8B").opacity(0.4),
+            glowHue: Color(hex: "6FBF8B"), glowOpacity: 0.4,
             accent: Color(hex: "1E7A4B"),
             chip: Color(hex: "6FBF8B").opacity(0.2),
             chipLine: Color(hex: "4F9E6C").opacity(0.34),
@@ -206,7 +209,7 @@ struct ShareCardPalette {
         ),
         .heart: AccentColors(
             canvas: [Color(hex: "FDEAEC"), Color(hex: "FBE0E4"), Color(hex: "F6E6EE")],
-            glow: Color(hex: "E85C6B").opacity(0.32),
+            glowHue: Color(hex: "E85C6B"), glowOpacity: 0.32,
             accent: Color(hex: "C2334A"),
             chip: Color(hex: "E85C6B").opacity(0.16),
             chipLine: Color(hex: "D1465A").opacity(0.3),
@@ -214,6 +217,11 @@ struct ShareCardPalette {
             bubbleForeground: .white
         ),
     ]
+
+    /// The glow's hue without its opacity, for a card that applies its own (`DistanceShareTheme`).
+    static func glowHue(_ accent: ShareCardAccent, dark: Bool) -> Color {
+        (dark ? darkAccents[accent]! : lightAccents[accent]!).glowHue
+    }
 
     /// The 158°, 3-stop canvas gradient every share card uses as its background.
     var canvasGradient: LinearGradient {

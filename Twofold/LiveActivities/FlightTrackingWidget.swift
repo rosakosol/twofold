@@ -205,7 +205,7 @@ struct FlightTrackingWidgetView: View {
                 Label("Delayed \(delayMinutes) min", systemImage: "clock")
                     .labelStyle(.titleAndIcon)
                     .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(Color(hex: 0x9A5A0B))
+                    .foregroundStyle(Brand.delayedOnWhite)
                     .padding(.horizontal, 7)
                     .padding(.vertical, 3)
                     .background(.white, in: Capsule())
@@ -338,7 +338,7 @@ struct FlightTrackingWidgetView: View {
                 Image(systemName: "airplane")
                     .font(.system(size: markerSize * 0.45, weight: .bold))
                     // The gradient's own blue, fixed: the disc is white in both appearances.
-                    .foregroundStyle(Color(hex: 0x1A6FD6))
+                    .foregroundStyle(Brand.accentFill)
                     .frame(width: markerSize, height: markerSize)
                     .background(.white, in: Circle())
                     .shadow(color: .black.opacity(0.15), radius: 3, y: 1)

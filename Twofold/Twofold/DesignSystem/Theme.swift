@@ -165,19 +165,24 @@ extension Theme {
             )
         }
 
+        /// A brand gradient's two stops at a CSS angle.
+        static func gradient(_ degrees: Double, _ stops: Brand.Stops) -> LinearGradient {
+            gradient(degrees, [(stops.from, 0), (stops.to, 1)])
+        }
+
         /// Green, through blue, to violet. White text passes 4.5:1 across the whole range.
-        static let signature = gradient(120, [(0x00875F, 0), (0x1A6FD6, 0.52), (0x5B3FD6, 1)])
+        static let signature = gradient(120, Brand.signatureStops)
         /// The same, left to right, for the live sticker's progress fill.
-        static let signatureHorizontal = gradient(90, [(0x00875F, 0), (0x1A6FD6, 0.52), (0x5B3FD6, 1)])
-        static let flightBlue = gradient(150, [(0x1A6FD6, 0), (0x0B5FB0, 1)])
+        static let signatureHorizontal = gradient(90, Brand.signatureStops)
+        static let flightBlue = gradient(150, Brand.blueStops)
         static let planeMarker = gradient(135, [(0x1A6FD6, 0), (0x5B3FD6, 1)])
 
         /// One gradient per game card (section 3.3).
-        static let deepConversation = gradient(150, [(0x3A56D9, 0), (0x2B3FB0, 1)])
-        static let thisOrThat = gradient(150, [(0x1A6FD6, 0), (0x0B5FB0, 1)])
-        static let moreLikely = gradient(150, [(0xD23A52, 0), (0xB8274A, 1)])
-        static let trivia = gradient(150, [(0x1F8636, 0), (0x16702A, 1)])
-        static let puzzle = gradient(140, [(0x1A6FD6, 0), (0x1F8636, 1)])
+        static let deepConversation = gradient(150, Brand.indigoStops)
+        static let thisOrThat = gradient(150, Brand.blueStops)
+        static let moreLikely = gradient(150, Brand.coralStops)
+        static let trivia = gradient(150, Brand.greenStops)
+        static let puzzle = gradient(140, Brand.Stops(from: Brand.blueStops.from, to: Brand.greenStops.from))
 
         // Paper (stubs, luggage tag, passport stamp, the Paper look)
         static let paper = Color(hex: 0xFAF7F2)
@@ -197,7 +202,7 @@ extension Theme {
         static let nightMuted = Color(hex: 0xA6AFBC)
         static let nightPanel = Color(hex: 0x1B222D)
         /// The dark-mode accent, for big numbers on Night.
-        static let nightNumber = Color(hex: 0x6AA5F5)
+        static let nightNumber = Brand.accentOnDark
         static let nightHeart = Color(hex: 0xFF8FA3)
         static let paperHeart = Color(hex: 0xD23A52)
 
@@ -232,7 +237,7 @@ extension Theme {
         static let firstPieceOnColour = Color.white.opacity(0.45)
         static let secondPieceOnColour = Color.white
         static let firstPieceNight = Color(hex: 0xB8274A)
-        static let secondPieceNight = Color(hex: 0x6AA5F5)
+        static let secondPieceNight = Brand.accentOnDark
         static let firstPiecePaper = Color(hex: 0xF08A9A)
         static let secondPiecePaper = Color(hex: 0x1767D0)
 
@@ -248,7 +253,7 @@ extension Theme {
         /// The airport codes either side of the Live flight bar.
         static let liveMuted = Color(hex: 0x52606E)
         /// "Delayed 20 min" on the arrivals board's white pill. Amber dark enough for 4.5:1 on white.
-        static let delayedText = Color(hex: 0x8A5300)
+        static let delayedText = Brand.delayedOnWhite
         static let flapTop = Color(hex: 0x0F2E66)
         static let flapBottom = Color(hex: 0x0A2452)
         static let flapLine = Color(hex: 0x061A3D)

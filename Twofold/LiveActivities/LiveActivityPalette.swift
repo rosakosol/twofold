@@ -13,7 +13,7 @@ enum LiveActivityPalette {
     static let coral = Brand.coral
     /// The Live Activity's one accent (docs/TWOFOLD_DESIGN.md, section 7), on its dark Lock Screen
     /// and Dynamic Island surfaces in both appearances.
-    static let liveActivityAccent = Color(hex: 0x6AA5F5)
+    static let liveActivityAccent = Brand.accentOnDark
     /// Icons sitting on that accent, such as the plane on the progress bar.
-    static let onAccent = Color(hex: 0x0B0F16)
+    static let onAccent = Brand.inkOnAccentOnDark
 }

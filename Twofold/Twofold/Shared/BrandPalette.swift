@@ -89,7 +89,7 @@ enum Brand {
     /// Errors only. Never love moments. Spec #C23A48. 6.3:1 / 9.5:1.
     static let error = Color.dynamic(light: 0xAD3440, dark: 0xFF9B8F)
     /// Delays only. Spec #9A5A0B. 5.6:1 / 7.8:1 on `warningBackground`.
-    static let warning = Color.dynamic(light: 0x8C520A, dark: 0xF2B366)
+    static let warning = Color.dynamic(light: warningOnLight, dark: 0xF2B366)
     static let warningBackground = Color.dynamic(light: 0xFBEFD9, dark: 0x33281A)
     // DESIGN: not a named token in section 2.2. Indigo is the fourth brand hue (deep conversation,
     // trivia tile 1, stat tiles), and text in it needs a readable tone. These are the spec's own
@@ -118,11 +118,50 @@ enum Brand {
     /// Text that must stay dark whatever the appearance, on a surface that is itself fixed-light.
     static let inkOnFixedLight = Color(hex: 0x0E1A26)
 
+    // MARK: Fixed accents for surfaces that do not change with appearance
+
+    /// The light-mode delay amber, as a raw value so `warning` and the fixed pills share it.
+    private static let warningOnLight: UInt32 = 0x8C520A
+    /// "Delayed" on a white pill, which stays white in both appearances: the flight widget, the
+    /// arrivals-board share sticker. One amber for one meaning, where there had been three
+    /// (#9A5A0B, #8A5300 and `warning`'s #8C520A). 6.0:1 on white.
+    static let delayedOnWhite = Color(hex: warningOnLight)
+    /// The dark-mode accent, held fixed, for surfaces that are dark whatever the appearance: the
+    /// Live Activity's Lock Screen and Dynamic Island (section 7), the onboarding globe's night
+    /// sky, the Night share look.
+    static let accentOnDark = Color(hex: 0x6AA5F5)
+    /// Icons and text sitting on `accentOnDark`, such as the plane on the progress bar.
+    static let inkOnAccentOnDark = Color(hex: 0x0B0F16)
+
     // MARK: 2.3 Gradients (same in light and dark)
 
     static func gradient(_ from: UInt32, _ to: UInt32) -> LinearGradient {
         LinearGradient(colors: [Color(hex: from), Color(hex: to)], startPoint: .topLeading, endPoint: .bottomTrailing)
     }
+
+    static func gradient(_ stops: Stops) -> LinearGradient { gradient(stops.from, stops.to) }
+
+    /// The two ends of a gradient, for anything that needs the colours rather than the gradient (a
+    /// share card's canvas, an angled share gradient, a game's tinted chip).
+    struct Stops: Sendable {
+        let from: UInt32
+        let to: UInt32
+    }
+
+    // MARK: 2.5 Game colours, held once
+
+    // Each game takes one of these four (section 2.5), and each is also a brand gradient in its own
+    // right: the blue is the flight hero, the coral the streak. They used to be written out in four
+    // places (`Game`, `Theme.Share`, the stat tile chips and here), which is how a game card and
+    // its share card can end up a shade apart. Everything reads these now.
+
+    static let indigoStops = Stops(from: 0x3A56D9, to: 0x2B3FB0)
+    static let blueStops = Stops(from: 0x1A6FD6, to: 0x0B5FB0)
+    static let greenStops = Stops(from: 0x1F8636, to: 0x16702A)
+    static let coralStops = Stops(from: 0xD23A52, to: 0xB8274A)
+    /// Green, through blue, to violet: today's deep question in the app and the signature gradient
+    /// on share cards.
+    static let signatureStops: [(UInt32, Double)] = [(0x00875F, 0), (0x1A6FD6, 0.52), (0x5B3FD6, 1)]
 
     /// The primary button is the one gradient that adapts: light blue with navy text in dark mode,
     /// where the light-mode blue would sit too dark on the near-black background.
@@ -138,7 +177,7 @@ enum Brand {
     static let primaryFixed = gradient(0x1A6FD6, 0x1F49B8)
 
     /// Streak, countdown, coral buttons. White text 4.7:1+.
-    static let coralGradient = gradient(0xD23A52, 0xB8274A)
+    static let coralGradient = gradient(coralStops)
     /// Stats summary. White text 4.9:1+.
     static let heroBlue = gradient(0x3A56D9, 0x1A6FD6)
     /// Trip stats. White text 4.6:1+.
@@ -149,21 +188,17 @@ enum Brand {
     static let nightSkyTop = Color(hex: 0x1C2744)
     /// Today's deep question, everywhere it appears. 4.5:1 at the green end, 6.7:1 at violet.
     static let dailyQuestion = LinearGradient(
-        stops: [
-            .init(color: Color(hex: 0x00875F), location: 0),
-            .init(color: Color(hex: 0x1A6FD6), location: 0.52),
-            .init(color: Color(hex: 0x5B3FD6), location: 1),
-        ],
+        stops: signatureStops.map { .init(color: Color(hex: $0.0), location: $0.1) },
         startPoint: .topLeading, endPoint: .bottomTrailing
     )
     /// The relationship summary widget. White text 5.4:1+.
     static let relationshipSummary = gradient(0xC72E4A, 0xA11E3C)
     /// Flight widgets and the flight hero. White text 4.9:1+.
-    static let flight = gradient(0x1A6FD6, 0x0B5FB0)
+    static let flight = gradient(blueStops)
     /// Stat tile chips (section 5).
     static let violet = gradient(0x6B4FE3, 0x4E36C8)
-    static let indigoGradient = gradient(0x3A56D9, 0x2B3FB0)
-    static let greenGradient = gradient(0x1F8636, 0x16702A)
+    static let indigoGradient = gradient(indigoStops)
+    static let greenGradient = gradient(greenStops)
 
     // MARK: 2.4 Screen background glows
 
