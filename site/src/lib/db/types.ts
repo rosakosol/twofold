@@ -5,6 +5,11 @@
 // local stack silently deleted feature_requests, feature_votes, feature_comments, feature_bookmarks,
 // feature_subscribers, feature_notification_outbox and developer_updates from this file — and broke
 // every query in src/lib/queries. That migration captured them, so `--local` is safe again.
+//
+// To regenerate, from the repo root with the local stack up:
+//   supabase gen types typescript --local > site/src/lib/db/types.ts
+//   (cd site && npx prettier --parser typescript --no-semi --write src/lib/db/types.ts)
+// then put this header back.
 
 export type Json =
   | string
@@ -48,6 +53,7 @@ export type Database = {
           icao: string | null
           name: string
         }
+        ComputedFields: never
         Insert: {
           iata: string
           icao?: string | null
@@ -71,6 +77,7 @@ export type Database = {
           name: string
           timezone: string | null
         }
+        ComputedFields: never
         Insert: {
           city?: string | null
           country?: string | null
@@ -100,6 +107,7 @@ export type Database = {
           occurred_at: string
           subject_hash: string
         }
+        ComputedFields: never
         Insert: {
           bucket: string
           id?: never
@@ -121,6 +129,7 @@ export type Database = {
           sent_for_year: number
           updated_at: string
         }
+        ComputedFields: never
         Insert: {
           recipient_id: string
           reminder_kind: string
@@ -149,6 +158,7 @@ export type Database = {
           blocker_id: string
           created_at: string
         }
+        ComputedFields: never
         Insert: {
           blocked_id: string
           blocker_id: string
@@ -183,6 +193,7 @@ export type Database = {
           sender_id: string
           sent_at: string
         }
+        ComputedFields: never
         Insert: {
           id?: string
           request_id: string
@@ -223,6 +234,7 @@ export type Database = {
           responded_at: string | null
           status: string
         }
+        ComputedFields: never
         Insert: {
           created_at?: string
           id?: string
@@ -273,6 +285,7 @@ export type Database = {
           hidden_at: string | null
           profile_id: string
         }
+        ComputedFields: never
         Insert: {
           couple_id: string
           hidden_at?: string | null
@@ -314,6 +327,7 @@ export type Database = {
           status: Database["public"]["Enums"]["couple_status"]
           updated_at: string
         }
+        ComputedFields: never
         Insert: {
           created_at?: string
           dissolved_at?: string | null
@@ -372,6 +386,7 @@ export type Database = {
           id: string
           question: string
         }
+        ComputedFields: never
         Insert: {
           active?: boolean
           category?: string | null
@@ -398,6 +413,7 @@ export type Database = {
           longest_streak: number
           updated_at: string
         }
+        ComputedFields: never
         Insert: {
           couple_id: string
           current_streak?: number
@@ -435,6 +451,7 @@ export type Database = {
           tier: string
           topic: string
         }
+        ComputedFields: never
         Insert: {
           active?: boolean
           category: string
@@ -469,6 +486,7 @@ export type Database = {
           feature_id: string
           id: string
         }
+        ComputedFields: never
         Insert: {
           author_id?: string | null
           body: string
@@ -509,6 +527,7 @@ export type Database = {
           last_seen_at: string
           profile_id: string
         }
+        ComputedFields: never
         Insert: {
           apns_token: string
           created_at?: string
@@ -543,6 +562,7 @@ export type Database = {
           token: string
           updated_at: string
         }
+        ComputedFields: never
         Insert: {
           email: string
           feedback_updates?: boolean
@@ -568,6 +588,7 @@ export type Database = {
           question: string
           sort_order: number
         }
+        ComputedFields: never
         Insert: {
           answer: string
           category?: string | null
@@ -592,6 +613,7 @@ export type Database = {
           feature_id: string
           user_id: string
         }
+        ComputedFields: never
         Insert: {
           created_at?: string
           feature_id: string
@@ -628,6 +650,7 @@ export type Database = {
           updated_at: string
           user_id: string
         }
+        ComputedFields: never
         Insert: {
           body: string
           created_at?: string
@@ -661,51 +684,6 @@ export type Database = {
           },
         ]
       }
-      feature_notification_outbox: {
-        Row: {
-          created_at: string
-          event_type: string
-          feature_id: string
-          id: string
-          payload: Json
-          processed_at: string | null
-          recipient_id: string
-        }
-        Insert: {
-          created_at?: string
-          event_type: string
-          feature_id: string
-          id?: string
-          payload: Json
-          processed_at?: string | null
-          recipient_id: string
-        }
-        Update: {
-          created_at?: string
-          event_type?: string
-          feature_id?: string
-          id?: string
-          payload?: Json
-          processed_at?: string | null
-          recipient_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "feature_notification_outbox_feature_id_fkey"
-            columns: ["feature_id"]
-            isOneToOne: false
-            referencedRelation: "feature_requests"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "feature_notification_outbox_recipient_id_fkey"
-            columns: ["recipient_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       feature_requests: {
         Row: {
           author_id: string | null
@@ -722,6 +700,7 @@ export type Database = {
           updated_at: string
           upvote_count: number
         }
+        ComputedFields: never
         Insert: {
           author_id?: string | null
           category: Database["public"]["Enums"]["feedback_request_category"]
@@ -775,6 +754,7 @@ export type Database = {
           feature_id: string
           user_id: string
         }
+        ComputedFields: never
         Insert: {
           created_at?: string
           feature_id: string
@@ -808,6 +788,7 @@ export type Database = {
           feature_id: string
           user_id: string
         }
+        ComputedFields: never
         Insert: {
           created_at?: string
           feature_id: string
@@ -841,6 +822,7 @@ export type Database = {
           profile_id: string
           role: string
         }
+        ComputedFields: never
         Insert: {
           created_at?: string
           profile_id: string
@@ -866,6 +848,7 @@ export type Database = {
           feature_id: string
           sent_at: string
         }
+        ComputedFields: never
         Insert: {
           feature_id: string
           sent_at?: string
@@ -892,6 +875,7 @@ export type Database = {
           flight_id: string | null
           id: string
         }
+        ComputedFields: never
         Insert: {
           added_at?: string
           added_by: string
@@ -945,6 +929,7 @@ export type Database = {
           observed_count: number
           on_time_percent: number
         }
+        ComputedFields: never
         Insert: {
           average_late_minutes: number
           cancelled_percent: number
@@ -988,6 +973,7 @@ export type Database = {
           trip_id: string | null
           uploaded_by: string
         }
+        ComputedFields: never
         Insert: {
           content_type?: string | null
           created_at?: string
@@ -1052,6 +1038,7 @@ export type Database = {
           source: string | null
           updated_at: string
         }
+        ComputedFields: never
         Insert: {
           altitude?: number | null
           atc_ident?: string | null
@@ -1098,6 +1085,7 @@ export type Database = {
           profile_id: string
           updated_at: string
         }
+        ComputedFields: never
         Insert: {
           arrival_at_gate?: boolean
           baggage_claim_update?: boolean
@@ -1152,6 +1140,7 @@ export type Database = {
           source: string
           type: Database["public"]["Enums"]["flight_status_event_type"]
         }
+        ComputedFields: never
         Insert: {
           created_at?: string
           flight_id: string
@@ -1191,6 +1180,7 @@ export type Database = {
           kind: Database["public"]["Enums"]["flight_update_kind"]
           note: string | null
         }
+        ComputedFields: never
         Insert: {
           created_at?: string
           created_by: string
@@ -1300,6 +1290,7 @@ export type Database = {
           weather_origin: Json | null
           weather_updated_at: string | null
         }
+        ComputedFields: never
         Insert: {
           actual_in?: string | null
           actual_off?: string | null
@@ -1483,6 +1474,7 @@ export type Database = {
           row_a_id: string
           row_b_id: string
         }
+        ComputedFields: never
         Insert: {
           content_type: string
           created_at?: string
@@ -1512,6 +1504,7 @@ export type Database = {
       game_decks: {
         Row: {
           active: boolean
+          adult: boolean
           emoji: string
           game_type: Database["public"]["Enums"]["game_type"]
           id: string
@@ -1521,8 +1514,10 @@ export type Database = {
           title: string
           topic: string
         }
+        ComputedFields: never
         Insert: {
           active?: boolean
+          adult?: boolean
           emoji: string
           game_type: Database["public"]["Enums"]["game_type"]
           id?: string
@@ -1534,6 +1529,7 @@ export type Database = {
         }
         Update: {
           active?: boolean
+          adult?: boolean
           emoji?: string
           game_type?: Database["public"]["Enums"]["game_type"]
           id?: string
@@ -1554,6 +1550,7 @@ export type Database = {
           player_id: string
           session_id: string
         }
+        ComputedFields: never
         Insert: {
           created_at?: string
           id?: string
@@ -1589,7 +1586,7 @@ export type Database = {
       }
       game_responses: {
         Row: {
-          answer: Json
+          answer: NonNullable<Json>
           created_at: string
           id: string
           is_correct: boolean | null
@@ -1597,8 +1594,9 @@ export type Database = {
           round_number: number
           session_id: string
         }
+        ComputedFields: never
         Insert: {
-          answer: Json
+          answer: NonNullable<Json>
           created_at?: string
           id?: string
           is_correct?: boolean | null
@@ -1607,7 +1605,7 @@ export type Database = {
           session_id: string
         }
         Update: {
-          answer?: Json
+          answer?: NonNullable<Json>
           created_at?: string
           id?: string
           is_correct?: boolean | null
@@ -1642,6 +1640,7 @@ export type Database = {
           session_id: string
           theme: string | null
         }
+        ComputedFields: never
         Insert: {
           content_id: string
           difficulty?: string | null
@@ -1688,6 +1687,7 @@ export type Database = {
           updated_at: string
           winner_id: string | null
         }
+        ComputedFields: never
         Insert: {
           completed_at?: string | null
           couple_id?: string | null
@@ -1764,6 +1764,7 @@ export type Database = {
           redeemed_at: string | null
           status: Database["public"]["Enums"]["invite_status"]
         }
+        ComputedFields: never
         Insert: {
           code: string
           couple_id?: string | null
@@ -1807,6 +1808,7 @@ export type Database = {
           id: string
           redeemer_id: string
         }
+        ComputedFields: never
         Insert: {
           attempted_at?: string
           id?: string
@@ -1838,6 +1840,7 @@ export type Database = {
           push_token: string
           updated_at: string
         }
+        ComputedFields: never
         Insert: {
           activity_id: string
           created_at?: string
@@ -1886,6 +1889,7 @@ export type Database = {
           title: string
           trip_id: string | null
         }
+        ComputedFields: never
         Insert: {
           couple_id: string
           created_at?: string
@@ -1938,6 +1942,7 @@ export type Database = {
           photo_path: string
           position: number
         }
+        ComputedFields: never
         Insert: {
           created_at?: string
           id?: string
@@ -1971,6 +1976,7 @@ export type Database = {
           prompt: string
           tier: string
         }
+        ComputedFields: never
         Insert: {
           active?: boolean
           category: string
@@ -2016,6 +2022,7 @@ export type Database = {
           streak_ending_reminder: boolean
           updated_at: string
         }
+        ComputedFields: never
         Insert: {
           created_at?: string
           daily_streak_reminder?: boolean
@@ -2069,6 +2076,7 @@ export type Database = {
           key: string
           last_error: string | null
         }
+        ComputedFields: never
         Insert: {
           attempts?: number
           enqueued_at?: string
@@ -2094,6 +2102,7 @@ export type Database = {
           longitude: number
           timezone: string | null
         }
+        ComputedFields: never
         Insert: {
           city: string
           country: string
@@ -2120,6 +2129,7 @@ export type Database = {
         Row: {
           accent_color_hex: string | null
           account_deleted_at: string | null
+          adult_content_opt_in_at: string | null
           anniversary_date: string | null
           avatar_path: string | null
           birthday_day: number | null
@@ -2153,9 +2163,11 @@ export type Database = {
           updated_at: string
           welcome_email_sent_at: string | null
         }
+        ComputedFields: never
         Insert: {
           accent_color_hex?: string | null
           account_deleted_at?: string | null
+          adult_content_opt_in_at?: string | null
           anniversary_date?: string | null
           avatar_path?: string | null
           birthday_day?: number | null
@@ -2192,6 +2204,7 @@ export type Database = {
         Update: {
           accent_color_hex?: string | null
           account_deleted_at?: string | null
+          adult_content_opt_in_at?: string | null
           anniversary_date?: string | null
           avatar_path?: string | null
           birthday_day?: number | null
@@ -2249,6 +2262,7 @@ export type Database = {
           occurred_at: string
           user_id: string
         }
+        ComputedFields: never
         Insert: {
           bucket: string
           id?: string
@@ -2279,6 +2293,7 @@ export type Database = {
           profile_id: string
           transaction_id: string
         }
+        ComputedFields: never
         Insert: {
           consumed_at?: string | null
           granted_at?: string
@@ -2310,6 +2325,7 @@ export type Database = {
           sent_for_date: string
           updated_at: string
         }
+        ComputedFields: never
         Insert: {
           profile_id: string
           reminder_kind: string
@@ -2341,6 +2357,7 @@ export type Database = {
           profile_id: string
           transaction_id: string
         }
+        ComputedFields: never
         Insert: {
           consumed_at?: string | null
           consumed_for_couple_id?: string | null
@@ -2386,6 +2403,7 @@ export type Database = {
           state_as_of: string | null
           tier: string | null
         }
+        ComputedFields: never
         Insert: {
           event_id?: string | null
           event_type?: string | null
@@ -2422,6 +2440,7 @@ export type Database = {
           size_bytes: number | null
           thread_id: string
         }
+        ComputedFields: never
         Insert: {
           content_type: string
           created_at?: string
@@ -2470,6 +2489,7 @@ export type Database = {
           title: string
           updated_at: string
         }
+        ComputedFields: never
         Insert: {
           body: string
           created_at?: string
@@ -2510,6 +2530,7 @@ export type Database = {
           thread_key: string | null
           zoho_account_id: string | null
         }
+        ComputedFields: never
         Insert: {
           attachments_state?: string
           category: string
@@ -2577,6 +2598,7 @@ export type Database = {
           thread_key: string
           token: string
         }
+        ComputedFields: never
         Insert: {
           created_at?: string
           email: string
@@ -2617,6 +2639,7 @@ export type Database = {
           option_b: string
           tier: string
         }
+        ComputedFields: never
         Insert: {
           active?: boolean
           category: string
@@ -2660,6 +2683,7 @@ export type Database = {
           traveler_ids: string[]
           updated_at: string
         }
+        ComputedFields: never
         Insert: {
           arrival_at: string
           category: Database["public"]["Enums"]["trip_category"]
@@ -2721,10 +2745,11 @@ export type Database = {
           difficulty: string | null
           explanation: string | null
           id: string
-          options: Json
+          options: NonNullable<Json>
           question: string
           tier: string
         }
+        ComputedFields: never
         Insert: {
           active?: boolean
           category: string
@@ -2733,7 +2758,7 @@ export type Database = {
           difficulty?: string | null
           explanation?: string | null
           id?: string
-          options: Json
+          options: NonNullable<Json>
           question: string
           tier?: string
         }
@@ -2745,7 +2770,7 @@ export type Database = {
           difficulty?: string | null
           explanation?: string | null
           id?: string
-          options?: Json
+          options?: NonNullable<Json>
           question?: string
           tier?: string
         }
@@ -2765,6 +2790,7 @@ export type Database = {
           email: string
           id: string
         }
+        ComputedFields: never
         Insert: {
           created_at?: string
           email: string
@@ -2893,6 +2919,20 @@ export type Database = {
         }
         Returns: string
       }
+      admin_purge_couple_archive: {
+        Args: { p_couple_id: string; p_reason: string }
+        Returns: undefined
+      }
+      admin_record_action: {
+        Args: {
+          p_action: string
+          p_actor: string
+          p_details?: Json
+          p_reason?: string
+          p_subject?: string
+        }
+        Returns: undefined
+      }
       admin_report_context: {
         Args: { p_request_id: string }
         Returns: {
@@ -2944,20 +2984,6 @@ export type Database = {
           thread_id: string
           thread_status: string
         }[]
-      }
-      admin_purge_couple_archive: {
-        Args: { p_couple_id: string; p_reason: string }
-        Returns: undefined
-      }
-      admin_record_action: {
-        Args: {
-          p_action: string
-          p_actor: string
-          p_details?: Json
-          p_reason?: string
-          p_subject?: string
-        }
-        Returns: undefined
       }
       admin_scrub_account: {
         Args: { p_actor?: string; p_profile_id: string; p_reason: string }
@@ -3014,6 +3040,14 @@ export type Database = {
           size_bytes: number
         }[]
       }
+      adult_content_status: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          has_partner: boolean
+          me: boolean
+          partner: boolean
+        }[]
+      }
       api_usage_by_endpoint: {
         Args: { p_from?: string; p_provider?: string; p_to?: string }
         Returns: {
@@ -3055,7 +3089,10 @@ export type Database = {
         Args: { p_email: string; p_enabled: boolean; p_list: string }
         Returns: undefined
       }
-      archive_retention_interval: { Args: never; Returns: string }
+      archive_retention_interval: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       attach_support_attachments: {
         Args: { p_ids: string[]; p_request_id: string }
         Returns: number
@@ -3065,7 +3102,12 @@ export type Database = {
         Args: { p_kind: string; p_op?: string; p_path: string }
         Returns: boolean
       }
+      can_read_profile: { Args: { p_profile_id: string }; Returns: boolean }
       can_see_flight: { Args: { target_flight_id: string }; Returns: boolean }
+      claim_cron_lease: {
+        Args: { p_job: string; p_ttl_seconds: number }
+        Returns: string
+      }
       claim_feedback_confirmation: {
         Args: { p_feature_id: string }
         Returns: {
@@ -3106,7 +3148,7 @@ export type Database = {
       }
       couple_is_subscribed: { Args: { p_couple_id: string }; Returns: boolean }
       create_invite_code: {
-        Args: never
+        Args: Record<PropertyKey, never>
         Returns: {
           code: string
           couple_id: string | null
@@ -3123,10 +3165,6 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
-      }
-      delete_dissolved_couple_data: {
-        Args: { p_couple_id: string }
-        Returns: undefined
       }
       delete_game_deck: { Args: { p_deck_id: string }; Returns: Json }
       delete_own_account: {
@@ -3160,7 +3198,7 @@ export type Database = {
       }
       enable_flight_tracking: { Args: { p_flight_id: string }; Returns: Json }
       fetch_my_outgoing_connection_request: {
-        Args: never
+        Args: Record<PropertyKey, never>
         Returns: {
           created_at: string
           id: string
@@ -3170,7 +3208,7 @@ export type Database = {
         }[]
       }
       fetch_pending_connection_requests: {
-        Args: never
+        Args: Record<PropertyKey, never>
         Returns: {
           created_at: string
           id: string
@@ -3198,7 +3236,7 @@ export type Database = {
         Returns: number
       }
       get_daily_question: {
-        Args: never
+        Args: Record<PropertyKey, never>
         Returns: {
           my_answered: boolean
           partner_answered: boolean
@@ -3206,9 +3244,12 @@ export type Database = {
           session_id: string
         }[]
       }
-      get_daily_question_session: { Args: never; Returns: string }
+      get_daily_question_session: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       get_daily_question_status: {
-        Args: never
+        Args: Record<PropertyKey, never>
         Returns: {
           my_answered: boolean
           partner_answered: boolean
@@ -3216,7 +3257,7 @@ export type Database = {
         }[]
       }
       get_daily_streak: {
-        Args: never
+        Args: Record<PropertyKey, never>
         Returns: {
           current_streak: number
           longest_streak: number
@@ -3224,7 +3265,7 @@ export type Database = {
         }[]
       }
       get_deck_progress: {
-        Args: never
+        Args: Record<PropertyKey, never>
         Returns: {
           completed_at: string
           deck_id: string
@@ -3244,7 +3285,7 @@ export type Database = {
         }[]
       }
       get_game_stats: {
-        Args: never
+        Args: Record<PropertyKey, never>
         Returns: {
           draws: number
           game_type: string
@@ -3326,7 +3367,7 @@ export type Database = {
         }
       }
       list_birthday_reminder_targets: {
-        Args: never
+        Args: Record<PropertyKey, never>
         Returns: {
           birthday_year: number
           days_until: number
@@ -3340,21 +3381,16 @@ export type Database = {
           upcoming_sent_for_year: number
         }[]
       }
-      list_couple_day_bounds: {
-        Args: never
+      list_blocked_profiles: {
+        Args: Record<PropertyKey, never>
         Returns: {
-          couple_id: string
-          current_streak: number
-          early_reminder_sent_date: string
-          final_reminder_sent_date: string
-          local_date: string
-          next_boundary: string
-          partner_a_id: string
-          partner_b_id: string
+          blocked_at: string
+          first_name: string
+          profile_id: string
         }[]
       }
       list_open_puzzle_games: {
-        Args: never
+        Args: Record<PropertyKey, never>
         Returns: {
           game_type: string
           is_my_turn: boolean
@@ -3364,21 +3400,18 @@ export type Database = {
         }[]
       }
       list_streak_reminder_targets: {
-        Args: never
+        Args: Record<PropertyKey, never>
         Returns: {
           couple_id: string
           current_streak: number
           early_reminder_sent_date: string
           final_reminder_sent_date: string
           local_date: string
+          morning_reminder_sent_date: string
           next_boundary: string
           partner_id: string
           profile_id: string
         }[]
-      }
-      mark_discussion_round: {
-        Args: { p_round_id: string; p_status: string }
-        Returns: undefined
       }
       mark_dormancy_warned: {
         Args: { p_at?: string; p_profile_ids: string[] }
@@ -3392,9 +3425,9 @@ export type Database = {
         Args: { source_id: string; target_id: string }
         Returns: undefined
       }
-      my_admin_roles: { Args: never; Returns: Json }
+      my_admin_roles: { Args: Record<PropertyKey, never>; Returns: Json }
       my_email_preferences: {
-        Args: never
+        Args: Record<PropertyKey, never>
         Returns: {
           android_waitlist: boolean
           email: string
@@ -3402,7 +3435,10 @@ export type Database = {
           product_news: boolean
         }[]
       }
-      my_subscription_history: { Args: never; Returns: Json }
+      my_subscription_history: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
       places_by_ids: {
         Args: { p_ids: string[] }
         Returns: {
@@ -3495,7 +3531,7 @@ export type Database = {
         }[]
       }
       redundant_subscription: {
-        Args: never
+        Args: Record<PropertyKey, never>
         Returns: {
           both_subscribed: boolean
           i_am_redundant: boolean
@@ -3506,8 +3542,16 @@ export type Database = {
         Args: { p_apns_token: string; p_environment?: string }
         Returns: undefined
       }
+      reject_deleted_accounts: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      release_cron_lease: {
+        Args: { p_holder: string; p_job: string }
+        Returns: boolean
+      }
       repair_couple_streak: {
-        Args: never
+        Args: Record<PropertyKey, never>
         Returns: {
           current_streak: number
           error_message: string
@@ -3515,7 +3559,7 @@ export type Database = {
         }[]
       }
       repair_streak_with_monthly_freeze: {
-        Args: never
+        Args: Record<PropertyKey, never>
         Returns: {
           current_streak: number
           error_message: string
@@ -3598,6 +3642,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      set_adult_content_opt_in: { Args: { p_on: boolean }; Returns: undefined }
       set_couple_archive_hidden: {
         Args: { p_couple_id: string; p_hidden: boolean }
         Returns: undefined
@@ -3610,11 +3655,14 @@ export type Database = {
         Args: { p_enabled: boolean; p_list: string }
         Returns: undefined
       }
-      show_limit: { Args: never; Returns: number }
+      show_limit: { Args: Record<PropertyKey, never>; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
-      spend_record_export_credit: { Args: never; Returns: boolean }
+      spend_record_export_credit: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
       start_connect_four_session: {
-        Args: never
+        Args: Record<PropertyKey, never>
         Returns: {
           resumed: boolean
           session_id: string
@@ -3631,7 +3679,7 @@ export type Database = {
         }[]
       }
       start_word_guess_session: {
-        Args: never
+        Args: Record<PropertyKey, never>
         Returns: {
           puzzle_id: string
           resumed: boolean
@@ -3648,7 +3696,7 @@ export type Database = {
         }[]
       }
       streak_repair_state: {
-        Args: never
+        Args: Record<PropertyKey, never>
         Returns: {
           credits: number
           missed_date: string
@@ -3695,7 +3743,94 @@ export type Database = {
         }[]
       }
       support_thread_for_reply: { Args: { p_thread_id: string }; Returns: Json }
-      touch_last_active: { Args: never; Returns: undefined }
+      touch_last_active: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      tracked_flights_page: {
+        Args: { p_after?: string; p_limit?: number; p_statuses?: string[] }
+        Returns: {
+          actual_in: string | null
+          actual_off: string | null
+          actual_on: string | null
+          actual_out: string | null
+          aircraft_type: string | null
+          airline_code: string | null
+          airline_logo_url: string | null
+          airline_name: string | null
+          arrival_1h_notified: boolean
+          arrival_1h_notified_for: string | null
+          arrival_30m_notified: boolean
+          arrival_30m_notified_for: string | null
+          arrival_delay_seconds: number | null
+          atc_ident: string | null
+          baggage_claim: string | null
+          cancelled: boolean
+          couple_id: string
+          created_at: string
+          created_by: string | null
+          departure_delay_seconds: number | null
+          destination_city: string | null
+          destination_country: string | null
+          destination_iata: string | null
+          destination_icao: string | null
+          destination_latitude: number | null
+          destination_longitude: number | null
+          destination_name: string | null
+          destination_timezone: string | null
+          diverted: boolean
+          estimated_in: string | null
+          estimated_off: string | null
+          estimated_on: string | null
+          estimated_out: string | null
+          fa_flight_id: string | null
+          flight_number_iata: string | null
+          flight_number_icao: string | null
+          gate_destination: string | null
+          gate_origin: string | null
+          id: string
+          last_refreshed_at: string | null
+          marketing_flight_number: string | null
+          origin_city: string | null
+          origin_country: string | null
+          origin_iata: string | null
+          origin_icao: string | null
+          origin_latitude: number | null
+          origin_longitude: number | null
+          origin_name: string | null
+          origin_timezone: string | null
+          position_altitude: number | null
+          position_groundspeed: number | null
+          position_heading: number | null
+          position_latitude: number | null
+          position_longitude: number | null
+          position_updated_at: string | null
+          pre_departure_notified: boolean
+          registration: string | null
+          route: string | null
+          scheduled_in: string | null
+          scheduled_off: string | null
+          scheduled_on: string | null
+          scheduled_out: string | null
+          shared: boolean
+          status: string
+          terminal_destination: string | null
+          terminal_origin: string | null
+          tracking_enabled: boolean
+          traveler_ids: string[]
+          trip_id: string | null
+          updated_at: string
+          weather_destination: Json | null
+          weather_origin: Json | null
+          weather_updated_at: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "flights"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       unblock_profile: { Args: { p_profile_id: string }; Returns: undefined }
       update_couple_anniversary_date: {
         Args: { p_couple_id: string; p_date: string }
@@ -3756,10 +3891,7 @@ export type Database = {
         | "cancelled"
         | "diverted"
       flight_update_kind:
-        | "meal_service"
-        | "disruption"
-        | "going_to_sleep"
-        | "custom"
+        "meal_service" | "disruption" | "going_to_sleep" | "custom"
       game_status:
         | "draft"
         | "active"
@@ -3821,8 +3953,7 @@ export type Tables<
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
+    keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
   TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
@@ -3846,8 +3977,7 @@ export type TablesInsert<
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
+    keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
   TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
@@ -3871,8 +4001,7 @@ export type TablesUpdate<
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
-    | keyof DefaultSchema["Enums"]
-    | { schema: keyof DatabaseWithoutInternals },
+    keyof DefaultSchema["Enums"] | { schema: keyof DatabaseWithoutInternals },
   EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
@@ -3972,4 +4101,3 @@ export const Constants = {
     },
   },
 } as const
-
