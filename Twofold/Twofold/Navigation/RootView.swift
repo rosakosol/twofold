@@ -868,7 +868,7 @@ struct RootView: View {
                 if let flight = appModel.travel.flights.first(where: { $0.id == id }) {
                     FlightTrackingView(flight: flight)
                 } else {
-                    GameErrorState(message: "This flight isn't available anymore.")
+                    EmptyStateView(systemImage: "airplane", title: "This flight isn't available anymore.")
                 }
             }
             .toolbar {
@@ -881,7 +881,7 @@ struct RootView: View {
                 if let trip = appModel.travel.trips.first(where: { $0.id == id }) {
                     TripDetailsView(trip: trip)
                 } else {
-                    GameErrorState(message: "This trip isn't available anymore.")
+                    EmptyStateView(systemImage: "suitcase", title: "This trip isn't available anymore.")
                 }
             }
             .toolbar {
@@ -894,7 +894,7 @@ struct RootView: View {
                 if let memory = appModel.travel.memories.first(where: { $0.id == id }) {
                     MemoryDetailView(memory: memory)
                 } else {
-                    GameErrorState(message: "This memory isn't available anymore.")
+                    EmptyStateView(systemImage: "photo", title: "This memory isn't available anymore.")
                 }
             }
             .toolbar {

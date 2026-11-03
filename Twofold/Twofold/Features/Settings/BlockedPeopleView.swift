@@ -36,18 +36,14 @@ struct BlockedPeopleView: View {
             case .loading:
                 ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
             case .failed:
-                message(
-                    systemImage: "wifi.exclamationmark",
-                    title: "Couldn't load your blocked list",
-                    detail: "Check your connection and try again.",
-                    retry: true
-                )
+                ErrorStateView(title: "Couldn't load your blocked list", message: "Check your connection and try again.") {
+                    await load()
+                }
             case .loaded(let blocked) where blocked.isEmpty:
-                message(
+                EmptyStateView(
                     systemImage: "hand.raised",
                     title: "No one blocked",
-                    detail: "If you block someone from a connection request, they'll appear here.",
-                    retry: false
+                    message: "If you block someone from a connection request, they'll appear here."
                 )
             case .loaded(let blocked):
                 List {
@@ -98,35 +94,11 @@ struct BlockedPeopleView: View {
                 ProgressView()
             } else {
                 Button("Unblock") { confirmingUnblock = person }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.twofoldSecondaryCompact)
                     .disabled(unblockingID != nil)
             }
         }
         .padding(.vertical, 2)
-    }
-
-    private func message(systemImage: String, title: String, detail: String, retry: Bool) -> some View {
-        VStack(spacing: Theme.Spacing.sm) {
-            Image(systemName: systemImage)
-                .font(.largeTitle)
-                .foregroundStyle(Theme.textSecondary)
-                .accessibilityHidden(true)
-            Text(title).font(.headline)
-            Text(detail)
-                .font(.caption)
-                .foregroundStyle(Theme.textSecondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, Theme.Spacing.lg)
-            if retry {
-                Button("Try again") {
-                    state = .loading
-                    Task { await load() }
-                }
-                .buttonStyle(.bordered)
-                .padding(.top, Theme.Spacing.xs)
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private func load() async {

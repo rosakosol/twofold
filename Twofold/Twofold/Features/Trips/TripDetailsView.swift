@@ -51,7 +51,7 @@ struct TripDetailsView: View {
             if let trip {
                 content(trip)
             } else {
-                ContentUnavailableView("Trip no longer available", systemImage: "airplane.departure")
+                EmptyStateView(systemImage: "airplane.departure", title: "Trip no longer available")
             }
         }
         .navigationTitle("Trip details")

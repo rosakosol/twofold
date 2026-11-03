@@ -74,13 +74,7 @@ struct DrawingPadFullScreenView: View {
     }
 
     private var emptyState: some View {
-        VStack(spacing: Theme.Spacing.sm) {
-            Image(systemName: "pencil.and.scribble")
-                .font(.largeTitle)
-                .foregroundStyle(Theme.textSecondary)
-            Text("Nothing drawn yet")
-                .foregroundStyle(Theme.textSecondary)
-        }
+        EmptyStateView(systemImage: "pencil.and.scribble", title: "Nothing drawn yet")
     }
 }
 
