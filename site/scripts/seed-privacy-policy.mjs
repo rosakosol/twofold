@@ -86,6 +86,13 @@
  * No analytics change: Analytics.swift sends no birthday event, so the analytics bullets stand.
  * The data export still covers trips, flights, games and memories rather than profile fields,
  * which is already how "Your rights" describes it.
+ *
+ * Revised on 2026-11-04 for the feedback board. 20261121000000 dropped feature_comments,
+ * feature_bookmarks, feature_subscribers and developer_updates, after the site had already taken
+ * Bookmarks off the board (commit 219915da). Comments and follows never had a screen. The policy
+ * still said we store comments, bookmarks and follows, listed bookmarks and follows among the
+ * things kept private, and told people not to comment. The board now stores requests and votes,
+ * and that is all the text says.
  */
 import {sanityWriteClient} from './lib/sanity-write-client.mjs'
 import {resetKeys, h2, p, span, link, ptext, bullet, li} from './lib/portable-text.mjs'
@@ -129,7 +136,7 @@ const body = [
     `Setup questions. During onboarding we ask how you found Twofold, your relationship situation, how often you travel, what you're hoping to get out of the app, and your and your partner's gender - the last of these only so the app can use the right pronoun in its own wording. These answers are not saved to your Twofold account. They are sent to our analytics provider and attached to your analytics profile there, so we can tell which kinds of couples get the most out of Twofold. See "Information we collect automatically" below.`
   ),
   bullet(
-    `Support and sign-ups. If you use the support form - in the app or on the website - we receive your name, email address, the category you pick and your message. We store it, so a conversation can be picked up where it left off and so there is a record of what was asked and what we answered. Support records outlive the account they came from: if you write to us and later delete your account, the ticket stays. That is deliberate - otherwise asking us to delete your account would erase the request itself, along with any reply we still owed you. If you join the Android waitlist we store your email address and send you a confirmation. If you use the feedback board we store the requests you post, your votes, comments, bookmarks, and which requests you've chosen to follow.`
+    `Support and sign-ups. If you use the support form - in the app or on the website - we receive your name, email address, the category you pick and your message. We store it, so a conversation can be picked up where it left off and so there is a record of what was asked and what we answered. Support records outlive the account they came from: if you write to us and later delete your account, the ticket stays. That is deliberate - otherwise asking us to delete your account would erase the request itself, along with any reply we still owed you. If you join the Android waitlist we store your email address and send you a confirmation. If you use the feedback board we store the requests you post and your votes.`
   ),
 
   // ------------------------------------------------- collected automatically
@@ -242,18 +249,17 @@ const body = [
   bullet(`Flights you've switched sharing off for.`),
   bullet(`Your notification preferences and app lock.`),
   bullet(`Anything you send us in a support request.`),
-  bullet(`Which feedback requests you've bookmarked or followed.`),
 
   // ------------------------------------------------------- feedback board
   h2('The feedback board'),
   p(
     span(`The feedback board on twofoldapp.com.au is public, and it uses the same Twofold account you sign in to the app with. `, 'strong'),
     span(
-      `Anything you post there - the title and description of a request, and your comments - can be read by anyone, including people who aren't signed in and aren't Twofold users. So can the first name and profile photo from your Twofold profile, which appear next to what you post.`
+      `Anything you post there - the title and description of a request - can be read by anyone, including people who aren't signed in and aren't Twofold users. So can the first name and profile photo from your Twofold profile, which appear next to what you post.`
     )
   ),
   ptext(
-    `Nothing else from your account is exposed there. Your email address, your partner, your cities, trips, memories, flights and game answers are never visible on the board. Your votes are counted but not shown against your name, and your bookmarks and follows are private to you. If you'd rather not appear publicly, don't post or comment - reading and voting are enough to use the board.`
+    `Nothing else from your account is exposed there. Your email address, your partner, your cities, trips, memories, flights and game answers are never visible on the board. Your votes are counted but not shown against your name. If you'd rather not appear publicly, don't post - reading and voting are enough to use the board.`
   ),
 
   // -------------------------------------------- shared data & who controls it
@@ -379,7 +385,7 @@ const body = [
   bullet(`Rate-limiting records are deleted automatically, and none is kept longer than a day.`),
   bullet(`Support records - your message to us, our replies, and any files attached - are kept even after the account they came from is deleted, so that a conversation is not destroyed by the request made inside it.`),
   bullet(`Waitlist email addresses are kept until the Android app launches, or until you ask us to remove yours.`),
-  bullet(`Feedback board posts and comments stay up for as long as the board does, since they're part of a public discussion.`),
+  bullet(`Feedback board posts stay up for as long as the board does, since they're part of a public discussion.`),
   bullet(
     `Backups are kept for 7 days. Anything you delete goes from Twofold immediately - uploaded files within a day, as above - but can survive in a backup until that backup ages out, so for up to 7 days after you delete it, and no longer. The one exception is support records, which we keep as described above.`
   ),
@@ -466,7 +472,7 @@ const doc = {
   _type: 'legalPage',
   pageId: 'privacy',
   title: 'Privacy Policy',
-  lastUpdated: '2026-09-27',
+  lastUpdated: '2026-11-04',
   noticeText:
     `Draft - pending legal review. This policy describes how Twofold actually works today, but it has not been reviewed by a lawyer.`,
   body,

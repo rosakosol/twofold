@@ -1,8 +1,9 @@
 -- 20261120000100 drops the feedback board's notification outbox. Pinned here: the table, its two
--- triggers and their functions are gone, and posting an update or changing a status still works.
+-- triggers and their functions are gone, and changing a status still works. developer_updates
+-- itself was dropped by 20261121000000, so posting an update is no longer asserted here.
 
 begin;
-select plan(8);
+select plan(7);
 
 create extension if not exists pgtap;
 
@@ -37,11 +38,6 @@ select lives_ok(
   $$ update public.feature_requests set status = 'planned'
      where id = '00000000-0000-0000-0000-00000000f0b2' $$,
   'its status can still change'
-);
-select lives_ok(
-  $$ insert into public.developer_updates (feature_id, author_id, body)
-     values ('00000000-0000-0000-0000-00000000f0b2', 'cccccccc-0b0b-0000-0000-000000000001', 'Shipped') $$,
-  'a developer update can still be posted'
 );
 
 select * from finish();
