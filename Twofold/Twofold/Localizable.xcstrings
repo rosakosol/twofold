@@ -495,7 +495,28 @@
       }
     },
     "%lld days to go" : {
-
+      "comment" : "Home's next reunion card. How many days until the trip starts.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld day to go"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld days to go"
+                }
+              }
+            }
+          }
+        }
+      }
     },
     "%lld draws" : {
       "comment" : "A label that describes the number of draws in a game. The argument is the number of draws.",
