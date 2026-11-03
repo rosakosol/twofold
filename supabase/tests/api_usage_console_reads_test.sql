@@ -34,6 +34,11 @@ insert into public.feedback_admins (profile_id, role) values
   ('dddddddd-8888-0000-0000-000000000001', 'billing'),
   ('dddddddd-8888-0000-0000-000000000002', 'content');
 
+-- The totals below are exact, so they assume these are the only rows. A local stack that has run
+-- the flight functions already holds real ones for this month, which made this fail for reasons
+-- that had nothing to do with the gates. Cleared inside the transaction, so the rollback restores them.
+delete from private.api_usage_daily;
+
 insert into private.api_usage_daily (day, provider, endpoint, calls, billable_calls, errors, retries, distinct_upstream, served_flights, estimated_cost_usd) values
   (current_date, 'aeroapi', 'flights/{id}', 40, 38, 2, 1, 9, 40, 0.190000),
   (current_date, 'aeroapi', 'flights/search', 5, 5, 0, 0, 0, 5, null);
