@@ -15,9 +15,6 @@ struct NotificationPreferencesView: View {
     @Environment(AppModel.self) private var appModel
 
     @State private var partnerDrawingSaved = true
-    @State private var partnerTripAdded = true
-    @State private var partnerMemoryAdded = true
-    @State private var partnerGameStarted = true
     @State private var partnerGameTurn = true
     @State private var partnerGameReminder = true
     @State private var partnerGameResultsReady = true
@@ -62,23 +59,12 @@ struct NotificationPreferencesView: View {
                 }
 
                 SectionCard {
-                    groupHeader("Travel")
-                    toggleRow(
-                        "My partner adds a trip",
-                        isOn: $partnerTripAdded,
-                        caption: "Flight updates have their own notification settings on each tracked flight."
-                    )
-                }
-
-                SectionCard {
                     groupHeader("Memories")
-                    toggleRow("My partner adds a memory", isOn: $partnerMemoryAdded)
                     toggleRow("My partner saves a drawing", isOn: $partnerDrawingSaved)
                 }
 
                 SectionCard {
                     groupHeader("Games")
-                    toggleRow("My partner starts a game", isOn: $partnerGameStarted)
                     // Named for the two games it applies to, because it is the only toggle here
                     // that does not cover every game — the rest are play-your-half-whenever and
                     // nobody is waiting on anybody.
@@ -123,9 +109,6 @@ struct NotificationPreferencesView: View {
             Task { await refreshAuthStatus() }
         }
         .onChange(of: partnerDrawingSaved) { _, _ in saveIfLoaded() }
-        .onChange(of: partnerTripAdded) { _, _ in saveIfLoaded() }
-        .onChange(of: partnerMemoryAdded) { _, _ in saveIfLoaded() }
-        .onChange(of: partnerGameStarted) { _, _ in saveIfLoaded() }
         .onChange(of: partnerGameTurn) { _, _ in saveIfLoaded() }
         .onChange(of: partnerGameReminder) { _, _ in saveIfLoaded() }
         .onChange(of: partnerGameResultsReady) { _, _ in saveIfLoaded() }
@@ -221,9 +204,6 @@ struct NotificationPreferencesView: View {
         loadFailed = false
         if let prefs = try? await BackendService.fetchCoupleNotificationPreferences() {
             partnerDrawingSaved = prefs.partnerDrawingSaved
-            partnerTripAdded = prefs.partnerTripAdded
-            partnerMemoryAdded = prefs.partnerMemoryAdded
-            partnerGameStarted = prefs.partnerGameStarted
             partnerGameTurn = prefs.partnerGameTurn
             partnerGameReminder = prefs.partnerGameReminder
             partnerGameResultsReady = prefs.partnerGameResultsReady
@@ -248,9 +228,6 @@ struct NotificationPreferencesView: View {
         guard isLoaded else { return }
         let prefs = BackendService.CoupleNotificationPreferences(
             partnerDrawingSaved: partnerDrawingSaved,
-            partnerTripAdded: partnerTripAdded,
-            partnerMemoryAdded: partnerMemoryAdded,
-            partnerGameStarted: partnerGameStarted,
             partnerGameResultsReady: partnerGameResultsReady,
             partnerGamePartnerFinished: partnerGamePartnerFinished,
             partnerGameTurn: partnerGameTurn,

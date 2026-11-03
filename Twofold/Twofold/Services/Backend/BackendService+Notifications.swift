@@ -10,13 +10,10 @@ import Supabase
 
 extension BackendService {
 
-    // MARK: - Couple-activity notifications (drawing/trip/memory/game — not flight-specific)
+    // MARK: - Couple-activity notifications (drawing/game/birthday — not flight-specific)
 
     enum CoupleNotificationEvent: String {
         case drawingSaved = "drawing_saved"
-        case tripAdded = "trip_added"
-        case memoryAdded = "memory_added"
-        case gameStarted = "game_started"
         case gameResultsReady = "game_results_ready"
         case gamePartnerFinished = "game_partner_finished"
         case gameReminder = "game_reminder"
@@ -27,31 +24,24 @@ extension BackendService {
     }
 
     /// Tells the caller's partner (if any) about something the caller just did — best-effort,
-    /// never throws. Called right after a real, synced write succeeds (never for a
-    /// pending/local-only trip or memory added before pairing), since notifying about
+    /// never throws. Called right after a real, synced write succeeds, since notifying about
     /// something that doesn't exist in the partner's own view yet would be misleading.
     /// `sessionID`/`gameType` are only meaningful for `.gameReminder`/`.gameResultsReady`/
     /// `.gamePartnerFinished` — they ride along in the push payload so tapping the delivered
     /// notification can deep-link straight into that session (see `PushNotificationDelegate`)
-    /// instead of just opening the app. `target: .self` redirects the push to the caller's own
-    /// devices instead of the partner's — see the call site in `AppModel.addMemory` for why.
-    enum NotifyTarget: String {
-        case partner
-        case selfDevice = "self"
-    }
-
+    /// instead of just opening the app.
+    ///
     /// `isDaily` is only meaningful for `.gameResultsReady`/`.gamePartnerFinished`, and only
     /// changes the wording: the Daily Question is the one session whose completion moves the
     /// couple's streak, and a push that calls it "a game" is describing the wrong stakes. The flag
     /// is sent rather than inferred from `gameType`, since a daily session is an ordinary
     /// `deep_conversations` session under the hood and nothing in the payload distinguishes it.
-    static func notifyPartner(event: CoupleNotificationEvent, detail: String? = nil, sessionID: UUID? = nil, gameType: GameType? = nil, isDaily: Bool = false, target: NotifyTarget = .partner) async {
+    static func notifyPartner(event: CoupleNotificationEvent, detail: String? = nil, sessionID: UUID? = nil, gameType: GameType? = nil, isDaily: Bool = false) async {
         var body: [String: Any] = ["eventType": event.rawValue]
         if let detail { body["detail"] = detail }
         if let sessionID { body["sessionId"] = sessionID.uuidString }
         if let gameType { body["gameType"] = gameType.rawValue }
         if isDaily { body["isDaily"] = true }
-        if target != .partner { body["target"] = target.rawValue }
 
         _ = try? await EdgeFunctions.send("notify-couple-event", body: body)
     }
@@ -74,13 +64,10 @@ extension BackendService {
 
     struct CoupleNotificationPreferences {
         var partnerDrawingSaved: Bool
-        var partnerTripAdded: Bool
-        var partnerMemoryAdded: Bool
-        var partnerGameStarted: Bool
         var partnerGameResultsReady: Bool
         var partnerGamePartnerFinished: Bool
         /// Connect 4 only — the one event that fires repeatedly *within* a game rather
-        /// than once, which is why it is not folded into `partnerGameStarted`.
+        /// than once, which is why it has a toggle of its own.
         var partnerGameTurn: Bool
         var partnerGameReminder: Bool
         var dailyStreakReminder: Bool
@@ -91,8 +78,8 @@ extension BackendService {
         var partnerInviteReminder: Bool
 
         static let allEnabled = CoupleNotificationPreferences(
-            partnerDrawingSaved: true, partnerTripAdded: true, partnerMemoryAdded: true,
-            partnerGameStarted: true, partnerGameResultsReady: true, partnerGamePartnerFinished: true,
+            partnerDrawingSaved: true,
+            partnerGameResultsReady: true, partnerGamePartnerFinished: true,
             partnerGameTurn: true,
             partnerGameReminder: true,
             dailyStreakReminder: true, streakEndingReminder: true, partnerInviteReminder: true
@@ -102,9 +89,6 @@ extension BackendService {
     private struct CoupleNotificationPreferencesRow: Codable {
         var profileId: UUID
         var partnerDrawingSaved: Bool
-        var partnerTripAdded: Bool
-        var partnerMemoryAdded: Bool
-        var partnerGameStarted: Bool
         var partnerGameResultsReady: Bool
         var partnerGamePartnerFinished: Bool
         var partnerGameTurn: Bool
@@ -116,9 +100,6 @@ extension BackendService {
         enum CodingKeys: String, CodingKey {
             case profileId = "profile_id"
             case partnerDrawingSaved = "partner_drawing_saved"
-            case partnerTripAdded = "partner_trip_added"
-            case partnerMemoryAdded = "partner_memory_added"
-            case partnerGameStarted = "partner_game_started"
             case partnerGameResultsReady = "partner_game_results_ready"
             case partnerGamePartnerFinished = "partner_game_partner_finished"
             case partnerGameTurn = "partner_game_turn"
@@ -143,9 +124,6 @@ extension BackendService {
         guard let row = rows.first else { return .allEnabled }
         return CoupleNotificationPreferences(
             partnerDrawingSaved: row.partnerDrawingSaved,
-            partnerTripAdded: row.partnerTripAdded,
-            partnerMemoryAdded: row.partnerMemoryAdded,
-            partnerGameStarted: row.partnerGameStarted,
             partnerGameResultsReady: row.partnerGameResultsReady,
             partnerGamePartnerFinished: row.partnerGamePartnerFinished,
             partnerGameTurn: row.partnerGameTurn,
@@ -161,9 +139,6 @@ extension BackendService {
         let row = CoupleNotificationPreferencesRow(
             profileId: userID,
             partnerDrawingSaved: prefs.partnerDrawingSaved,
-            partnerTripAdded: prefs.partnerTripAdded,
-            partnerMemoryAdded: prefs.partnerMemoryAdded,
-            partnerGameStarted: prefs.partnerGameStarted,
             partnerGameResultsReady: prefs.partnerGameResultsReady,
             partnerGamePartnerFinished: prefs.partnerGamePartnerFinished,
             partnerGameTurn: prefs.partnerGameTurn,
