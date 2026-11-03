@@ -62,8 +62,6 @@ enum Brand {
     static let textPrimary = Color.dynamic(light: 0x0E1A26, dark: 0xF3F5F8)
     /// 6.5:1 / 8.7:1.
     static let textSecondary = Color.dynamic(light: 0x52606E, dark: 0xA6AFBC)
-    /// Pair with a blur material.
-    static let tabBar = Color.dynamic(light: 0xFFFFFF, dark: 0x1B222D, lightAlpha: 0.94, darkAlpha: 0.94)
     /// Sheets over maps. Pair with a blur material.
     static let sheet = Color.dynamic(light: 0xFFFFFF, dark: 0x10151E, lightAlpha: 0.95, darkAlpha: 0.94)
     /// The scheduled / not-live status pill's outline (spec section 5).
@@ -149,7 +147,6 @@ enum Brand {
     /// partner's time card and widgets draw their own skies; see WeatherSky.)
     static let nightSky = gradient(0x1C2744, 0x2E3D6E)
     static let nightSkyTop = Color(hex: 0x1C2744)
-    static let nightSkyBottom = Color(hex: 0x2E3D6E)
     /// Today's deep question, everywhere it appears. 4.5:1 at the green end, 6.7:1 at violet.
     static let dailyQuestion = LinearGradient(
         stops: [
@@ -172,13 +169,6 @@ enum Brand {
 
     static let glowIndigo = Color.dynamic(light: 0x3A56D9, dark: 0x3A56D9, lightAlpha: 0.16, darkAlpha: 0.30)
     static let glowGreen = Color.dynamic(light: 0x00875F, dark: 0x00875F, lightAlpha: 0.12, darkAlpha: 0.20)
-
-    // MARK: 2.5 Game colours (same in light and dark, white text)
-
-    static let deepConversation = indigoGradient
-    static let thisOrThat = gradient(0x1A6FD6, 0x0B5FB0)
-    static let trivia = greenGradient
-    static let moreLikely = coralGradient
 
     // MARK: 2.6 Trivia answer tiles
 
@@ -208,7 +198,6 @@ enum Brand {
     // MARK: Drawing pad paper (section 6 Home, section 7)
 
     static let paper = Color.dynamic(light: 0xFFFFFF, dark: 0xE9E4DA)
-    static let paperInk = Color(hex: 0x1C2733)
     static let paperInkSecondary = Color(hex: 0x5B6776)
 }
 

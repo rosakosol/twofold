@@ -72,7 +72,6 @@ enum Theme {
     static let segmentTrack = Brand.segmentTrack
     static let segmentSelected = Brand.segmentSelected
     static let selectedTab = Brand.selectedTab
-    static let tabBar = Brand.tabBar
     static let sheet = Brand.sheet
     static let pendingPillLine = Brand.pendingPillLine
 
@@ -99,12 +98,6 @@ enum Theme {
     static let heroBlueGreen = Brand.heroBlueGreen
     static let dailyQuestion = Brand.dailyQuestion
     static let flight = Brand.flight
-    /// Selected-state border for onboarding's option cards: a genuine selection, so it keeps both
-    /// brand hues.
-    static let selectionGradient = LinearGradient(
-        colors: [Brand.accent, Brand.success],
-        startPoint: .topLeading, endPoint: .bottomTrailing
-    )
 
     // MARK: Shadow (floating elements only: tab bar, game cards, share cards)
 
@@ -135,7 +128,6 @@ enum Theme {
         static let sheet: CGFloat = 34
         /// A card exported as an image.
         static let shareCard: CGFloat = 32
-        static let pill: CGFloat = 999
     }
 }
 
