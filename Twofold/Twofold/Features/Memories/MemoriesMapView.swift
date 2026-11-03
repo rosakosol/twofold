@@ -11,6 +11,7 @@ struct MemoriesMapView: View {
     var onTapAddMemory: () -> Void = {}
 
     @Environment(AppModel.self) private var appModel
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var selectedCity: Place?
     /// Drives `AddMemoryView`'s sheet when the per-location list's own empty state is tapped —
     /// separate from `selectedCity` since that one's sheet stays open underneath (adding a memory
@@ -161,31 +162,63 @@ struct MemoriesMapView: View {
         // slid a whole new panel up, which reads as being taken somewhere rather than as the panel
         // switching. Bound to whether a city is selected instead, the sheet stays put and only its
         // contents change.
-        .sheet(isPresented: Binding(get: { selectedCity != nil }, set: { if !$0 { selectedCity = nil } })) {
-            Group {
-                if let city = selectedCity {
-                    NavigationStack {
-                        // Previously left at its default no-op closure — tapping this location's own
-                        // "Add your first memory" empty-state hint did nothing at all, since only
-                        // MemoriesView's tab-mode instantiation ever wired onTapAddMemory through.
-                        MemoriesListView(initialLocationFilter: city, onTapAddMemory: { addMemoryPlace = city })
+        .sheet(isPresented: placePanelBinding(asColumn: false)) {
+            placePanel
+                .simultaneousGesture(
+                    TapGesture().onEnded {
+                        if sheetDetent == Self.peekDetent { sheetDetent = Self.expandedDetent }
                     }
-                }
+                )
+                .presentationDetents([Self.peekDetent, Self.expandedDetent], selection: $sheetDetent)
+                .presentationDragIndicator(.visible)
+                .presentationCornerRadius(Theme.Radius.sheet)
+                .presentationBackgroundInteraction(.enabled(upThrough: Self.peekDetent))
+        }
+        // Regular width — iPhone Duo's inner display — gets the same panel as a column beside the
+        // map instead. A sheet there is a card centred over the middle of the map (and over the
+        // fold), the peek detent and panning the map behind it don't carry over, and the
+        // tap-a-pin, glance, keep-panning loop this screen is built on stops working. Only one of
+        // the two is ever presented: each binding is gated on the size class.
+        .inspector(isPresented: placePanelBinding(asColumn: true)) {
+            // Built only in regular width. The inspector's content is evaluated even while it is
+            // not presented, and the list's own toolbar title then took over the map's navigation
+            // bar on a phone, above the sheet that was showing the same place.
+            if horizontalSizeClass == .regular {
+                placePanel
+                    .inspectorColumnWidth(min: 320, ideal: 380, max: 440)
             }
-            .simultaneousGesture(
-                TapGesture().onEnded {
-                    if sheetDetent == Self.peekDetent { sheetDetent = Self.expandedDetent }
-                }
-            )
-            .presentationDetents([Self.peekDetent, Self.expandedDetent], selection: $sheetDetent)
-            .presentationDragIndicator(.visible)
-            .presentationCornerRadius(Theme.Radius.sheet)
-            .presentationBackgroundInteraction(.enabled(upThrough: Self.peekDetent))
         }
         .sheet(item: $addMemoryPlace) { place in
             AddMemoryView(initialPlace: place)
         }
         .postHogScreenView("Memories: Map")
+    }
+
+    /// The memories at the selected place.
+    @ViewBuilder
+    private var placePanel: some View {
+        if let city = selectedCity {
+            NavigationStack {
+                // Previously left at its default no-op closure — tapping this location's own
+                // "Add your first memory" empty-state hint did nothing at all, since only
+                // MemoriesView's tab-mode instantiation ever wired onTapAddMemory through.
+                MemoriesListView(initialLocationFilter: city, onTapAddMemory: { addMemoryPlace = city })
+            }
+        }
+    }
+
+    /// Whether the place panel is up, for the presentation that matches the size class: the sheet
+    /// in compact width, the inspector column in regular.
+    ///
+    /// Only the presentation that matches the size class may clear the selection. Unfolding the Duo
+    /// with the panel open takes the sheet down because its size class no longer matches, and that
+    /// dismissal should hand the place over to the column, not close it.
+    private func placePanelBinding(asColumn: Bool) -> Binding<Bool> {
+        let matches = { (horizontalSizeClass == .regular) == asColumn }
+        return Binding(
+            get: { selectedCity != nil && matches() },
+            set: { if !$0, matches() { selectedCity = nil } }
+        )
     }
 
     /// Somewhere to type when the memory you want is on the other side of the world.
