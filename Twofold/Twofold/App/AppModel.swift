@@ -349,26 +349,6 @@ final class AppModel {
         }
     }
 
-    var stats: MockData.RelationshipStats {
-        // Reunion-only — this feeds the "you've travelled X for each other" hero (PassportView,
-        // SnapshotThemeCard), which should only count trips actually taken to see each other, not
-        // every trip ever logged (a solo/personal trip isn't "for each other" just because it
-        // happened). `FlightStats.totalDistanceKm` is the separate, deliberately-unfiltered "every
-        // flight regardless of reason" figure shown in the Flight Distance breakdown.
-        // `effectiveDistanceKm` (not the raw `distanceKm`) so a connecting itinerary's real
-        // flown distance counts, not just the trip's direct origin→destination distance.
-        let totalDistance = trips.filter { $0.category == .reunion }.reduce(0) { $0 + $1.effectiveDistanceKm }
-        let daysTogether = max(0, TimeMath.daysSince(couple.startedDatingOn))
-        return MockData.RelationshipStats(
-            totalDistanceKm: totalDistance,
-            tripCount: trips.count,
-            flightCount: trips.filter { !$0.flights.isEmpty }.count,
-            countryCount: Set(trips.flatMap { [$0.origin.country, $0.destination.country] }).count,
-            daysTogether: daysTogether,
-            earthMultiple: totalDistance / Geo.earthCircumferenceKm
-        )
-    }
-
     // MARK: - Session / backend sync
 
     /// Called once at launch. Restores a session if one exists and loads real state; leaves

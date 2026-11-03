@@ -149,24 +149,5 @@ enum MockData {
         ),
     ]
 
-    /// Headline relationship stats — matches the numbers used throughout the README.
-    struct RelationshipStats {
-        var totalDistanceKm: Double
-        var tripCount: Int
-        var flightCount: Int
-        var countryCount: Int
-        var daysTogether: Int
-        var earthMultiple: Double
-    }
-
-    static let stats = RelationshipStats(
-        totalDistanceKm: 84_392,
-        tripCount: 9,
-        flightCount: 14,
-        countryCount: 4,
-        daysTogether: 127,
-        earthMultiple: 2.1
-    )
-
     static let nextReunionDaysToGo = 47
 }

@@ -6,9 +6,8 @@
 //  globe snapshot, same `.hybrid(elevation: .realistic)` rendering `RelationshipGlobeView`'s live
 //  `Map` uses + a hand-drawn geodesic path + avatar pins), not a live `Map` itself.
 //  `ImageRenderer` can't reliably rasterize a live MapKit-backed SwiftUI `Map` that's never
-//  actually been placed in a window (tiles haven't loaded, so there's nothing to capture) — the
-//  same constraint `RelationshipStatsShareCard` and `SnapshotShareView` already work around via
-//  `MKMapSnapshotter`.
+//  actually been placed in a window (tiles haven't loaded, so there's nothing to capture), so the
+//  globe comes from `MKMapSnapshotter` instead.
 //
 
 import SwiftUI

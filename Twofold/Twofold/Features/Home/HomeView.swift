@@ -33,7 +33,6 @@ struct HomeView: View {
 
     @Environment(AppModel.self) private var appModel
     @Environment(\.scenePhase) private var scenePhase
-    @State private var showingSnapshot = false
     @State private var distanceShareContext: DistanceShareContext?
     @State private var globeFullScreenContext: GlobeFullScreenContext?
     @State private var showingSettings = false
@@ -223,7 +222,6 @@ struct HomeView: View {
                     }
                 }
             }
-            .sheet(isPresented: $showingSnapshot) { SnapshotShareView() }
             .sheet(item: $distanceShareContext) { context in
                 DistanceShareView(couple: appModel.session.couple, myCity: context.myCity, partnerCity: context.partnerCity, distanceKm: context.distanceKm)
             }

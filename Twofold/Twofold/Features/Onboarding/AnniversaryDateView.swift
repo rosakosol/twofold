@@ -4,7 +4,7 @@
 //
 //  Collected as personalization (like home city) before a real couple exists — persisted to
 //  `profiles.anniversary_date` in `AppModel.applyOnboardingAccount`, and reflected into
-//  `Couple.startedDatingOn` locally so `AppModel.stats.daysTogether` has something real to
+//  `Couple.startedDatingOn` locally so `RelationshipMilestoneStats.daysTogether` has something real to
 //  compute from immediately. Reconciling this with `couples.started_dating_on` once a real
 //  pairing happens is follow-up work. Also the intended source for a future anniversary/days-
 //  together widget.
