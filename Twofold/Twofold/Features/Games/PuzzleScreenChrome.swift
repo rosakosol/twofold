@@ -132,10 +132,17 @@ private struct PuzzleScreenChrome<Store: PuzzleScreenStore>: ViewModifier {
                     GameShareSheet(data: share)
                 }
             }
-            .alert("Reminder sent", isPresented: $link.reminderSent) {
+            .alert(
+                link.reminderResult == .failed ? "Couldn't send reminder" : "Reminder sent",
+                isPresented: Binding(get: { link.reminderResult != nil }, set: { if !$0 { link.reminderResult = nil } })
+            ) {
                 Button("OK", role: .cancel) {}
             } message: {
-                Text(reminderSentMessage)
+                if link.reminderResult == .failed {
+                    Text("Check your connection and try again.")
+                } else {
+                    Text(reminderSentMessage)
+                }
             }
             // Keyed on the session rather than on the view's lifetime: Sudoku's "play another"
             // replaces its store in place, and a plain `.task` would leave both of these running

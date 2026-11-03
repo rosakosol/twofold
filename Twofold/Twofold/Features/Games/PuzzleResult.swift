@@ -30,6 +30,8 @@ protocol PuzzleSessionBackend {
     func fetchGameSession(id: UUID) async throws -> BackendService.GameSessionDetail
     func submitGameResponse(sessionID: UUID, roundNumber: Int, answerValue: String, isCorrect: Bool?) async throws
     func notifyPartner(event: BackendService.CoupleNotificationEvent, detail: String?, sessionID: UUID, gameType: GameType) async
+    /// The Remind button's push. Whether it went.
+    func sendGameReminder(detail: String, sessionID: UUID, gameType: GameType) async -> Bool
 }
 
 struct LivePuzzleSessionBackend: PuzzleSessionBackend {
@@ -50,6 +52,10 @@ struct LivePuzzleSessionBackend: PuzzleSessionBackend {
 
     func notifyPartner(event: BackendService.CoupleNotificationEvent, detail: String?, sessionID: UUID, gameType: GameType) async {
         await BackendService.notifyPartner(event: event, detail: detail, sessionID: sessionID, gameType: gameType)
+    }
+
+    func sendGameReminder(detail: String, sessionID: UUID, gameType: GameType) async -> Bool {
+        await BackendService.sendGameReminder(detail: detail, sessionID: sessionID, gameType: gameType)
     }
 }
 

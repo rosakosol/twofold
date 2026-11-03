@@ -20,6 +20,7 @@ struct ThisOrThatGameView: View {
     @State private var store = GameSessionStore()
     @State private var isSubmitting = false
     @State private var isSendingReminder = false
+    @State private var reminderFailed = false
     @State private var hapticTrigger = false
     @State private var showingReportSheet = false
     @State private var showingLeaveConfirm = false
@@ -77,6 +78,7 @@ struct ThisOrThatGameView: View {
                     partnerName: appModel.partner.name,
                     partnerProgress: store.partnerProgress(partnerID: partnerID),
                     isSendingReminder: isSendingReminder,
+                    reminderFailed: reminderFailed,
                     onSendReminder: { Task { await sendReminder() } },
                     onPlayAnother: { dismiss() },
                     onEditAnswers: { store.beginEditingAnswers() },
@@ -289,7 +291,7 @@ struct ThisOrThatGameView: View {
 
     private func sendReminder() async {
         isSendingReminder = true
-        await BackendService.notifyPartner(event: .gameReminder, detail: title ?? GameType.thisOrThat.displayName, sessionID: sessionID, gameType: .thisOrThat)
+        reminderFailed = !(await BackendService.sendGameReminder(detail: title ?? GameType.thisOrThat.displayName, sessionID: sessionID, gameType: .thisOrThat))
         isSendingReminder = false
     }
 

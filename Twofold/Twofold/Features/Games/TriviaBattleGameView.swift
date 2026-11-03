@@ -24,6 +24,7 @@ struct TriviaBattleGameView: View {
     @State private var store = GameSessionStore()
     @State private var isSubmitting = false
     @State private var isSendingReminder = false
+    @State private var reminderFailed = false
     @State private var hapticTrigger = false
     @State private var showingReportSheet = false
     @State private var showingLeaveConfirm = false
@@ -100,6 +101,7 @@ struct TriviaBattleGameView: View {
                     partnerName: appModel.partner.name,
                     partnerProgress: store.partnerProgress(partnerID: partnerID),
                     isSendingReminder: isSendingReminder,
+                    reminderFailed: reminderFailed,
                     onSendReminder: { Task { await sendReminder() } },
                     onPlayAnother: { dismiss() },
                     onEditAnswers: { store.beginEditingAnswers() },
@@ -343,7 +345,7 @@ struct TriviaBattleGameView: View {
 
     private func sendReminder() async {
         isSendingReminder = true
-        await BackendService.notifyPartner(event: .gameReminder, detail: title ?? GameType.triviaBattle.displayName, sessionID: sessionID, gameType: .triviaBattle)
+        reminderFailed = !(await BackendService.sendGameReminder(detail: title ?? GameType.triviaBattle.displayName, sessionID: sessionID, gameType: .triviaBattle))
         isSendingReminder = false
     }
 

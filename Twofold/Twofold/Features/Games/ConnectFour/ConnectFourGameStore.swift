@@ -206,12 +206,10 @@ final class ConnectFourGameStore {
     ///
     /// Deliberately not sent on every turn — a push per disc would be a conversation conducted
     /// entirely in notifications. The screen offers it as a nudge, the way the other games do.
-    func nudgePartner() async {
-        await BackendService.notifyPartner(
-            event: .gameReminder,
-            detail: GameType.connectFour.displayName,
-            sessionID: sessionID,
-            gameType: .connectFour
-        )
+    ///
+    /// Returns whether it went, so the screen says "Couldn't send" rather than "Reminder sent" when
+    /// it didn't (GAME-11).
+    func nudgePartner() async -> Bool {
+        await BackendService.sendGameReminder(detail: GameType.connectFour.displayName, sessionID: sessionID, gameType: .connectFour)
     }
 }

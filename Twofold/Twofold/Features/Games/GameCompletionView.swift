@@ -22,6 +22,9 @@ struct GameCompletionView: View {
     let partnerName: String
     let partnerProgress: PartnerProgress
     var isSendingReminder = false
+    /// Whether the reminder that just finished sending failed, read when `isSendingReminder` goes
+    /// back to false (GAME-11).
+    var reminderFailed = false
     let onSendReminder: () -> Void
     let onPlayAnother: () -> Void
     var myAnswersRecap: [GameCompletionAnswerRecap] = []
@@ -111,10 +114,14 @@ struct GameCompletionView: View {
                 showingReminderSentConfirmation = true
             }
         }
-        .alert("Reminder sent", isPresented: $showingReminderSentConfirmation) {
+        .alert(reminderFailed ? "Couldn't send reminder" : "Reminder sent", isPresented: $showingReminderSentConfirmation) {
             Button("OK", role: .cancel) {}
         } message: {
-            Text("Notification sent to \(partnerName).")
+            if reminderFailed {
+                Text("Check your connection and try again.")
+            } else {
+                Text("Notification sent to \(partnerName).")
+            }
         }
         .postHogScreenView("Games: Completion")
     }

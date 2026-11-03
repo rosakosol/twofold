@@ -80,6 +80,15 @@ final class FakePuzzleBackend: PuzzleSessionBackend {
     func notifyPartner(event: BackendService.CoupleNotificationEvent, detail: String?, sessionID: UUID, gameType: GameType) async {
         notified.append(event)
     }
+
+    /// Whether a reminder reaches the server. Offline answers no regardless.
+    var remindersDeliver = true
+    private(set) var reminders: [String] = []
+
+    func sendGameReminder(detail: String, sessionID: UUID, gameType: GameType) async -> Bool {
+        reminders.append(detail)
+        return remindersDeliver && !isOffline
+    }
 }
 
 final class MemoryGameResponseQueue: GameResponseQueue {

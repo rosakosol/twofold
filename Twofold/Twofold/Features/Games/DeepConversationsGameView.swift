@@ -26,6 +26,7 @@ struct DeepConversationsGameView: View {
     @State private var responseText = ""
     @State private var isSubmitting = false
     @State private var isSendingReminder = false
+    @State private var reminderFailed = false
     @State private var showingReportSheet = false
     @State private var showingLeaveConfirm = false
 
@@ -88,6 +89,7 @@ struct DeepConversationsGameView: View {
                     partnerName: appModel.partner.name,
                     partnerProgress: store.partnerProgress(partnerID: partnerID),
                     isSendingReminder: isSendingReminder,
+                    reminderFailed: reminderFailed,
                     onSendReminder: { Task { await sendReminder() } },
                     onPlayAnother: { dismiss() },
                     myAnswersRecap: myAnswersRecap,
@@ -273,7 +275,7 @@ struct DeepConversationsGameView: View {
 
     private func sendReminder() async {
         isSendingReminder = true
-        await BackendService.notifyPartner(event: .gameReminder, detail: title ?? GameType.deepConversations.displayName, sessionID: sessionID, gameType: .deepConversations)
+        reminderFailed = !(await BackendService.sendGameReminder(detail: title ?? GameType.deepConversations.displayName, sessionID: sessionID, gameType: .deepConversations))
         isSendingReminder = false
     }
 

@@ -62,6 +62,23 @@ extension BackendService {
         return (try? await EdgeFunctions.send("notify-couple-event", body: body)) != nil
     }
 
+    /// A game reminder someone asked for by pressing Remind, with the outcome kept (GAME-11).
+    ///
+    /// The same push `notifyPartner(event: .gameReminder, …)` sends, reported the way
+    /// `sendBirthdayWish` is and for the same reason: pressing the button *is* the action, so
+    /// "Reminder sent" for a request that never left tells somebody their partner has been nudged
+    /// when they have not. False for any non-2xx or transport error, and when there is no session
+    /// to send with.
+    static func sendGameReminder(detail: String, sessionID: UUID, gameType: GameType) async -> Bool {
+        let body: [String: Any] = [
+            "eventType": CoupleNotificationEvent.gameReminder.rawValue,
+            "detail": detail,
+            "sessionId": sessionID.uuidString,
+            "gameType": gameType.rawValue,
+        ]
+        return (try? await EdgeFunctions.send("notify-couple-event", body: body)) != nil
+    }
+
     struct CoupleNotificationPreferences {
         var partnerDrawingSaved: Bool
         var partnerGameResultsReady: Bool

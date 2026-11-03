@@ -20,6 +20,7 @@ struct WhosMoreLikelyGameView: View {
     @State private var store = GameSessionStore()
     @State private var isSubmitting = false
     @State private var isSendingReminder = false
+    @State private var reminderFailed = false
     @State private var hapticTrigger = false
     @State private var showingReportSheet = false
     @State private var showingLeaveConfirm = false
@@ -77,6 +78,7 @@ struct WhosMoreLikelyGameView: View {
                     partnerName: appModel.partner.name,
                     partnerProgress: store.partnerProgress(partnerID: partnerID),
                     isSendingReminder: isSendingReminder,
+                    reminderFailed: reminderFailed,
                     onSendReminder: { Task { await sendReminder() } },
                     onPlayAnother: { dismiss() },
                     onEditAnswers: { store.beginEditingAnswers() },
@@ -289,7 +291,7 @@ struct WhosMoreLikelyGameView: View {
 
     private func sendReminder() async {
         isSendingReminder = true
-        await BackendService.notifyPartner(event: .gameReminder, detail: title ?? GameType.moreLikely.displayName, sessionID: sessionID, gameType: .moreLikely)
+        reminderFailed = !(await BackendService.sendGameReminder(detail: title ?? GameType.moreLikely.displayName, sessionID: sessionID, gameType: .moreLikely))
         isSendingReminder = false
     }
 

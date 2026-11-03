@@ -17,6 +17,7 @@ struct ConnectFourGameView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var isNudging = false
     @State private var showingNudgeSent = false
+    @State private var nudgeFailed = false
     @State private var confirmingEnd = false
     @State private var endFailed: String?
     @State private var confettiTrigger = false
@@ -135,10 +136,14 @@ struct ConnectFourGameView: View {
         // partner's move arriving is the event worth feeling.
         .sensoryFeedback(.impact(weight: .light), trigger: store.moves.count)
         .onDisappear { store.stopRealtime() }
-        .alert("Reminder sent", isPresented: $showingNudgeSent) {
+        .alert(nudgeFailed ? "Couldn't send reminder" : "Reminder sent", isPresented: $showingNudgeSent) {
             Button("OK", role: .cancel) {}
         } message: {
-            Text("\(appModel.partner.name) has been told it's their move.")
+            if nudgeFailed {
+                Text("Check your connection and try again.")
+            } else {
+                Text("\(appModel.partner.name) has been told it's their move.")
+            }
         }
         .postHogScreenView("Games: Connect 4")
     }
@@ -315,7 +320,7 @@ struct ConnectFourGameView: View {
         GameReminderButton(isSending: isNudging) {
             isNudging = true
             Task {
-                await store.nudgePartner()
+                nudgeFailed = !(await store.nudgePartner())
                 isNudging = false
                 showingNudgeSent = true
             }

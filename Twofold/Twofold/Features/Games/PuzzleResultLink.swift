@@ -48,8 +48,15 @@ final class PuzzleResultLink {
 
     /// True while a reminder push is on its way.
     private(set) var isSendingReminder = false
-    /// Drives the "Reminder sent" alert.
-    var reminderSent = false
+
+    enum ReminderResult {
+        case sent
+        /// Offline, or the server said no: nothing reached the partner.
+        case failed
+    }
+
+    /// How the last reminder went. Drives the alert, which says which.
+    var reminderResult: ReminderResult?
 
     init(
         sessionID: UUID,
@@ -185,12 +192,15 @@ final class PuzzleResultLink {
     ///
     /// `detail` lands inside quotation marks in the push (`wants you to complete "Hard Sudoku"`),
     /// so callers pass a name rather than nil.
-    func remindPartner(detail: String) {
+    ///
+    /// Returns the send, so a caller (a test) can wait for it.
+    @discardableResult
+    func remindPartner(detail: String) -> Task<Void, Never> {
         isSendingReminder = true
-        Task {
-            await backend.notifyPartner(event: .gameReminder, detail: detail, sessionID: sessionID, gameType: gameType)
+        return Task {
+            let sent = await backend.sendGameReminder(detail: detail, sessionID: sessionID, gameType: gameType)
             isSendingReminder = false
-            reminderSent = true
+            reminderResult = sent ? .sent : .failed
         }
     }
 }

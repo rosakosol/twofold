@@ -2,8 +2,8 @@
 //  CopyFixesTests.swift
 //  TwofoldTests
 //
-//  Words that were wrong for the person reading them: a plural (HOME-16) and a phantom partner
-//  for someone playing alone (GAME-9).
+//  Words that were wrong for the person reading them: a plural (HOME-16), a phantom partner for
+//  someone playing alone (GAME-9), and "Reminder sent" for a reminder that never left (GAME-11).
 //
 
 import Testing
@@ -58,5 +58,30 @@ struct CopyFixesTests {
     @Test("a Plus player alone is")
     func plusAloneWordGuess() {
         #expect(WordGuessGameView.aloneFinishedLine(isPremium: false).resolved == "A new word is waiting tomorrow.")
+    }
+
+    // MARK: GAME-11
+
+    private func link(_ backend: FakePuzzleBackend) -> PuzzleResultLink {
+        PuzzleResultLink(sessionID: UUID(), gameType: .sudoku, backend: backend, queue: MemoryGameResponseQueue())
+    }
+
+    @Test("a reminder that doesn't send says so")
+    func failedReminder() async {
+        let backend = FakePuzzleBackend(gameType: .sudoku)
+        backend.isOffline = true
+        let link = link(backend)
+        await link.remindPartner(detail: "Easy Sudoku").value
+        #expect(link.reminderResult == .failed, "Offline, the screen still said \"Reminder sent\"")
+        #expect(!link.isSendingReminder)
+    }
+
+    @Test("a reminder that sends says it was sent")
+    func sentReminder() async {
+        let backend = FakePuzzleBackend(gameType: .sudoku)
+        let link = link(backend)
+        await link.remindPartner(detail: "Easy Sudoku").value
+        #expect(link.reminderResult == .sent)
+        #expect(backend.reminders == ["Easy Sudoku"])
     }
 }
