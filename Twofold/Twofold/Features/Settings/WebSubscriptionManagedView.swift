@@ -65,8 +65,8 @@ struct WebSubscriptionManagedView: View {
             }
             .background(ScreenBackground())
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("Close", action: onDismiss)
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close", systemImage: "xmark", role: .close, action: onDismiss)
                 }
             }
         }

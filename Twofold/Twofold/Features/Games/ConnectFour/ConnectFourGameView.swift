@@ -78,9 +78,8 @@ struct ConnectFourGameView: View {
                             partner: appModel.partner
                         )
                     } label: {
-                        Image(systemName: "square.and.arrow.up")
+                        Label("Share", systemImage: "square.and.arrow.up")
                     }
-                    .accessibilityLabel("Share")
                 }
             }
         }
@@ -99,9 +98,8 @@ struct ConnectFourGameView: View {
                             Label("End this game", systemImage: "flag")
                         }
                     } label: {
-                        Image(systemName: "ellipsis.circle")
+                        Label("More options", systemImage: "ellipsis.circle")
                     }
-                    .accessibilityLabel("More options")
                 }
             }
         }

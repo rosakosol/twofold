@@ -872,8 +872,8 @@ struct RootView: View {
                 }
             }
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("Close") { recordDeepLink = nil }
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close", systemImage: "xmark", role: .close) { recordDeepLink = nil }
                 }
             }
         case .trip(let id):
@@ -885,8 +885,8 @@ struct RootView: View {
                 }
             }
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("Close") { recordDeepLink = nil }
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close", systemImage: "xmark", role: .close) { recordDeepLink = nil }
                 }
             }
         case .memory(let id):
@@ -898,8 +898,8 @@ struct RootView: View {
                 }
             }
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("Close") { recordDeepLink = nil }
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close", systemImage: "xmark", role: .close) { recordDeepLink = nil }
                 }
             }
         case .drawingPad:

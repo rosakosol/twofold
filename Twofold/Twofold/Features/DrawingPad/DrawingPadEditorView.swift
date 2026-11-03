@@ -100,20 +100,19 @@ struct DrawingPadEditorView: View {
             .navigationTitle("Your pad")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("Close") { dismiss() }
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close", systemImage: "xmark", role: .close) { dismiss() }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         sharedCanvas = renderCanvas()
                     } label: {
-                        Image(systemName: "square.and.arrow.up")
+                        Label("Share drawing", systemImage: "square.and.arrow.up")
                     }
-                    .accessibilityLabel("Share drawing")
                     .disabled(elements.isEmpty && backgroundImage == nil)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Clear") {
+                    Button("Clear", systemImage: "trash") {
                         clearedPads.append(ClearedPad(elements: elements, redoStack: redoStack, backgroundImage: backgroundImage))
                         elements.removeAll()
                         redoStack.removeAll()
@@ -124,20 +123,20 @@ struct DrawingPadEditorView: View {
                     .disabled((elements.isEmpty && backgroundImage == nil) || isLoadingBackground)
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button {
-                        if backgroundLoadFailed {
-                            confirmingReplace = true
-                        } else {
-                            save()
+                    // A titled symbol, so on iPhone Duo it joins the side bar with Close and Clear
+                    // rather than staying behind in a strip across the top. A spinner while saving.
+                    if isSaving {
+                        ProgressView()
+                    } else {
+                        Button("Save", systemImage: "checkmark", role: .confirm) {
+                            if backgroundLoadFailed {
+                                confirmingReplace = true
+                            } else {
+                                save()
+                            }
                         }
-                    } label: {
-                        if isSaving {
-                            ProgressView()
-                        } else {
-                            Text("Save").fontWeight(.semibold)
-                        }
+                        .disabled(isLoadingBackground)
                     }
-                    .disabled(isSaving || isLoadingBackground)
                 }
             }
             .task {

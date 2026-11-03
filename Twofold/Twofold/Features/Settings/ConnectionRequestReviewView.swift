@@ -100,8 +100,8 @@ struct ConnectionRequestReviewView: View {
             }
             .background(ScreenBackground())
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("Close") { dismiss() }
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close", systemImage: "xmark", role: .close) { dismiss() }
                 }
                 // In the toolbar rather than beside Accept and Decline: it is not a third way of
                 // answering the request, and giving it equal weight would suggest it is.
@@ -114,8 +114,7 @@ struct ConnectionRequestReviewView: View {
                             showingBlockConfirm = true
                         }
                     } label: {
-                        Image(systemName: "ellipsis.circle")
-                            .accessibilityLabel("More options")
+                        Label("More options", systemImage: "ellipsis.circle")
                     }
                 }
             }

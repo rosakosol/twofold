@@ -33,7 +33,7 @@ struct RelationshipStatsShareView: View {
             .navigationTitle("Relationship stats")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
+                ToolbarItem(placement: .cancellationAction) {
                     Button("Close", systemImage: "xmark") { dismiss() }
                         .labelStyle(.iconOnly)
                 }
@@ -42,7 +42,7 @@ struct RelationshipStatsShareView: View {
                         item: renderCardImage(),
                         preview: SharePreview("Relationship stats", image: renderCardImage())
                     ) {
-                        Image(systemName: "square.and.arrow.up")
+                        Label("Share", systemImage: "square.and.arrow.up")
                     }
                 }
             }

@@ -164,9 +164,8 @@ struct TriviaBattleGameView: View {
                     Menu {
                         ReportProblemMenuItem(showingReportSheet: $showingReportSheet)
                     } label: {
-                        Image(systemName: "ellipsis.circle")
+                        Label("More options", systemImage: "ellipsis.circle")
                     }
-                    .accessibilityLabel("More options")
                 }
             }
         }

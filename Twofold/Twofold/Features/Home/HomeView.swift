@@ -102,17 +102,14 @@ struct HomeView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button {
+                    // A gear, not a person. This opens Settings, and the toolbar already carries
+                    // both faces in its centre — a second person glyph beside them read as a
+                    // profile, which is not where it goes. Titled, so on iPhone Duo it can join the
+                    // side bar; a bare image there stays behind in a strip across the top.
+                    Button("Settings", systemImage: "gearshape.fill") {
                         showingSettings = true
-                    } label: {
-                        // A gear, not a person. This opens Settings, and the toolbar already
-                        // carries both faces in its centre — a second person glyph beside them
-                        // read as a profile, which is not where it goes.
-                        Image(systemName: "gearshape.fill")
-                            .font(.title2)
-                            .foregroundStyle(Theme.accent)
                     }
-                    .accessibilityLabel("Settings")
+                    .tint(Theme.accent)
                 }
                 ToolbarItem(placement: .principal) {
                     // DESIGN: 34pt rather than the spec's 44pt. A 44pt photo with its ring is taller
@@ -197,8 +194,8 @@ struct HomeView: View {
                         showingAddTrip = false
                     }
                     .toolbar {
-                        ToolbarItem(placement: .topBarLeading) {
-                            Button("Cancel") { showingAddTrip = false }
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Cancel", systemImage: "xmark", role: .close) { showingAddTrip = false }
                         }
                     }
                 }

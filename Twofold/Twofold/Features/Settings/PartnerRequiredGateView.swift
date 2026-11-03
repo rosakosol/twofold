@@ -61,8 +61,8 @@ struct PartnerRequiredGateView: View {
             }
             .background(ScreenBackground())
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Close") { dismiss() }
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close", systemImage: "xmark", role: .close) { dismiss() }
                 }
             }
             .task {

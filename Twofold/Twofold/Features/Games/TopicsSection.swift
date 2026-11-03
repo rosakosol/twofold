@@ -164,8 +164,8 @@ struct TopicDetailView: View {
             .navigationTitle(topic.displayName)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Close") { dismiss() }
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close", systemImage: "xmark", role: .close) { dismiss() }
                 }
             }
         }

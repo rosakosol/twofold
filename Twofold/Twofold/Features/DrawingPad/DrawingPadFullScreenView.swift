@@ -86,15 +86,14 @@ struct DrawingPadFullScreenView: View {
             .navigationTitle(screenTitle ?? "\(title)'s pad")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("Close") { dismiss() }
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close", systemImage: "xmark", role: .close) { dismiss() }
                 }
                 if owner != nil, url != nil {
                     ToolbarItem(placement: .topBarTrailing) {
                         Button { sharing = true } label: {
-                            Image(systemName: "square.and.arrow.up")
+                            Label("Share drawing", systemImage: "square.and.arrow.up")
                         }
-                        .accessibilityLabel("Share drawing")
                     }
                 }
             }

@@ -409,13 +409,10 @@ struct PaywallView: View {
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
         if isDismissable {
-            ToolbarItem(placement: .topBarLeading) {
-                Button {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("Close", systemImage: "xmark", role: .close) {
                     dismiss()
-                } label: {
-                    Image(systemName: "xmark")
                 }
-                .accessibilityLabel("Close")
             }
         } else {
             // A way out that is not signing out.
@@ -434,12 +431,11 @@ struct PaywallView: View {
                 Button {
                     showingSettings = true
                 } label: {
-                    Image(systemName: "gearshape")
+                    Label("Settings", systemImage: "gearshape")
                 }
-                .accessibilityLabel("Settings")
             }
             ToolbarItem(placement: .topBarLeading) {
-                Button("Sign out", role: .destructive) {
+                Button("Sign out", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) {
                     showingSignOutConfirm = true
                 }
                 .disabled(isSigningOut)

@@ -68,8 +68,8 @@ struct ForgotPasswordView: View {
             }
             .background(ScreenBackground())
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("Cancel") { dismiss() }
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel", systemImage: "xmark", role: .close) { dismiss() }
                 }
             }
             // Deliberately non-committal about whether the address is actually registered —

@@ -48,8 +48,8 @@ struct DeckPremiumGateView: View {
             }
             .background(ScreenBackground())
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Close") { dismiss() }
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close", systemImage: "xmark", role: .close) { dismiss() }
                 }
             }
             .sheet(isPresented: $showingPaywall) {

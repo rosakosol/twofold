@@ -71,9 +71,8 @@ struct TripDetailsView: View {
                             Label("Delete trip", systemImage: "trash")
                         }
                     } label: {
-                        Image(systemName: "ellipsis.circle")
+                        Label("More options", systemImage: "ellipsis.circle")
                     }
-                    .accessibilityLabel("More options")
                     .disabled(isDeleting)
                 }
             }

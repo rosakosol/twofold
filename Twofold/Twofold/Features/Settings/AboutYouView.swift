@@ -105,14 +105,14 @@ struct AboutYouView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
-                Button(action: save) {
-                    if isSaving {
-                        ProgressView()
-                    } else {
-                        Text("Save").fontWeight(.semibold)
-                    }
+                // A titled symbol rather than a text label, so on iPhone Duo it can join the side bar with
+                // the rest; a spinner in its place while saving.
+                if isSaving {
+                    ProgressView()
+                } else {
+                    Button("Save", systemImage: "checkmark", role: .confirm, action: save)
+                        .disabled(isSaving)
                 }
-                .disabled(isSaving)
             }
         }
         .onAppear {

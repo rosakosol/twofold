@@ -65,17 +65,15 @@ struct GamesHubView: View {
                     Button {
                         browseRoute = BrowseRoute(filter: nil)
                     } label: {
-                        Image(systemName: "magnifyingglass")
+                        Label("Browse all decks", systemImage: "magnifyingglass")
                     }
-                    .accessibilityLabel("Browse all decks")
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     NavigationLink {
                         GameHistoryView()
                     } label: {
-                        Image(systemName: "clock.arrow.circlepath")
+                        Label("Game history", systemImage: "clock.arrow.circlepath")
                     }
-                    .accessibilityLabel("Game history")
                 }
             }
             .navigationDestination(item: $browseRoute) { route in

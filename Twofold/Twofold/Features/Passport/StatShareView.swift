@@ -51,7 +51,7 @@ struct StatShareView: View {
             .navigationTitle(stat.title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
+                ToolbarItem(placement: .cancellationAction) {
                     Button("Close", systemImage: "xmark") { dismiss() }
                         .labelStyle(.iconOnly)
                 }
@@ -60,7 +60,7 @@ struct StatShareView: View {
                         item: renderCardImage(),
                         preview: SharePreview(stat.title, image: renderCardImage())
                     ) {
-                        Image(systemName: "square.and.arrow.up")
+                        Label("Share", systemImage: "square.and.arrow.up")
                     }
                 }
             }

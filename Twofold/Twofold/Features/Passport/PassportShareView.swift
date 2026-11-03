@@ -34,7 +34,7 @@ struct PassportShareView: View {
             .navigationTitle("Flight stats")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
+                ToolbarItem(placement: .cancellationAction) {
                     Button("Close", systemImage: "xmark") { dismiss() }
                         .labelStyle(.iconOnly)
                 }
@@ -43,7 +43,7 @@ struct PassportShareView: View {
                         item: renderCardImage(),
                         preview: SharePreview("My flight stats", image: renderCardImage())
                     ) {
-                        Image(systemName: "square.and.arrow.up")
+                        Label("Share", systemImage: "square.and.arrow.up")
                     }
                 }
             }

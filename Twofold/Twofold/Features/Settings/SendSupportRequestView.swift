@@ -141,8 +141,8 @@ struct SendSupportRequestView: View {
             .navigationTitle("Contact support")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("Cancel") { dismiss() }
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel", systemImage: "xmark", role: .close) { dismiss() }
                 }
             }
             .alert("Message sent", isPresented: $didSend) {

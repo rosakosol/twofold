@@ -83,7 +83,7 @@ struct RelationshipTimelineView: View {
                         if isExporting {
                             ProgressView()
                         } else {
-                            Image(systemName: "square.and.arrow.up")
+                            Label("Export", systemImage: "square.and.arrow.up")
                         }
                     }
                     .disabled(isExporting || !canExport)

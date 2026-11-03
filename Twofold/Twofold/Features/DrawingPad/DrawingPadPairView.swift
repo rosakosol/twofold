@@ -63,16 +63,15 @@ struct DrawingPadPairView: View {
             .navigationTitle("Your drawings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("Close") { dismiss() }
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close", systemImage: "xmark", role: .close) { dismiss() }
                 }
                 // Hidden while neither pad has a drawing: two empty pages are nothing to send.
                 if myURL != nil || partnerURL != nil {
                     ToolbarItem(placement: .topBarTrailing) {
                         Button { sharing = true } label: {
-                            Image(systemName: "square.and.arrow.up")
+                            Label("Share drawings", systemImage: "square.and.arrow.up")
                         }
-                        .accessibilityLabel("Share drawings")
                     }
                 }
             }

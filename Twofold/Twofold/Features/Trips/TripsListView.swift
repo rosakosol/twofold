@@ -314,8 +314,8 @@ struct TripsListView: View {
                     showingAddTrip = false
                 }
                 .toolbar {
-                    ToolbarItem(placement: .topBarLeading) {
-                        Button("Cancel") { showingAddTrip = false }
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel", systemImage: "xmark", role: .close) { showingAddTrip = false }
                     }
                 }
             }

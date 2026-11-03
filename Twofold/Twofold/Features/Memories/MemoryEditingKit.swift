@@ -106,7 +106,7 @@ struct MemoryDateTimeSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done", action: onDone)
+                    Button("Done", systemImage: "checkmark", role: .confirm, action: onDone)
                 }
             }
         }
@@ -195,7 +195,7 @@ struct MemoryPhotosSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
+                    Button("Done", systemImage: "checkmark", role: .confirm) { dismiss() }
                 }
             }
             .onChange(of: picked) { _, items in

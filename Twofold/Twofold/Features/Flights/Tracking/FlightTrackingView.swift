@@ -124,9 +124,8 @@ struct FlightTrackingView: View {
                 Button {
                     showingShare = true
                 } label: {
-                    Image(systemName: "square.and.arrow.up")
+                    Label("Share", systemImage: "square.and.arrow.up")
                 }
-                .accessibilityLabel("Share")
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
@@ -150,9 +149,8 @@ struct FlightTrackingView: View {
                         }
                     }
                 } label: {
-                    Image(systemName: "ellipsis.circle")
+                    Label("More options", systemImage: "ellipsis.circle")
                 }
-                .accessibilityLabel("More options")
             }
         }
         .task { await loadEverything() }

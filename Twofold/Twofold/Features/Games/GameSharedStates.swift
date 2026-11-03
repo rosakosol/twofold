@@ -152,36 +152,14 @@ struct GameBackButton: View {
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
-            Image(systemName: "chevron.backward")
-                // `chevron.backward` is not centred inside its own layout box either. Measured at
-                // 15pt semibold: a 12×17 box with the ink spanning x 1…8, so one point of air on
-                // the left and three on the right. A point right puts it on the circle's middle.
-                .offset(x: 1)
-                // 44pt square, centred. This box exists for the tap target: the glyph is about
-                // 13×17pt and a custom toolbar button is hittable over roughly its own drawn
-                // bounds, unlike the *system* back button, which UIKit gives a much larger
-                // invisible target reaching toward the bar's edges. Without it the target was
-                // under a third the area of the one it replaces, in the exact screen position
-                // where people have years of muscle memory — taps landed beside it and did
-                // nothing, which is what "needs several presses" is.
-                //
-                // It used to align `.leading` so the box could grow without moving the glyph. On
-                // iOS 26 that backfired: the toolbar draws its own Liquid Glass background around
-                // whatever the label measures, so a 44pt-wide box with the chevron pinned to one
-                // end rendered as a wide rounded slab with the icon off in the corner of it.
-                // Centring the glyph and shaping the button below makes the drawn button match
-                // the box it has always had.
-                .frame(width: 44, height: 44)
-                .contentShape(Circle())
-        }
-        // The glass background follows this rather than the label's bounding box, which is what
-        // turns the 44pt square into a round button instead of a rounded rectangle.
-        .buttonBorderShape(.circle)
-        // Shared by all four game types (DeepConversations, ThisOrThat, TriviaBattle,
-        // WhosMoreLikely) — one label fixes VoiceOver reading a bare "chevron backward" on every
-        // one of them, since `.navigationBarBackButtonHidden` means this is the only way back.
-        .accessibilityLabel("Back")
+        // A titled symbol, which the toolbar turns into an ordinary bar button: the system's own
+        // tap target and glass circle, and on iPhone Duo a place in the side bar.
+        //
+        // It used to be a bare `Image` in a hand-sized 44pt circle, because a *custom* toolbar view
+        // is only hittable over its own drawn bounds and the plain glyph was a third the area of
+        // the system back button it replaces. A `Label` is not a custom view, so that problem does
+        // not arise — and a custom view is exactly what iPhone Duo leaves out of its vertical bar.
+        Button("Back", systemImage: "chevron.backward", action: action)
     }
 }
 
