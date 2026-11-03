@@ -55,43 +55,6 @@ struct FlightWeather: Hashable, Codable {
     var hasDisplayableReading: Bool { conditions != nil || temperatureC != nil }
 }
 
-/// Base `FlightStatus` enum lives in `Shared/FlightStatus.swift` (shared with
-/// `LiveActivitiesExtension`) — `semanticColor` depends on `Theme`, which is main-app-only, so
-/// it stays here as a separate extension instead.
-extension FlightStatus {
-    /// Status is never conveyed by color alone (`displayLabel`/icon always carry the meaning
-    /// too) — this just tints existing Twofold semantic colors, never introduces new hues.
-    var semanticColor: Color {
-        switch self {
-        case .delayed: Theme.warning
-        case .cancelled, .diverted: Theme.error
-        case .landed, .arrived: Theme.success
-        case .scheduled, .boarding, .departed, .inAir, .landingSoon: Theme.accent
-        }
-    }
-}
-
-struct FlightTimelineEvent: Identifiable, Hashable {
-    enum Kind: String, Hashable {
-        case departed = "Departed"
-        case inAir = "In the air"
-        case landingSoon = "Landing soon"
-        case arrived = "Arriving"
-    }
-
-    let id: UUID
-    var kind: Kind
-    var time: Date
-    var isComplete: Bool
-
-    init(id: UUID = UUID(), kind: Kind, time: Date, isComplete: Bool) {
-        self.id = id
-        self.kind = kind
-        self.time = time
-        self.isComplete = isComplete
-    }
-}
-
 /// `Codable` so `OfflineDataCache` can persist real travel data for offline reads — every
 /// stored property here is already a value type Swift can synthesise conformance for
 /// (`FlightAirport`/`FlightWeather`/`FlightStatus` are each `Codable` in their own right).
@@ -533,25 +496,6 @@ struct Flight: Identifiable, Hashable, Codable {
         TimeMath.compactDuration(to.timeIntervalSince(from))
     }
 
-    /// Derived from actual/estimated timestamps rather than stored — there's nothing to keep
-    /// in sync, it just reflects whatever the flight's current data says.
-    var timeline: [FlightTimelineEvent] {
-        var events: [FlightTimelineEvent] = []
-
-        if let departed = actualOff ?? actualOut {
-            events.append(FlightTimelineEvent(kind: .departed, time: departed, isComplete: true))
-            events.append(FlightTimelineEvent(kind: .inAir, time: departed, isComplete: actualOn != nil || status == .landingSoon || status == .arrived || status == .landed))
-        } else if let scheduled = scheduledOut {
-            events.append(FlightTimelineEvent(kind: .departed, time: scheduled, isComplete: false))
-        }
-
-        if let arrival = bestArrival {
-            events.append(FlightTimelineEvent(kind: .landingSoon, time: arrival.addingTimeInterval(-1800), isComplete: actualOn != nil || actualIn != nil))
-            events.append(FlightTimelineEvent(kind: .arrived, time: arrival, isComplete: actualIn != nil))
-        }
-
-        return events
-    }
 }
 
 /// 60-day on-time-performance stats for a flight's *designator* (e.g. "UAE1"), not this specific

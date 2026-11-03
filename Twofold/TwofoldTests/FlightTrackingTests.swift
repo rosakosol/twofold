@@ -53,20 +53,6 @@ struct FlightTrackingTests {
         }
     }
 
-    /// A delay is a warning, not an error: the flight is still going. Only a flight that will not
-    /// arrive where it was meant to is in the error colour.
-    @Test func delayedIsAWarningAndCancelledDivertedAreErrors() {
-        #expect(FlightStatus.delayed.semanticColor == Theme.warning)
-        for status: FlightStatus in [.cancelled, .diverted] {
-            #expect(status.semanticColor == Theme.error)
-        }
-    }
-
-    @Test func arrivedAndLandedAreSemanticallyGreen() {
-        #expect(FlightStatus.arrived.semanticColor == Theme.success)
-        #expect(FlightStatus.landed.semanticColor == Theme.success)
-    }
-
     @Test func isActivelyTrackedCoversOnlyInProgressStates() {
         let activeStates: Set<FlightStatus> = [.boarding, .departed, .inAir, .landingSoon]
         for status in FlightStatus.allCases {
@@ -169,23 +155,6 @@ struct FlightTrackingTests {
         let flight = makeFlight(status: .inAir, scheduledIn: arrival, actualOff: departure)
         #expect(flight.bestDeparture == departure)
         #expect(flight.progress > 0 && flight.progress < 1)
-    }
-
-    // MARK: - Timeline derivation
-
-    @Test func timelineForPurelyScheduledFlightHasIncompleteDepartedEvent() {
-        let flight = makeFlight(status: .scheduled, scheduledOut: .now.addingTimeInterval(3600))
-        let departedEvent = flight.timeline.first { $0.kind == .departed }
-        #expect(departedEvent != nil)
-        #expect(departedEvent?.isComplete == false)
-    }
-
-    @Test func timelineForArrivedFlightMarksArrivedComplete() {
-        let departure = Date.now.addingTimeInterval(-7200)
-        let arrival = Date.now.addingTimeInterval(-60)
-        let flight = makeFlight(status: .arrived, scheduledOut: departure, scheduledIn: arrival, actualOut: departure, actualOff: departure, actualOn: arrival, actualIn: arrival)
-        let arrivedEvent = flight.timeline.first { $0.kind == .arrived }
-        #expect(arrivedEvent?.isComplete == true)
     }
 
     // MARK: - FlightStatusEventType human copy
