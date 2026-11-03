@@ -219,7 +219,7 @@ struct DailyActivityCard: View {
 
     @ViewBuilder
     private var answeredAvatars: some View {
-        if appModel.partnerConnected {
+        if appModel.session.partnerConnected {
             HStack(spacing: -8) {
                 completionAvatar(person: appModel.currentUser, answered: appModel.games.todaysMyAnswered)
                     .zIndex(1)
@@ -292,7 +292,7 @@ struct DailyActivityCard: View {
         Task {
             _ = await repairStore.useMonthlyFreeze()
             await appModel.games.refreshStreakRepairState()
-            await appModel.refreshDailyStreak()
+            await appModel.games.refreshDailyStreak()
             isRepairing = false
         }
     }

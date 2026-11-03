@@ -58,7 +58,7 @@ struct MemoriesListView: View {
     }
 
     private var filteredMemories: [Memory] {
-        appModel.memories.filter { memory in
+        appModel.travel.memories.filter { memory in
             // Two separate filters, because they mean different things. Pushed from a map pin, the
             // exact place that was tapped is the subject and showing the rest of its city would be
             // showing memories the pin doesn't stand for. The filter bar below is the opposite: it
@@ -75,7 +75,7 @@ struct MemoriesListView: View {
     /// One entry per city, in order of how many memories are there — the places you have been most
     /// are the ones you are most likely to be looking for.
     private var citiesWithMemories: [(name: String, count: Int)] {
-        Dictionary(grouping: appModel.memories.compactMap { $0.place?.displayCity }) { $0 }
+        Dictionary(grouping: appModel.travel.memories.compactMap { $0.place?.displayCity }) { $0 }
             .map { (name: $0.key, count: $0.value.count) }
             .sorted { ($0.count, $1.name) > ($1.count, $0.name) }
     }
@@ -90,7 +90,7 @@ struct MemoriesListView: View {
     }
 
     private var availableYears: [Int] {
-        Array(Set(appModel.memories.map { Calendar.current.component(.year, from: $0.date) })).sorted(by: >)
+        Array(Set(appModel.travel.memories.map { Calendar.current.component(.year, from: $0.date) })).sorted(by: >)
     }
 
     /// Extra trailing inset reserved so row content (and the swipe-action reveal) never sits
@@ -117,7 +117,7 @@ struct MemoriesListView: View {
 
     private var content: some View {
         Group {
-            // Was `appModel.memories.isEmpty` — checked the *global* memory count regardless of
+            // Was `appModel.travel.memories.isEmpty` — checked the *global* memory count regardless of
             // `locationFilter`, so this pushed from a map pin (or with a filter applied) never
             // showed the real "add your first memory" hint once the couple had memories anywhere
             // else: deleting the last memory at a filtered location fell through to
@@ -334,7 +334,7 @@ struct MemoriesListView: View {
     }
 
     private func deleteSelection() {
-        let toDelete = appModel.memories.filter { selectedIDs.contains($0.id) }
+        let toDelete = appModel.travel.memories.filter { selectedIDs.contains($0.id) }
         Task {
             await appModel.travel.deleteMemories(toDelete)
             isSelecting = false

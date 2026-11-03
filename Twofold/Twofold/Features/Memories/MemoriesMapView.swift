@@ -277,7 +277,7 @@ struct MemoriesMapView: View {
 
     /// Built in a single pass, preserving the order `citiesWithMemories` established — first
     /// appearance in the memory list — so the reveal sweeps in the same order it always did.
-    private var cityPins: [CityPin] { Self.cityPins(from: appModel.memories) }
+    private var cityPins: [CityPin] { Self.cityPins(from: appModel.travel.memories) }
 
     /// Pure, so the equivalence above can actually be proved rather than asserted — see
     /// `MemoriesMapPinTests`, which checks this against the naive three-scan version it replaced.

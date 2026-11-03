@@ -25,7 +25,7 @@ struct OnboardingCoordinatorView: View {
     var body: some View {
         NavigationStack(path: $onboarding.path) {
             Group {
-                if appModel.needsOnboarding, appModel.hasSavedOnboardingProgress {
+                if appModel.session.needsOnboarding, appModel.session.hasSavedOnboardingProgress {
                     // Onboarding already got as far as making this account, so the questionnaire is
                     // answered and sitting in their profile. Starting them at question one asks for
                     // all of it a second time, having read none of it back.
@@ -34,7 +34,7 @@ struct OnboardingCoordinatorView: View {
                     // different roots, not different copy on the same one.
                     ResumeSetupView()
                         .postHogScreenView("Onboarding: Resume Setup")
-                } else if appModel.needsOnboarding {
+                } else if appModel.session.needsOnboarding {
                     // The first real screen, as the stack's root rather than pushed onto it. Seeding
                     // `path = [.situation]` instead would leave `WelcomeView` sitting underneath,
                     // one back-swipe away — and its two buttons are "Get started" and "Sign in",
@@ -125,9 +125,9 @@ struct OnboardingCoordinatorView: View {
         // guards that step on `isResumingAuthenticatedAccount`, which was still false. A few screens
         // later the same staleness would have shown them the paywall, `InvitePartnerView` reading a
         // `hasActiveSubscription` that was false for an account mid-subscription.
-        .onChange(of: appModel.needsOnboarding) { syncFromAppModel() }
-        .onChange(of: appModel.isSubscriptionActive) { syncFromAppModel() }
-        .onChange(of: appModel.hasSavedOnboardingProgress) { syncFromAppModel() }
+        .onChange(of: appModel.session.needsOnboarding) { syncFromAppModel() }
+        .onChange(of: appModel.subscription.isActive) { syncFromAppModel() }
+        .onChange(of: appModel.session.hasSavedOnboardingProgress) { syncFromAppModel() }
         // A fresh model whenever an account ends, because this view outlives the sign-out and its
         // `@State` would otherwise carry the old flow forward. Signing out from the onboarding
         // paywall left a signed-out user standing on it, with `path` still ending in `.paywall`;
@@ -255,8 +255,8 @@ struct OnboardingCoordinatorView: View {
         // One says the account already exists, the other says it is paying, and only the second may
         // skip a paywall. Kept apart deliberately: an account can exist without paying, which is
         // most of this flow's traffic.
-        onboarding.isResumingAuthenticatedAccount = appModel.needsOnboarding
-        onboarding.hasActiveSubscription = appModel.isSubscriptionActive
+        onboarding.isResumingAuthenticatedAccount = appModel.session.needsOnboarding
+        onboarding.hasActiveSubscription = appModel.subscription.isActive
 
         // Put the two names back into the flow's own model when resuming, because the screens ahead
         // read them from there and nothing else refills it — `OnboardingModel` is rebuilt empty
@@ -267,10 +267,10 @@ struct OnboardingCoordinatorView: View {
         // the end calls them "You". Only the placeholders are skipped: `fetchOwnProfile` substitutes
         // "You" for an empty name, and an unpaired couple's partner is "Partner", neither of which
         // is worth copying over a blank.
-        guard appModel.hasSavedOnboardingProgress else { return }
-        let myName = appModel.couple.partnerA.name
+        guard appModel.session.hasSavedOnboardingProgress else { return }
+        let myName = appModel.session.couple.partnerA.name
         if !myName.isEmpty, myName != "You" { onboarding.firstName = myName }
-        let theirName = appModel.couple.partnerB.name
+        let theirName = appModel.session.couple.partnerB.name
         if !theirName.isEmpty, theirName != "Partner" { onboarding.partnerName = theirName }
     }
 

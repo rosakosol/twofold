@@ -48,7 +48,7 @@ struct MemoryDetailView: View {
     }
 
     private var memory: Memory? {
-        appModel.memories.first { $0.id == memoryID }
+        appModel.travel.memories.first { $0.id == memoryID }
     }
 
     var body: some View {

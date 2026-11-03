@@ -58,8 +58,8 @@ struct DisconnectPartnerView: View {
     private var standing: SubscriptionStanding {
         Self.subscriptionStanding(
             hasResolved: appModel.subscription.hasResolved,
-            coupleIsCovered: appModel.isSubscriptionActive,
-            viewerHoldsSubscription: appModel.viewerHoldsSubscription
+            coupleIsCovered: appModel.subscription.isActive,
+            viewerHoldsSubscription: appModel.subscription.viewerHoldsSubscription
         )
     }
 
@@ -258,7 +258,7 @@ struct DisconnectPartnerView: View {
         if isPayer {
             // Named from the couple's actual tier: a Plus subscriber was told their partner would
             // lose "premium" access, which is a plan they never had.
-            let access = appModel.subscriptionTier
+            let access = appModel.subscription.tier
                 .flatMap(SubscriptionTier.init(rawValue:))
                 .map { "their \($0.displayName) access" } ?? "their paid features"
             return base + "\n\n\(appModel.partner.name) will lose \(access) right away, since they're covered by your subscription. Your own subscription keeps going afterward — you can cancel it separately once you've disconnected, if you'd rather not keep paying."

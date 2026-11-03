@@ -79,7 +79,7 @@ struct FlightConfirmationView: View {
     /// more than one tracked flight (e.g. a connecting journey), so this flight might be a second
     /// or third leg rather than the first.
     private var linkableTrips: [Trip] {
-        appModel.trips
+        appModel.travel.trips
     }
 
     var body: some View {
@@ -123,7 +123,7 @@ struct FlightConfirmationView: View {
                             // live app, never during onboarding (see
                             // `AddFlightFlowView.Completion.confirmAndTrack`), so there is no "not
                             // connected yet" exemption to make. "Both" includes the partner too.
-                            disabledValues: appModel.partnerConnected ? [] : [.partner, .both]
+                            disabledValues: appModel.session.partnerConnected ? [] : [.partner, .both]
                         )
                     }
 
@@ -216,7 +216,7 @@ struct FlightConfirmationView: View {
             }
         }
         .task {
-            allowance = try? await BackendService.flightAllowance(coupleID: appModel.couple.id)
+            allowance = try? await BackendService.flightAllowance(coupleID: appModel.session.couple.id)
         }
         .postHogScreenView("Flights: Flight Confirmation")
     }
@@ -227,7 +227,7 @@ struct FlightConfirmationView: View {
         Task {
             do {
                 try await AeroFlightService.addFlight(candidate: candidate, tripID: linkedTripID, travelerIDs: travelerIDs, shared: shareWithPartner, notifyMe: notifyMe)
-                await appModel.refreshFlights()
+                await appModel.travel.refreshFlights()
                 onDone()
             } catch {
                 errorMessage = (error as? AeroFlightError)?.errorDescription ?? "Couldn't save that flight. Try again."

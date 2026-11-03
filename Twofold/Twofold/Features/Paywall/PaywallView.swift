@@ -546,7 +546,7 @@ struct PaywallView: View {
 
         onSubscribed(outcome)
         // Only when reached as a dismissable sheet/push — RootView's forced gate has nothing to
-        // dismiss to and already routes itself off `appModel.isSubscriptionActive` flipping.
+        // dismiss to and already routes itself off `appModel.subscription.isActive` flipping.
         if isDismissable && dismissOnCompletion { dismiss() }
     }
 }

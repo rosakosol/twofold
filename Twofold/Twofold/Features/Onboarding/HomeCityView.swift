@@ -69,7 +69,7 @@ struct HomeCityView: View {
         }
         // Reached straight from making the account, with only Welcome behind it. See
         // `InvitePartnerView`.
-        .navigationBarBackButtonHidden(onboarding.path.count == 1 && !appModel.needsOnboarding)
+        .navigationBarBackButtonHidden(onboarding.path.count == 1 && !appModel.session.needsOnboarding)
     }
 
     private func advance() {
@@ -80,7 +80,7 @@ struct HomeCityView: View {
             do {
                 if let selected {
                     try await BackendService.updateHomeCity(selected)
-                    appModel.couple.partnerA.homeCity = selected
+                    appModel.session.couple.partnerA.homeCity = selected
                 }
                 if let code = onboarding.codeToRedeem {
                     // Looked up before redeeming — the code has to still be genuinely pending

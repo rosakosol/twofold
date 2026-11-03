@@ -18,13 +18,13 @@ struct PendingConnectionRequestsCard: View {
 
     var body: some View {
         Group {
-            if !appModel.pendingConnectionRequests.isEmpty {
+            if !appModel.session.pendingConnectionRequests.isEmpty {
                 SectionCard {
                     Text("Connection requests")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(Theme.textSecondary)
 
-                    ForEach(appModel.pendingConnectionRequests) { request in
+                    ForEach(appModel.session.pendingConnectionRequests) { request in
                         requestRow(request)
                     }
                 }

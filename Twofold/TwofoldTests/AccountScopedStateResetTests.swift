@@ -31,12 +31,12 @@ struct AccountScopedStateResetTests {
     /// distinguishable from "happened to be the default already".
     private func dirtied() -> AppModel {
         let model = AppModel()
-        model.hasCouple = true
-        model.partnerConnected = true
-        model.inviteCode = "ABC123"
-        model.isSubscriptionActive = true
-        model.subscriptionTier = "premium"
-        model.trips = []
+        model.session.hasCouple = true
+        model.session.partnerConnected = true
+        model.session.inviteCode = "ABC123"
+        model.subscription.isActive = true
+        model.subscription.tier = "premium"
+        model.travel.trips = []
         model.myDrawingURL = URL(string: "https://example.test/sign/drawing-pads/couple/person/pad.png")
         model.partnerDrawingURL = URL(string: "https://example.test/sign/drawing-pads/couple/other/pad.png")
         model.games.dailyStreak = 28
@@ -47,14 +47,14 @@ struct AccountScopedStateResetTests {
         model.games.todaysMyAnswered = true
         model.games.todaysPartnerAnswered = true
         model.games.dailyQuestionError = "stale"
-        model.partnerDisconnectedMessage = "Your connection with Alex has ended"
-        model.partnerSubscriptionLapsedPartnerName = "Alex"
-        model.partnerConnectedCelebrationShown = true
-        model.setupChecklistDismissed = true
+        model.prompts.partnerDisconnectedMessage = "Your connection with Alex has ended"
+        model.prompts.partnerSubscriptionLapsedPartnerName = "Alex"
+        model.prompts.partnerConnectedCelebrationShown = true
+        model.prompts.setupChecklistDismissed = true
         model.prompts.pendingPartnerInviteNudge = true
         model.prompts.pendingReviewMilestone = .firstMemory
-        model.writeRefusedMessage = "refused"
-        model.needsOnboarding = true
+        model.prompts.writeRefusedMessage = "refused"
+        model.session.needsOnboarding = true
         return model
     }
 
@@ -95,8 +95,8 @@ struct AccountScopedStateResetTests {
         let model = dirtied()
         model.resetAccountScopedState()
 
-        #expect(model.isSubscriptionActive == false)
-        #expect(model.subscriptionTier == nil)
+        #expect(model.subscription.isActive == false)
+        #expect(model.subscription.tier == nil)
     }
 
     @Test("Nothing naming the previous partner survives")
@@ -104,12 +104,12 @@ struct AccountScopedStateResetTests {
         let model = dirtied()
         model.resetAccountScopedState()
 
-        #expect(model.partnerDisconnectedMessage == nil)
-        #expect(model.partnerSubscriptionLapsedPartnerName == nil)
-        #expect(model.pendingConnectionRequests.isEmpty)
-        #expect(model.pendingOutgoingConnectionRequest == nil)
-        #expect(model.couple.partnerB.name == "Partner")
-        #expect(model.couple.partnerA.name == "You")
+        #expect(model.prompts.partnerDisconnectedMessage == nil)
+        #expect(model.prompts.partnerSubscriptionLapsedPartnerName == nil)
+        #expect(model.session.pendingConnectionRequests.isEmpty)
+        #expect(model.session.pendingOutgoingConnectionRequest == nil)
+        #expect(model.session.couple.partnerB.name == "Partner")
+        #expect(model.session.couple.partnerA.name == "You")
     }
 
     @Test("Per-account seen-it flags go, so a new account does not arrive to a dismissed checklist")
@@ -117,11 +117,11 @@ struct AccountScopedStateResetTests {
         let model = dirtied()
         model.resetAccountScopedState()
 
-        #expect(model.partnerConnectedCelebrationShown == false)
-        #expect(model.setupChecklistDismissed == false)
+        #expect(model.prompts.partnerConnectedCelebrationShown == false)
+        #expect(model.prompts.setupChecklistDismissed == false)
         #expect(model.prompts.pendingPartnerInviteNudge == false)
         #expect(model.prompts.pendingReviewMilestone == nil)
-        #expect(model.writeRefusedMessage == nil)
+        #expect(model.prompts.writeRefusedMessage == nil)
     }
 
     @Test("And the couple itself is back to the placeholder")
@@ -129,10 +129,10 @@ struct AccountScopedStateResetTests {
         let model = dirtied()
         model.resetAccountScopedState()
 
-        #expect(model.hasCouple == false)
-        #expect(model.partnerConnected == false)
-        #expect(model.backendCoupleID == nil)
-        #expect(model.inviteCode == nil)
+        #expect(model.session.hasCouple == false)
+        #expect(model.session.partnerConnected == false)
+        #expect(model.session.backendCoupleID == nil)
+        #expect(model.session.inviteCode == nil)
         #expect(model.games.gameDecks == nil)
         #expect(model.games.deckProgress == nil)
     }
@@ -151,6 +151,6 @@ struct AccountScopedStateResetTests {
         let model = dirtied()
         model.resetAccountScopedState()
 
-        #expect(model.needsOnboarding == false)
+        #expect(model.session.needsOnboarding == false)
     }
 }

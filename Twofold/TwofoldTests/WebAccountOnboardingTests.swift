@@ -29,7 +29,7 @@ struct WebAccountOnboardingTests {
     func defaultIsNotOnboarding() {
         // The flag gates `hasCouple`, so a wrong default here locks every existing user out of the
         // app and into a flow they finished long ago.
-        #expect(AppModel().needsOnboarding == false)
+        #expect(AppModel().session.needsOnboarding == false)
         #expect(OnboardingModel().isResumingAuthenticatedAccount == false)
     }
 
@@ -74,10 +74,10 @@ struct WebAccountOnboardingTests {
         // made an account and stopped — overwhelmingly on the paywall, which cannot be dismissed
         // and sits three screens after account creation.
         let model = AppModel()
-        model.needsOnboarding = true
-        model.hasSavedOnboardingProgress = true
+        model.session.needsOnboarding = true
+        model.session.hasSavedOnboardingProgress = true
 
-        #expect(model.needsOnboarding && model.hasSavedOnboardingProgress)
+        #expect(model.session.needsOnboarding && model.session.hasSavedOnboardingProgress)
     }
 
     @Test("a website account, which has answered nothing, still starts at question one")
@@ -86,10 +86,10 @@ struct WebAccountOnboardingTests {
         // has a real `profiles` row and no answers in it, so there is nothing to resume and
         // offering to would be a lie.
         let model = AppModel()
-        model.needsOnboarding = true
-        model.hasSavedOnboardingProgress = false
+        model.session.needsOnboarding = true
+        model.session.hasSavedOnboardingProgress = false
 
-        #expect(model.needsOnboarding && !model.hasSavedOnboardingProgress)
+        #expect(model.session.needsOnboarding && !model.session.hasSavedOnboardingProgress)
     }
 
     @Test("the resume offer does not survive into the next account on this phone")
@@ -98,12 +98,12 @@ struct WebAccountOnboardingTests {
         // and invited to carry on with it. `AccountScopedStateResetTests` makes the same argument
         // about `needsOnboarding`; this is the flag that decides which root that one shows.
         let model = AppModel()
-        model.needsOnboarding = true
-        model.hasSavedOnboardingProgress = true
+        model.session.needsOnboarding = true
+        model.session.hasSavedOnboardingProgress = true
 
         model.resetAccountScopedState()
 
-        #expect(model.hasSavedOnboardingProgress == false)
+        #expect(model.session.hasSavedOnboardingProgress == false)
     }
 
     // MARK: - The paywall skip

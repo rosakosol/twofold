@@ -135,8 +135,8 @@ struct TwofoldPreviewView: View {
 
                     // The memory just saved on the mandatory `FirstMemoryView` step right before
                     // this screen — `.last` since onboarding only ever adds that one memory, so
-                    // `appModel.memories` is otherwise still empty at this point.
-                    if let memory = appModel.memories.last {
+                    // `appModel.travel.memories` is otherwise still empty at this point.
+                    if let memory = appModel.travel.memories.last {
                         SectionCard {
                             HStack(spacing: Theme.Spacing.md) {
                                 MemoryPhotoView(memory: memory, cornerRadius: 12)
@@ -172,7 +172,7 @@ struct TwofoldPreviewView: View {
                 isApplying = true
                 Task {
                     await appModel.applyOnboardingAccount(onboarding)
-                    if !appModel.hasCouple { onboarding.push(.invitePartner) }
+                    if !appModel.session.hasCouple { onboarding.push(.invitePartner) }
                     isApplying = false
                 }
             },

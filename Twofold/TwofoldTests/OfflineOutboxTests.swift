@@ -157,7 +157,7 @@ extension PendingMemoryDiskTests {
             let onDisk = PendingMemoryStore.loadAll().first { $0.memory.id == memory.id }
             #expect(onDisk != nil, "kept in memory only, it is gone if the app is killed before it is sent")
             #expect(onDisk?.photosData.count == 1)
-            #expect(model.memories.first { $0.id == memory.id }?.photos.count == 1, "the photo should show while it waits")
+            #expect(model.travel.memories.first { $0.id == memory.id }?.photos.count == 1, "the photo should show while it waits")
         }
 
         @Test("a refresh does not drop a memory that has not been sent yet")
@@ -168,10 +168,10 @@ extension PendingMemoryDiskTests {
             backend.serverMemories = [other]
 
             let memory = await model.travel.addMemory(title: "Where we met", place: rome, date: .now, note: "", imagesData: [])
-            await model.refreshMemories()
+            await model.travel.refreshMemories()
 
-            #expect(model.memories.contains { $0.id == memory.id }, "the refresh replaced the list and took the unsent memory with it")
-            #expect(model.memories.contains { $0.id == other.id })
+            #expect(model.travel.memories.contains { $0.id == memory.id }, "the refresh replaced the list and took the unsent memory with it")
+            #expect(model.travel.memories.contains { $0.id == other.id })
         }
 
         @Test("a memory drafted before pairing survives the first refresh after pairing")
@@ -185,9 +185,9 @@ extension PendingMemoryDiskTests {
 
             // Paired, and the flush that would have sent it failed, so it is still pending.
             model.setBackendCoupleIDForTesting(UUID())
-            await model.refreshMemories()
+            await model.travel.refreshMemories()
 
-            #expect(model.memories.contains { $0.id == memory.id })
+            #expect(model.travel.memories.contains { $0.id == memory.id })
         }
 
         @Test("a refresh does not drop a trip that has not been sent yet")
@@ -196,9 +196,9 @@ extension PendingMemoryDiskTests {
             defer { AppModel.clearPersistedAccountState() }
 
             let trip = await model.travel.addTrip(origin: melbourne, destination: rome, departureDate: .now, arrivalDate: .now.addingTimeInterval(86_400), traveler: .you, category: .together)
-            await model.refreshTrips()
+            await model.travel.refreshTrips()
 
-            #expect(model.trips.contains { $0.id == trip.id })
+            #expect(model.travel.trips.contains { $0.id == trip.id })
             #expect(PendingTripStore.loadAll().contains { $0.id == trip.id })
         }
 
@@ -210,13 +210,13 @@ extension PendingMemoryDiskTests {
             defer { AppModel.clearPersistedAccountState() }
             let original = syncedMemory()
             backend.serverMemories = [original]
-            await model.refreshMemories()
+            await model.travel.refreshMemories()
 
             var edited = original
             edited.title = "Where we really met"
             await model.travel.updateMemory(edited)
-            await model.refreshMemories()
-            #expect(model.memories.first { $0.id == original.id }?.title == "Where we really met", "the refresh put the server's old title back")
+            await model.travel.refreshMemories()
+            #expect(model.travel.memories.first { $0.id == original.id }?.title == "Where we really met", "the refresh put the server's old title back")
 
             backend.isOffline = false
             await model.syncPendingWrites()
@@ -233,13 +233,13 @@ extension PendingMemoryDiskTests {
             defer { AppModel.clearPersistedAccountState() }
             let original = syncedTrip()
             backend.serverTrips = [original]
-            await model.refreshTrips()
+            await model.travel.refreshTrips()
 
             var edited = original
             edited.category = .reunion
             await model.travel.updateTrip(edited)
-            await model.refreshTrips()
-            #expect(model.trips.first { $0.id == original.id }?.category == .reunion)
+            await model.travel.refreshTrips()
+            #expect(model.travel.trips.first { $0.id == original.id }?.category == .reunion)
 
             backend.isOffline = false
             await model.syncPendingWrites()
@@ -254,12 +254,12 @@ extension PendingMemoryDiskTests {
             let trip = syncedTrip()
             backend.serverMemories = [memory]
             backend.serverTrips = [trip]
-            await model.refreshMemories()
-            await model.refreshTrips()
+            await model.travel.refreshMemories()
+            await model.travel.refreshTrips()
 
             await model.travel.linkMemory(memory, to: trip)
-            await model.refreshMemories()
-            #expect(model.memories.first { $0.id == memory.id }?.tripID == trip.id)
+            await model.travel.refreshMemories()
+            #expect(model.travel.memories.first { $0.id == memory.id }?.tripID == trip.id)
 
             backend.isOffline = false
             await model.syncPendingWrites()
@@ -272,17 +272,17 @@ extension PendingMemoryDiskTests {
             defer { AppModel.clearPersistedAccountState() }
             let memory = syncedMemory()
             backend.serverMemories = [memory]
-            await model.refreshMemories()
+            await model.travel.refreshMemories()
 
             await model.travel.updateMemory(memory, newImagesData: [samplePhoto])
-            await model.refreshMemories()
-            #expect(model.memories.first { $0.id == memory.id }?.photos.count == 1, "picked offline, the photo vanished")
+            await model.travel.refreshMemories()
+            #expect(model.travel.memories.first { $0.id == memory.id }?.photos.count == 1, "picked offline, the photo vanished")
 
             backend.isOffline = false
             await model.syncPendingWrites()
             #expect(backend.uploadedPhotoCount == 1)
             #expect(backend.calls.contains("addMemoryPhotos"))
-            let photos = model.memories.first { $0.id == memory.id }?.photos ?? []
+            let photos = model.travel.memories.first { $0.id == memory.id }?.photos ?? []
             #expect(photos.count == 1, "the local copy should be replaced by the uploaded one, not added to")
             #expect(photos.first?.path != "pending")
         }
@@ -309,7 +309,7 @@ extension PendingMemoryDiskTests {
             defer { AppModel.clearPersistedAccountState() }
             let original = syncedMemory()
             backend.serverMemories = [original]
-            await model.refreshMemories()
+            await model.travel.refreshMemories()
             var edited = original
             edited.note = "Written on the plane"
             await model.travel.updateMemory(edited)
@@ -331,14 +331,14 @@ extension PendingMemoryDiskTests {
             let original = syncedMemory()
             backend.serverMemories = [original]
             backend.isOffline = false
-            await model.refreshMemories()
+            await model.travel.refreshMemories()
 
             backend.isRefusing = true
             var edited = original
             edited.title = "Refused"
             await model.travel.updateMemory(edited)
-            #expect(model.memories.first { $0.id == original.id }?.title == original.title)
-            #expect(model.writeRefusedMessage != nil)
+            #expect(model.travel.memories.first { $0.id == original.id }?.title == original.title)
+            #expect(model.prompts.writeRefusedMessage != nil)
 
             backend.isRefusing = false
             await model.syncPendingWrites()
@@ -375,7 +375,7 @@ extension PendingMemoryDiskTests {
             defer { AppModel.clearPersistedAccountState() }
             let memory = syncedMemory()
             backend.serverMemories = [memory]
-            await model.refreshMemories()
+            await model.travel.refreshMemories()
             var edited = memory
             edited.title = "Renamed"
             await model.travel.updateMemory(edited)
@@ -395,18 +395,18 @@ extension PendingMemoryDiskTests {
             let edited = syncedMemory(title: "Edited")
             let newcomer = syncedMemory(title: "Arrived during the save")
             backend.serverMemories = [edited]
-            await model.refreshMemories()
+            await model.travel.refreshMemories()
 
             // A refresh landing while the save is in the air, with a new memory ahead of this one.
             backend.duringUpdateMemory = { [weak model] in
-                model?.memories.insert(newcomer, at: 0)
+                model?.travel.memories.insert(newcomer, at: 0)
             }
             var changed = edited
             changed.title = "Edited again"
             await model.travel.updateMemory(changed, newImagesData: [samplePhoto])
 
-            #expect(model.memories.first { $0.id == edited.id }?.photos.count == 1)
-            #expect(model.memories.first { $0.id == newcomer.id }?.photos.isEmpty == true, "the photo went to whichever memory took its old index")
+            #expect(model.travel.memories.first { $0.id == edited.id }?.photos.count == 1)
+            #expect(model.travel.memories.first { $0.id == newcomer.id }?.photos.isEmpty == true, "the photo went to whichever memory took its old index")
         }
     }
 }

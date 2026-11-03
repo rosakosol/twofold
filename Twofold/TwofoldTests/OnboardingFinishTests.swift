@@ -46,15 +46,15 @@ extension PendingMemoryDiskTests {
             defer { AppModel.clearPersistedAccountState() }
             let model = AppModel()
             model.backend = FakeCoupleDataBackend()
-            model.needsOnboarding = true
+            model.session.needsOnboarding = true
             let state = pairedState()
             model.fetchCoupleStateOutcome = { .paired(state) }
 
             await model.finishOnboarding()
 
-            #expect(model.hasCouple)
-            #expect(model.partnerConnected, "Home opened unpaired for a couple that had just connected")
-            #expect(model.backendCoupleID == state.couple.id)
+            #expect(model.session.hasCouple)
+            #expect(model.session.partnerConnected, "Home opened unpaired for a couple that had just connected")
+            #expect(model.session.backendCoupleID == state.couple.id)
         }
 
         @Test("finishing twice at once finishes once")
@@ -78,7 +78,7 @@ extension PendingMemoryDiskTests {
             await second.value
 
             #expect(gate.arrivals == 1, "a second tap ran the whole finish again")
-            #expect(model.hasCouple)
+            #expect(model.session.hasCouple)
         }
 
         @Test("applying the answers twice at once applies them once")

@@ -23,7 +23,7 @@ struct PendingRequestResolutionTests {
     func startsUnresolved() {
         let model = AppModel()
         #expect(model.session.hasResolvedOutgoingConnectionRequest == false)
-        #expect(model.pendingOutgoingConnectionRequest == nil, "nil here means unknown, not absent")
+        #expect(model.session.pendingOutgoingConnectionRequest == nil, "nil here means unknown, not absent")
     }
 
     /// Home's branch. The invite card offers to do the one thing an invitee has already done, so it
@@ -48,10 +48,10 @@ struct PendingRequestResolutionTests {
     @Test("a paired couple resolves without asking")
     func pairedResolvesImmediately() async {
         let model = AppModel()
-        model.partnerConnected = true
-        await model.refreshPendingOutgoingConnectionRequest()
+        model.session.partnerConnected = true
+        await model.session.refreshPendingOutgoingConnectionRequest()
         #expect(model.session.hasResolvedOutgoingConnectionRequest)
-        #expect(model.pendingOutgoingConnectionRequest == nil)
+        #expect(model.session.pendingOutgoingConnectionRequest == nil)
     }
 
     /// The limit on patience. Two failed attempts still resolve, because a network that is
@@ -61,7 +61,7 @@ struct PendingRequestResolutionTests {
     func resolvesEvenWhenItCannotFindOut() async {
         let model = AppModel()
         // Unauthenticated: the fetch cannot succeed, which is the shape of a persistent failure.
-        await model.refreshPendingOutgoingConnectionRequest()
+        await model.session.refreshPendingOutgoingConnectionRequest()
         #expect(model.session.hasResolvedOutgoingConnectionRequest,
                 "an unresolvable lookup must still end, or the loading screen never clears")
     }

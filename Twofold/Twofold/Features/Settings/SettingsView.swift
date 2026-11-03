@@ -69,8 +69,8 @@ struct SettingsView: View {
                             showingPartnerSetup = true
                         } label: {
                             SettingsRow(
-                                title: appModel.partnerConnected ? "About your partner" : "Connect with your partner",
-                                systemImage: appModel.partnerConnected ? "person.fill.checkmark" : "person.fill.badge.plus"
+                                title: appModel.session.partnerConnected ? "About your partner" : "Connect with your partner",
+                                systemImage: appModel.session.partnerConnected ? "person.fill.checkmark" : "person.fill.badge.plus"
                             )
                         }
                         .buttonStyle(.plain)
@@ -98,12 +98,12 @@ struct SettingsView: View {
                     // again. `subscriptionStore.isSubscribed` is RevenueCat's own answer on this
                     // device, receipt-validated, and it is available immediately.
                     SubscriptionBanner(
-                        isSubscribed: appModel.isSubscriptionActive || subscriptionStore.isSubscribed
+                        isSubscribed: appModel.subscription.isActive || subscriptionStore.isSubscribed
                     ) {
                         switch Self.subscriptionDestination(
                             deviceHoldsEntitlement: subscriptionStore.isSubscribed,
-                            coupleIsCovered: appModel.isSubscriptionActive,
-                            viewerHoldsSubscription: appModel.viewerHoldsSubscription,
+                            coupleIsCovered: appModel.subscription.isActive,
+                            viewerHoldsSubscription: appModel.subscription.viewerHoldsSubscription,
                             viewerSubscriptionStore: appModel.subscription.viewerStore
                         ) {
                         case .customerCenter: showingCustomerCenter = true
@@ -138,7 +138,7 @@ struct SettingsView: View {
                     // opens. It also mislabelled what is behind it — the record is theirs, and the
                     // only part Premium sells is the export, which the screen asks about at the
                     // point somebody tries to use it.
-                    if appModel.partnerConnected {
+                    if appModel.session.partnerConnected {
                         SectionCard {
                             NavigationLink {
                                 RelationshipTimelineView()
@@ -443,7 +443,7 @@ struct SettingsView: View {
     /// device's own widgets) until some later relaunch happens to refresh it.
     private func syncSubscriptionAfterCustomerCenter() async {
         await subscriptionStore.refreshEntitlementsOnly()
-        guard let tier = subscriptionStore.subscribedTier, tier.dbValue != appModel.subscriptionTier else { return }
+        guard let tier = subscriptionStore.subscribedTier, tier.dbValue != appModel.subscription.tier else { return }
         appModel.markSubscriptionActive(tier: tier.dbValue)
     }
 }

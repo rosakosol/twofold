@@ -143,7 +143,7 @@ struct ExportDataView: View {
     }
 
     private func runExport() {
-        guard let coupleID = appModel.backendCoupleID else {
+        guard let coupleID = appModel.session.backendCoupleID else {
             errorMessage = "Couldn't find your relationship. Try again in a moment."
             return
         }

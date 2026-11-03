@@ -50,7 +50,7 @@ struct TopicsSection: View {
     /// After Dark only once it has decks, which the server hands out only after both partners
     /// have opted in to 18+ questions. Before that it isn't locked or teased; it isn't there.
     private var visibleTopics: [GameTopic] {
-        GameTopic.allCases.filter { $0 != .afterDark || !appModel.decks(for: .afterDark).isEmpty }
+        GameTopic.allCases.filter { $0 != .afterDark || !appModel.games.decks(for: .afterDark).isEmpty }
     }
 
     private func topicRow(_ topic: GameTopic) -> some View {
@@ -118,7 +118,7 @@ struct TopicDetailView: View {
 
     /// In-progress decks first, then never-started ones — completed decks are shown separately.
     private var unansweredDecks: [GameDeck] {
-        appModel.decks(for: topic)
+        appModel.games.decks(for: topic)
             .filter { !(appModel.games.deckProgress?[$0.id]?.bothCompleted ?? false) }
             .sorted { lhs, rhs in
                 // Started means answered, not merely opened — see `DeckProgress.hasAnyAnswers`.
@@ -132,7 +132,7 @@ struct TopicDetailView: View {
     /// Most recently completed first — see `GameLogic.completedDeckPrecedes`, shared with the
     /// other two screens that list finished decks.
     private var answeredDecks: [GameDeck] {
-        appModel.decks(for: topic)
+        appModel.games.decks(for: topic)
             .filter { appModel.games.deckProgress?[$0.id]?.bothCompleted ?? false }
             .sorted { GameLogic.completedDeckPrecedes($0, $1, progress: appModel.games.deckProgress) }
     }
@@ -151,7 +151,7 @@ struct TopicDetailView: View {
                     deckSection(title: "Unanswered", decks: unansweredDecks)
                     deckSection(title: "Answered", decks: answeredDecks)
 
-                    if appModel.decks(for: topic).isEmpty {
+                    if appModel.games.decks(for: topic).isEmpty {
                         Text("No decks in this topic yet.")
                             .font(.subheadline)
                             .foregroundStyle(Theme.textSecondary)

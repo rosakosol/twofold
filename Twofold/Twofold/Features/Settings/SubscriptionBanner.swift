@@ -16,7 +16,7 @@ struct SubscriptionBanner: View {
 
     // This used to take a `coverageNote` naming which partner's subscription covered the couple.
     // It is gone, and the reason is worth keeping: nothing the app holds at first render can
-    // answer that question. `appModel.isSubscriptionActive` says the couple is covered;
+    // answer that question. `appModel.subscription.isActive` says the couple is covered;
     // `RedundantSubscription` says whether *both* are; neither says who pays. Only RevenueCat's
     // own entitlement does, and that is a network round trip on a `SubscriptionStore` this screen
     // builds fresh every time it appears.

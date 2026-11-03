@@ -39,7 +39,7 @@ struct DeleteAccountView: View {
 
     /// True when there's any shared history at all — a live partner, or an old archive.
     private var hasSharedData: Bool {
-        appModel.partnerConnected || archivedCoupleCount > 0
+        appModel.session.partnerConnected || archivedCoupleCount > 0
     }
 
     var body: some View {
@@ -69,7 +69,7 @@ struct DeleteAccountView: View {
                 //
                 // Nothing replaces it for them: their partner's subscription is genuinely
                 // unaffected by their leaving, so there is nothing they need to do.
-                if appModel.viewerHoldsSubscription {
+                if appModel.subscription.viewerHoldsSubscription {
                     SectionCard {
                         Label("Cancel your subscription first", systemImage: "creditcard.trianglebadge.exclamationmark")
                             .font(.headline)
@@ -108,7 +108,7 @@ struct DeleteAccountView: View {
                         // true, and is about a different decision than the one being made here.
                         // On a screen somebody reads while upset, every sentence that is merely
                         // interesting costs attention that the two that matter need.
-                        if appModel.partnerConnected {
+                        if appModel.session.partnerConnected {
                             explainerRow(icon: "calendar.badge.clock", text: "What you shared with \(appModel.partner.name) stays with them, then is permanently deleted for both of you after 90 days. Nobody can change that date.")
                         } else if archivedCoupleCount > 0 {
                             explainerRow(icon: "archivebox", text: archivedCoupleCount == 1
@@ -169,7 +169,7 @@ struct DeleteAccountView: View {
             // The last thing read before the irreversible tap. A subscriber gets the billing
             // warning again here, because this alert is the only part of the screen somebody in a
             // hurry is guaranteed to see.
-            Text(appModel.isSubscriptionActive
+            Text(appModel.subscription.isActive
                 ? "This can't be undone. If you subscribed through the App Store, cancel it first or you'll keep being billed."
                 : "This can't be undone.")
         }

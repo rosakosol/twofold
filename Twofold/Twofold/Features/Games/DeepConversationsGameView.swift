@@ -220,7 +220,7 @@ struct DeepConversationsGameView: View {
             // Answers stay hidden until both of you have answered: the database only reveals a
             // session's responses once it is complete. This says so where the answer is written.
             Label {
-                Text("\(appModel.partnerConnected ? appModel.partner.name : "Your partner") sees it once you've both answered")
+                Text("\(appModel.session.partnerConnected ? appModel.partner.name : "Your partner") sees it once you've both answered")
             } icon: {
                 Image(systemName: "lock.fill").accessibilityHidden(true)
             }

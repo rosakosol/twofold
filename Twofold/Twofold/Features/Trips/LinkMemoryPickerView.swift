@@ -19,7 +19,7 @@ struct LinkMemoryPickerView: View {
     @State private var showingCreateMemory = false
 
     private var unlinkedMemories: [Memory] {
-        appModel.memories.filter { $0.tripID == nil }.sorted { $0.date > $1.date }
+        appModel.travel.memories.filter { $0.tripID == nil }.sorted { $0.date > $1.date }
     }
 
     var body: some View {

@@ -196,7 +196,7 @@ struct SignInView: View {
         // `first_name` was the normal state for an SSO account that had fully onboarded.
         //
         // `needsOnboarding` is the recorded fact (migration 20261106000000), not a guess.
-        if appModel.needsOnboarding {
+        if appModel.session.needsOnboarding {
             // Only on the provider paths, and the comment above is the reason: auto-provisioning is
             // a thing Apple and Google do. Email and password cannot create an account here — a
             // wrong address fails as `invalid_credentials` and never reaches this line — so on that
@@ -214,7 +214,7 @@ struct SignInView: View {
             // They are still routed into onboarding either way; `RootView` does that off
             // `needsOnboarding` the moment this sheet closes. The only thing that changes here is
             // whether they are handed an explanation that does not apply to them.
-            if Self.shouldExplainNewProviderAccount(viaProvider: viaProvider, hasSavedOnboardingProgress: appModel.hasSavedOnboardingProgress) {
+            if Self.shouldExplainNewProviderAccount(viaProvider: viaProvider, hasSavedOnboardingProgress: appModel.session.hasSavedOnboardingProgress) {
                 // Somebody on a screen titled "Welcome back" did not mean to create an account, so
                 // say that one has been created. Overwhelmingly this is Hide My Email: the relay
                 // address is a new email, so it is a new user, and their real account is still

@@ -37,7 +37,7 @@ struct ResumeSetupView: View {
     @State private var showingStartFreshConfirmation = false
 
     private var greeting: String {
-        let name = appModel.couple.partnerA.name
+        let name = appModel.session.couple.partnerA.name
         // `fetchOwnProfile` substitutes "You" for an empty name, so it is never blank — but it is
         // also not a name, and "Welcome back, You" is worse than no name at all.
         return name.isEmpty || name == "You" ? "Welcome back" : "Welcome back, \(name)"
@@ -48,7 +48,7 @@ struct ResumeSetupView: View {
     /// them a code of their own and showed them a paywall — see `OnboardingResume`.
     private var plan: OnboardingResume.Plan {
         OnboardingResume.plan(
-            pendingRequestInviterName: appModel.pendingOutgoingConnectionRequest?.inviterFirstName,
+            pendingRequestInviterName: appModel.session.pendingOutgoingConnectionRequest?.inviterFirstName,
             savedInvite: BackendService.currentUserID.flatMap(OnboardingResume.savedInvite(for:))
         )
     }
@@ -101,7 +101,7 @@ struct ResumeSetupView: View {
     /// The partner's name when there is one, because seeing it is half the proof that the setup
     /// really was kept.
     private var partnerDescription: String {
-        let partner = appModel.couple.partnerB.name
+        let partner = appModel.session.couple.partnerB.name
         return partner.isEmpty || partner == "Partner" ? "your partner's" : "\(partner)'s"
     }
 

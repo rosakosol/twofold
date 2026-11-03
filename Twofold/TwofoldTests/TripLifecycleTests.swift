@@ -92,7 +92,7 @@ struct TripLifecycleTests {
         // property is only how they are computed.
         let model = AppModel()
         let underway = trip(departsInDays: 0, endsInDays: 91)
-        model.trips = [underway]
+        model.travel.trips = [underway]
 
         #expect(model.travel.upcomingTrips.map(\.id) == [underway.id])
         #expect(model.travel.pastTrips.isEmpty)

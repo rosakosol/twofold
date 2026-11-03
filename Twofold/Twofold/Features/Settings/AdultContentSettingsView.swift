@@ -25,7 +25,7 @@ struct AdultContentSettingsView: View {
     private var status: BackendService.AdultContentStatus? { appModel.games.adultContentStatus }
 
     private var partnerName: String {
-        let name = appModel.couple.partnerB.name
+        let name = appModel.session.couple.partnerB.name
         return name.isEmpty ? "your partner" : name
     }
 

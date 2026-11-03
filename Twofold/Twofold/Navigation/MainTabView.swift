@@ -69,13 +69,13 @@ struct MainTabView: View {
         .alert(
             "Not saved",
             isPresented: Binding(
-                get: { appModel.writeRefusedMessage != nil },
-                set: { if !$0 { appModel.writeRefusedMessage = nil } }
+                get: { appModel.prompts.writeRefusedMessage != nil },
+                set: { if !$0 { appModel.prompts.writeRefusedMessage = nil } }
             )
         ) {
             Button("OK", role: .cancel) {}
         } message: {
-            Text(appModel.writeRefusedMessage ?? "")
+            Text(appModel.prompts.writeRefusedMessage ?? "")
         }
         #if DEBUG
         // A 1pt, invisible carrier for `refreshAllCount` — see its doc comment for why the test

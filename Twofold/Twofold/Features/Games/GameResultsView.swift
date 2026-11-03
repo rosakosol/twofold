@@ -40,7 +40,7 @@ struct GameResultsView: View {
     /// header/summary/per-round chips all need a "your partner hasn't joined yet" framing instead
     /// of a real comparison. More Likely can't reach this at all (blocked server-side solo).
     ///
-    /// Checked against this session's own `responses`, not `appModel.partnerConnected` — that
+    /// Checked against this session's own `responses`, not `appModel.session.partnerConnected` — that
     /// flag is an account-level "are we paired at all" state, not "did my partner actually play
     /// this session," and any transient staleness in it (a refresh landing right as this screen
     /// appears, say) flipped an otherwise-real, both-answered session into showing the solo
@@ -179,7 +179,7 @@ struct GameResultsView: View {
             // `hasCouple` guard for symmetry with `AppModel.checkReviewMilestones()` — true for
             // solo users too (see its own doc comment), so this still fires for a solo player's
             // first completed game, not just a paired one.
-            if appModel.hasCouple {
+            if appModel.session.hasCouple {
                 appModel.prompts.noteReviewMilestone(.firstGameResults)
             }
             if isSolo {
@@ -192,7 +192,7 @@ struct GameResultsView: View {
             // screen just completed. The instant local flip below covers "Your turn" the moment
             // this screen appears, rather than however long this fetch takes to land.
             appModel.games.markDeckProgressMineCompleted(deckID: store.session?.deckID)
-            Task { await appModel.refreshGameDecks() }
+            Task { await appModel.games.refreshGameDecks() }
         }
         .sensoryFeedback(.success, trigger: confettiTrigger)
         .postHogScreenView("Games: Results")
@@ -549,7 +549,7 @@ struct GameResultsView: View {
             try? await BackendService.abandonGameSession(id: sessionID)
         }
         if let newID = try? await BackendService.startDeckSession(deckID: deckID) {
-            await appModel.refreshGameDecks()
+            await appModel.games.refreshGameDecks()
             resetTopic = appModel.games.gameDecks?.first(where: { $0.id == deckID })?.topic
             resetRoute = SessionRoute(id: newID, gameType: gameType)
         }

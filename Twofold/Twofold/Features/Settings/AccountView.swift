@@ -109,7 +109,7 @@ struct AccountView: View {
         .navigationTitle("Account")
         .navigationBarTitleDisplayMode(.inline)
         .postHogScreenView("Settings: Account")
-        .onAppear { birthdayDate = appModel.couple.partnerA.birthday?.date() }
+        .onAppear { birthdayDate = appModel.session.couple.partnerA.birthday?.date() }
     }
 
     /// Your own birthday. Optional here, as it is everywhere it is asked for.

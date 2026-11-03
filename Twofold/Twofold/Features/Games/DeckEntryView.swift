@@ -112,7 +112,7 @@ struct DeckEntryView: View {
             } else {
                 let newSessionID = try await BackendService.startDeckSession(deckID: deck.id)
                 phase = .playing(sessionID: newSessionID)
-                Task { await appModel.refreshGameDecks() }
+                Task { await appModel.games.refreshGameDecks() }
             }
         } catch {
             startLocally()
@@ -134,8 +134,8 @@ struct DeckEntryView: View {
         }
         guard let local = LocalGameSessionStore.create(
             deck: deck,
-            effectiveTier: appModel.subscriptionTier,
-            hasPartner: appModel.partnerConnected
+            effectiveTier: appModel.subscription.tier,
+            hasPartner: appModel.session.partnerConnected
         ) else {
             errorMessage = "This one needs a connection. Other decks are ready to play offline."
             return

@@ -49,7 +49,7 @@ struct NotificationPreferencesView: View {
 
                 // Only meaningful pre-pairing — once `appModel.partner` is real, there's nothing
                 // left to be reminded to invite.
-                if !appModel.partnerConnected {
+                if !appModel.session.partnerConnected {
                     SectionCard {
                         Toggle("Reminders to invite my partner", isOn: $partnerInviteReminder).font(.subheadline)
                         Text("A couple of nudges in your first few days if you haven't connected yet.")

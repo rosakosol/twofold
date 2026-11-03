@@ -86,7 +86,7 @@ struct AddPhotoView: View {
         errorMessage = nil
         do {
             let url = try await BackendService.uploadAvatar(imageData: data)
-            appModel.couple.partnerA.avatarURL = url
+            appModel.session.couple.partnerA.avatarURL = url
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -98,7 +98,7 @@ struct AddPhotoView: View {
         errorMessage = nil
         do {
             let url = try await BackendService.uploadPartnerAvatar(imageData: data)
-            appModel.couple.partnerB.avatarURL = url
+            appModel.session.couple.partnerB.avatarURL = url
         } catch {
             errorMessage = error.localizedDescription
         }

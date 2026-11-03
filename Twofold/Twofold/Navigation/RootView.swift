@@ -115,7 +115,7 @@ struct RootView: View {
         Group {
             if appModel.isLoadingSession {
                 loadingScreen
-            } else if appModel.hasCouple {
+            } else if appModel.session.hasCouple {
                 // Everyone signed in gets the app. There is no longer a gate here at all.
                 //
                 // There used to be: a non-dismissable paywall for anyone whose subscription was
@@ -181,15 +181,15 @@ struct RootView: View {
         // until another one happened to come along.
         .task {
             for await tier in subscriptionStore.entitlementUpdates() {
-                guard appModel.hasCouple else { continue }
+                guard appModel.session.hasCouple else { continue }
                 // Read-only. This used to push the new entitlement to the profile row first; the
                 // webhook does that now, and the client is refused if it tries (see
                 // `BackendService`'s note where that write used to live). RevenueCat delivers the
                 // same change to both, so the row is either already updated or about to be.
                 if let snapshot = try? await BackendService.fetchSubscriptionSnapshot() {
-                    appModel.subscriptionTier = snapshot.tier
+                    appModel.subscription.tier = snapshot.tier
                     appModel.subscription.applyRefresh(
-                        snapshot, deviceEntitled: tier != nil, partnerConnected: appModel.partnerConnected
+                        snapshot, deviceEntitled: tier != nil, partnerConnected: appModel.session.partnerConnected
                     )
                 }
                 await WidgetSnapshotWriter.refresh(appModel: appModel)
@@ -216,7 +216,7 @@ struct RootView: View {
                     // Appended to this same sequential Task rather than a concurrent one, for the
                     // auth-lock-contention reason above. Re-reported every foreground so the day
                     // boundary follows someone who travels — see `BackendService.updateDeviceContext`.
-                    if appModel.hasCouple { try? await BackendService.updateDeviceContext() }
+                    if appModel.session.hasCouple { try? await BackendService.updateDeviceContext() }
                     // Same sequential Task, same auth-lock reason. Throttled to one round trip a
                     // day inside `touchLastActive()`, and the only thing feeding the dormancy
                     // timer — an account this never reaches eventually closes itself.
@@ -230,7 +230,7 @@ struct RootView: View {
                 // out (mid-onboarding, or after a sign-out on a device that had this enabled from
                 // a previous account) gated the sign-in/onboarding screens themselves behind a
                 // biometric prompt for no reason, since there's nothing sensitive to protect yet.
-                if appModel.hasCouple {
+                if appModel.session.hasCouple {
                     appLock.lock()
                 }
             }
@@ -241,7 +241,7 @@ struct RootView: View {
         // launch path unreachable (see `AppModel.restoreSession`).
         .task {
             try? await Task.sleep(for: .milliseconds(600))
-            guard !network.isConnected, appModel.hasCouple, !hasShownOfflineNotice else { return }
+            guard !network.isConnected, appModel.session.hasCouple, !hasShownOfflineNotice else { return }
             hasShownOfflineNotice = true
             showingOfflineNotice = true
         }
@@ -278,7 +278,7 @@ struct RootView: View {
                 offlineNoticeTask = Task {
                     try? await Task.sleep(for: .milliseconds(250))
                     guard !Task.isCancelled, !network.isConnected,
-                          appModel.hasCouple, !hasShownOfflineNotice else { return }
+                          appModel.session.hasCouple, !hasShownOfflineNotice else { return }
                     hasShownOfflineNotice = true
                     showingOfflineNotice = true
                 }
@@ -292,14 +292,14 @@ struct RootView: View {
             hasShownOfflineNotice = false
             showingOfflineNotice = false
 
-            guard appModel.hasCouple else { return }
+            guard appModel.session.hasCouple else { return }
             Task {
                 await appModel.refreshCoupleStateIfNeeded()
                 // Before `refreshAll`, which reloads the deck list: a deck played offline only
                 // becomes a real session here, and until it does its progress isn't anywhere the
                 // deck list could read it.
                 if await LocalGameSessionSync.flush() {
-                    await appModel.refreshGameDecks()
+                    await appModel.games.refreshGameDecks()
                 }
                 await appModel.refreshAll()
                 await checkSubscription()
@@ -343,7 +343,7 @@ struct RootView: View {
         // lands well after this view first draws — the same reason the streak repair check above
         // is an `onChange`. Also re-checked on foreground, so a phone left open overnight finds
         // the birthday in the morning rather than at the next cold launch.
-        .onChange(of: appModel.couple) { _, _ in showBirthdayIfDue() }
+        .onChange(of: appModel.session.couple) { _, _ in showBirthdayIfDue() }
         .fullScreenCover(item: $birthdayCelebration) { celebration in
             HappyBirthdayView(
                 partnerName: celebration.partnerName,
@@ -410,12 +410,12 @@ struct RootView: View {
         // finishes loading), which looks identical to a genuine new-pairing transition — so a
         // server-persisted flag is the actual gate here, not just the transition itself (see
         // AppModel.partnerConnectedCelebrationShown — survives a reinstall, unlike UserDefaults).
-        .onChange(of: appModel.partnerConnected) { wasConnected, isConnected in
+        .onChange(of: appModel.session.partnerConnected) { wasConnected, isConnected in
             guard !wasConnected, isConnected else { return }
 
             // Re-check access the moment a couple exists, because until now nothing did.
             //
-            // `checkSubscription()` opens with `guard appModel.hasCouple`, so for a brand-new
+            // `checkSubscription()` opens with `guard appModel.session.hasCouple`, so for a brand-new
             // account it returns immediately at launch. Pairing a minute later makes the
             // couple-wide lookup meaningful for the first time, and nothing ran it again until the
             // next foreground.
@@ -427,7 +427,7 @@ struct RootView: View {
             // is not a thing anyone should have to discover.
             Task { await checkSubscription() }
 
-            guard !appModel.partnerConnectedCelebrationShown else { return }
+            guard !appModel.prompts.partnerConnectedCelebrationShown else { return }
             appModel.prompts.markPartnerConnectedCelebrationShown()
             showingPartnerConnectedCelebration = true
         }
@@ -458,7 +458,7 @@ struct RootView: View {
         // so without this check, a device that had the lock enabled from a previous account —
         // or that simply cold-launches straight into onboarding after a sign-out — would demand
         // Face ID/passcode just to reach the sign-in screen, with nothing sensitive to protect.
-        if appModel.hasCouple && appLock.isEnabled && appLock.isLocked {
+        if appModel.session.hasCouple && appLock.isEnabled && appLock.isLocked {
             AppLockView(appLock: appLock)
                 .transition(.opacity)
                 .zIndex(1)
@@ -499,7 +499,7 @@ struct RootView: View {
         switch OpenURLRoute.route(
             for: url,
             isLoadingSession: appModel.isLoadingSession,
-            hasCouple: appModel.hasCouple,
+            hasCouple: appModel.session.hasCouple,
             isSignedIn: BackendService.currentUserID != nil
         ) {
         case .wait:
@@ -531,7 +531,7 @@ struct RootView: View {
             // Waits for the answer rather than reading a `false` that only means "not known yet",
             // which on a cold launch is what it always was.
             guard appModel.subscription.hasResolved else { return }
-            if appModel.isSubscriptionActive {
+            if appModel.subscription.isActive {
                 recordDeepLink = destination
             } else {
                 // Used to do nothing at all: the app opened and the tap went nowhere. The widget
@@ -565,9 +565,9 @@ struct RootView: View {
     private var notificationRouteHandling: NotificationRoute.Handling? {
         router.pending?.handling(
             isLoadingSession: appModel.isLoadingSession,
-            hasCouple: appModel.hasCouple,
+            hasCouple: appModel.session.hasCouple,
             hasResolvedSubscription: appModel.subscription.hasResolved,
-            isSubscriptionActive: appModel.isSubscriptionActive
+            isSubscriptionActive: appModel.subscription.isActive
         )
     }
 
@@ -661,10 +661,10 @@ struct RootView: View {
         let kyoto = Place(city: "Kyoto", country: "Japan", latitude: 35.0116, longitude: 135.7681)
         let day: TimeInterval = 86_400
 
-        appModel.couple.partnerA.name = "Rosa"
-        appModel.couple.partnerB.name = "Alex"
-        appModel.couple.startedDatingOn = Date(timeIntervalSinceNow: -720 * day)
-        appModel.subscriptionTier = "plus"
+        appModel.session.couple.partnerA.name = "Rosa"
+        appModel.session.couple.partnerB.name = "Alex"
+        appModel.session.couple.startedDatingOn = Date(timeIntervalSinceNow: -720 * day)
+        appModel.subscription.tier = "plus"
 
         let firstTrip = Trip(
             id: UUID(), travelerIDs: [], origin: melbourne, destination: tokyo,
@@ -692,9 +692,9 @@ struct RootView: View {
             arrivalDate: Date(timeIntervalSinceNow: -314 * day),
             category: .solo, distanceKm: 367
         )
-        appModel.trips = [earlierTrip, soloTrip, firstTrip, secondTrip]
+        appModel.travel.trips = [earlierTrip, soloTrip, firstTrip, secondTrip]
 
-        appModel.memories = [
+        appModel.travel.memories = [
             Memory(
                 title: "Ramen at midnight", place: tokyo,
                 date: Date(timeIntervalSinceNow: -238 * day),
@@ -779,7 +779,7 @@ struct RootView: View {
         let year = Calendar.current.component(.year, from: .now)
 
         // Partner first, deliberately.
-        if appModel.partnerConnected, appModel.partner.isBirthdayToday {
+        if appModel.session.partnerConnected, appModel.partner.isBirthdayToday {
             let key = "\(year)-partner"
             guard birthdayCelebrationShownFor != key else { return }
             birthdayCelebrationShownFor = key
@@ -787,7 +787,7 @@ struct RootView: View {
             return
         }
 
-        if appModel.couple.partnerA.isBirthdayToday {
+        if appModel.session.couple.partnerA.isBirthdayToday {
             let key = "\(year)-self"
             guard birthdayCelebrationShownFor != key else { return }
             birthdayCelebrationShownFor = key
@@ -865,7 +865,7 @@ struct RootView: View {
         switch destination {
         case .flight(let id):
             Group {
-                if let flight = appModel.flights.first(where: { $0.id == id }) {
+                if let flight = appModel.travel.flights.first(where: { $0.id == id }) {
                     FlightTrackingView(flight: flight)
                 } else {
                     GameErrorState(message: "This flight isn't available anymore.")
@@ -878,7 +878,7 @@ struct RootView: View {
             }
         case .trip(let id):
             Group {
-                if let trip = appModel.trips.first(where: { $0.id == id }) {
+                if let trip = appModel.travel.trips.first(where: { $0.id == id }) {
                     TripDetailsView(trip: trip)
                 } else {
                     GameErrorState(message: "This trip isn't available anymore.")
@@ -891,7 +891,7 @@ struct RootView: View {
             }
         case .memory(let id):
             Group {
-                if let memory = appModel.memories.first(where: { $0.id == id }) {
+                if let memory = appModel.travel.memories.first(where: { $0.id == id }) {
                     MemoryDetailView(memory: memory)
                 } else {
                     GameErrorState(message: "This memory isn't available anymore.")
@@ -947,11 +947,11 @@ struct RootView: View {
     /// Read-only as of the RevenueCat webhook: this used to push the device's own entitlement to
     /// the profile row first, which is what made the client the source of truth for who had paid.
     ///
-    /// Also refreshes `appModel.subscriptionTier`, which is otherwise only ever set at
+    /// Also refreshes `appModel.subscription.tier`, which is otherwise only ever set at
     /// couple-adoption time — without this, a mid-session upgrade/downgrade left every
     /// `isPremiumLocked`/`isDeckLocked` check reading a stale tier until the next full relaunch.
     private func checkSubscription() async {
-        guard appModel.hasCouple else { return }
+        guard appModel.session.hasCouple else { return }
         // -demoMode is Premium by fiat; there is no account here to check.
         if DemoMode.isOn { return }
 
@@ -978,19 +978,19 @@ struct RootView: View {
         let snapshot = try? await BackendService.fetchSubscriptionSnapshot()
         if let snapshot {
             appModel.subscription.applyRefresh(
-                snapshot, deviceEntitled: deviceHoldsEntitlement, partnerConnected: appModel.partnerConnected
+                snapshot, deviceEntitled: deviceHoldsEntitlement, partnerConnected: appModel.session.partnerConnected
             )
             OfflineSessionCache.record(
                 active: snapshot.active,
-                tier: appModel.subscriptionTier,
+                tier: appModel.subscription.tier,
                 userID: BackendService.currentUserID,
-                partnerConnected: appModel.partnerConnected,
+                partnerConnected: appModel.session.partnerConnected,
                 myName: appModel.currentUser.name,
                 partnerName: appModel.partner.name,
-                celebrationShown: appModel.partnerConnectedCelebrationShown,
-                checklistDismissed: appModel.setupChecklistDismissed
+                celebrationShown: appModel.prompts.partnerConnectedCelebrationShown,
+                checklistDismissed: appModel.prompts.setupChecklistDismissed
             )
-        } else if !appModel.isSubscriptionActive,
+        } else if !appModel.subscription.isActive,
                   let cached = OfflineSessionCache.restore(for: BackendService.currentUserID),
                   cached.active {
             // The read failed (offline). Fall back to the last confirmed couple-wide answer rather
@@ -998,8 +998,8 @@ struct RootView: View {
             // without it a foreground refresh mid-flight could undo that restore and re-paywall a
             // subscriber. Only ever upgrades false -> true; a genuine "not subscribed" from the
             // backend above still wins, because that branch takes priority.
-            appModel.isSubscriptionActive = true
-            appModel.subscriptionTier = cached.tier
+            appModel.subscription.isActive = true
+            appModel.subscription.tier = cached.tier
         }
         // Falls back to this device's own entitlement when the couple row has no tier yet, so a
         // Premium subscriber isn't shown every premium deck locked while the webhook catches up.
@@ -1018,7 +1018,7 @@ struct RootView: View {
         if let snapshot, let resolved = Self.tierAfterRefresh(
             fetched: snapshot.tier, deviceTier: subscriptionStore.subscribedTier?.dbValue
         ) {
-            appModel.subscriptionTier = resolved
+            appModel.subscription.tier = resolved
         }
         // Owns its own widget refresh (same convention every other state-mutating `AppModel`
         // method uses — see `performAdopt`, `refreshFlights`, `addMemory`) rather than relying on
@@ -1036,8 +1036,8 @@ struct RootView: View {
     /// forever) `!partnerConnected` short-circuit lives in `AppModel.refreshPendingOutgoingConnectionRequest()`
     /// itself, so `PendingConnectionApprovalView`'s own "Check again" call gets it too.
     private func refreshPendingOutgoingConnectionRequestIfNeeded() async {
-        guard appModel.hasCouple else { return }
-        await appModel.refreshPendingOutgoingConnectionRequest()
+        guard appModel.session.hasCouple else { return }
+        await appModel.session.refreshPendingOutgoingConnectionRequest()
     }
 
     /// Foreground-triggered re-derivation of the signed-in user's current city — replaces the
@@ -1047,7 +1047,7 @@ struct RootView: View {
     /// `AppModel.updateCurrentCityIfChanged(_:)`. Denied/restricted permission is a silent
     /// no-op — `HomeLocationService`'s own state machine already reflects that, no nagging here.
     private func refreshCurrentCityIfNeeded() {
-        guard appModel.hasCouple else { return }
+        guard appModel.session.hasCouple else { return }
         if let lastLocationCheckAt, Date.now.timeIntervalSince(lastLocationCheckAt) < 3600 { return }
         lastLocationCheckAt = .now
         currentCityService.requestCurrentLocation()

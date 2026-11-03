@@ -38,7 +38,7 @@ struct GamesHubView: View {
     /// keep completed decks visible, since jumping straight to results from a finished deck is
     /// still a useful shortcut there).
     private var travelDecks: [GameDeck] {
-        appModel.decks(for: .travel).filter { appModel.games.deckProgress?[$0.id]?.bothCompleted != true }
+        appModel.games.decks(for: .travel).filter { appModel.games.deckProgress?[$0.id]?.bothCompleted != true }
     }
 
     var body: some View {
@@ -218,7 +218,7 @@ struct GamesHubView: View {
         // `hasLoadedCoupleState` for the reason `DeckCardRow.needsPartnerGate` gives: before the
         // fetch, `partnerConnected` is false for everyone, so this locked a paired couple's tiles
         // and offered them an invite sheet they do not need.
-        if gameType.requiresPartner && appModel.session.hasLoadedCoupleState && !appModel.partnerConnected {
+        if gameType.requiresPartner && appModel.session.hasLoadedCoupleState && !appModel.session.partnerConnected {
             Button {
                 showingPartnerGate = true
             } label: {

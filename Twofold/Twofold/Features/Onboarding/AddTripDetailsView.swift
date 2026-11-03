@@ -107,7 +107,7 @@ struct AddTripDetailsView: View {
                             // `appModel.partner` is a placeholder with no real profile behind it.
                             // Fully enabled during onboarding itself, where having no partner
                             // connected yet is the normal state.
-                            disabledValues: mode == .standalone && !appModel.partnerConnected ? [.partner, .both] : []
+                            disabledValues: mode == .standalone && !appModel.session.partnerConnected ? [.partner, .both] : []
                         )
                     }
 

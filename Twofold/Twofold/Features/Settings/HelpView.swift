@@ -28,7 +28,7 @@ struct HelpView: View {
                     // paying. It sits here rather than out front for the same reason Delete
                     // Account does: rarely needed, and wanted at the moment someone is looking for
                     // help rather than browsing settings.
-                    if appModel.partnerConnected {
+                    if appModel.session.partnerConnected {
                         Divider()
 
                         NavigationLink {
@@ -72,7 +72,7 @@ struct HelpView: View {
 
                     // Only meaningful once there's an actual partner to disconnect from —
                     // reachable pre-connection otherwise makes no sense.
-                    if appModel.partnerConnected {
+                    if appModel.session.partnerConnected {
                         Divider()
 
                         NavigationLink {

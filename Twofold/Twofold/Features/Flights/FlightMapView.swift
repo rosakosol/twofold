@@ -44,7 +44,7 @@ struct FlightMapView: View {
     /// `AppModel.travellerIDs(for:)`, the rule every flight surface uses (FLT-14). Can hold both
     /// partners when they're travelling together.
     private var travelers: [Person] {
-        appModel.travel.travellerIDs(for: flight).compactMap { appModel.couple.partner($0) }
+        appModel.travel.travellerIDs(for: flight).compactMap { appModel.session.couple.partner($0) }
     }
 
     var body: some View {

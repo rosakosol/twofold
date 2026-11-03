@@ -40,9 +40,9 @@ struct GamesStateTests {
     @Test("The repair offer asks AppModel whether a partner has joined")
     func partnerConnectedComesFromAppModel() {
         let model = AppModel()
-        model.partnerConnected = true
+        model.session.partnerConnected = true
         #expect(model.games.isPartnerConnected())
-        model.partnerConnected = false
+        model.session.partnerConnected = false
         #expect(!model.games.isPartnerConnected())
     }
 }

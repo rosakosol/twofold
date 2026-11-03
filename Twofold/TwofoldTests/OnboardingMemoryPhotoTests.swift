@@ -35,7 +35,7 @@ extension PendingMemoryDiskTests {
             )
 
             #expect(memory.photos.count == 1, "the returned memory should carry the photo it was given")
-            #expect(model.memories.first(where: { $0.id == memory.id })?.photos.count == 1)
+            #expect(model.travel.memories.first(where: { $0.id == memory.id })?.photos.count == 1)
         }
 
         @Test("and the bytes are on disk, readable back for the upload that happens on pairing")
@@ -66,7 +66,7 @@ extension PendingMemoryDiskTests {
             let firstID = memory.photos.first?.id
             await model.travel.updateMemory(memory, newImagesData: [samplePhoto])
 
-            let updated = model.memories.first { $0.id == memory.id }
+            let updated = model.travel.memories.first { $0.id == memory.id }
             #expect(updated?.photos.count == 2)
             #expect(updated?.photos.first?.id == firstID, "the existing photo should keep its id, or nothing holding it can find it again")
         }

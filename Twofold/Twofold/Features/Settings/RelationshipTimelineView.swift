@@ -46,9 +46,9 @@ struct RelationshipTimelineView: View {
 
     private var items: [ExportTimelineItem] {
         RelationshipRecord.timeline(
-            trips: appModel.trips,
-            memories: appModel.memories,
-            flights: appModel.flights
+            trips: appModel.travel.trips,
+            memories: appModel.travel.memories,
+            flights: appModel.travel.flights
         )
     }
 
@@ -251,7 +251,7 @@ struct RelationshipTimelineView: View {
             switch format {
             case .pdf:
                 url = await CoupleDataExporter.relationshipRecordPDF(
-                    coupleID: appModel.couple.id,
+                    coupleID: appModel.session.couple.id,
                     selfName: appModel.currentUser.name,
                     partnerName: appModel.partner.name,
                     selfPhotoURL: appModel.currentUser.avatarURL,

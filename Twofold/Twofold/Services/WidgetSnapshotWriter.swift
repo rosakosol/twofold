@@ -44,7 +44,7 @@ enum WidgetSnapshotWriter {
         write: (WidgetSnapshot) -> Void = WidgetSnapshot.write,
         reload: (Set<WidgetKind>) -> Void = WidgetReloadPlan.reload
     ) async {
-        guard appModel.partnerConnected else {
+        guard appModel.session.partnerConnected else {
             let unpaired = WidgetSnapshot(
                 myID: nil,
                 myName: appModel.currentUser.name,
@@ -54,7 +54,7 @@ enum WidgetSnapshotWriter {
                 partnerTimeZoneIdentifier: nil,
                 distanceLabel: nil,
                 anniversaryDate: nil,
-                subscriptionTier: appModel.subscriptionTier,
+                subscriptionTier: appModel.subscription.tier,
                 nextFlight: nil,
                 nextReunion: nil,
                 latestMemory: nil,
@@ -104,13 +104,13 @@ enum WidgetSnapshotWriter {
             Self.flightInfo(for: $0, currentUserID: appModel.currentUser.id, travellerIDs: appModel.travel.travellerIDs(for: $0), homeTimeZone: homeTimeZone)
         }
 
-        let latestMemory = appModel.memories.max(by: { $0.date < $1.date })
+        let latestMemory = appModel.travel.memories.max(by: { $0.date < $1.date })
         let memoryInfo = latestMemory.map { WidgetSnapshot.MemoryInfo(id: $0.id, title: $0.title, date: $0.date, city: $0.place?.displayCity) }
 
         let relationshipStats = WidgetSnapshot.RelationshipStats(
-            memoryCount: appModel.memories.count,
-            tripCount: appModel.trips.count,
-            reunionCount: appModel.trips.filter { $0.category == .reunion }.count
+            memoryCount: appModel.travel.memories.count,
+            tripCount: appModel.travel.trips.count,
+            reunionCount: appModel.travel.trips.filter { $0.category == .reunion }.count
         )
 
         // Without the partner's answer; that is a network read, added below once both have answered.
@@ -144,8 +144,8 @@ enum WidgetSnapshotWriter {
                 partnerTimeZoneIdentifier: partnerCity?.timeZoneIdentifier,
                 distanceLabel: distanceLabel,
                 isSameCity: isSameCity,
-                anniversaryDate: appModel.couple.startedDatingOn,
-                subscriptionTier: appModel.subscriptionTier,
+                anniversaryDate: appModel.session.couple.startedDatingOn,
+                subscriptionTier: appModel.subscription.tier,
                 nextFlight: flightInfo,
                 trackedFlights: trackedFlights,
                 nextReunion: reunionInfo,
@@ -154,7 +154,7 @@ enum WidgetSnapshotWriter {
                 partnerWeather: weather,
                 relationshipStats: relationshipStats,
                 dailyQuestion: dailyQuestion,
-                coupleID: appModel.couple.id,
+                coupleID: appModel.session.couple.id,
                 partnerID: appModel.partner.id,
                 mySignedDrawingPadURL: mySignedDrawingPadURL,
                 partnerSignedDrawingPadURL: partnerSignedDrawingPadURL,
@@ -192,7 +192,7 @@ enum WidgetSnapshotWriter {
         let myAvatarURL = appModel.currentUser.avatarURL
         let partnerAvatarURL = appModel.partner.avatarURL
         let logoURL = appModel.travel.activeOrUpcomingFlight?.displayLogoURL
-        let coupleID = appModel.couple.id
+        let coupleID = appModel.session.couple.id
         let myID = appModel.currentUser.id
         let partnerID = appModel.partner.id
         let dailySessionID = appModel.games.todaysDailySessionID

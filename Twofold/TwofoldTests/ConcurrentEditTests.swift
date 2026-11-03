@@ -43,11 +43,11 @@ extension PendingMemoryDiskTests {
             defer { AppModel.clearPersistedAccountState() }
             let memory = Memory(title: "Where we met", place: rome, date: Date(timeIntervalSince1970: 1_700_000_000), note: "")
             backend.serverMemories = [memory]
-            await model.refreshMemories()
+            await model.travel.refreshMemories()
 
             // The partner's edit reaches the server, not yet this phone.
             backend.serverMemories[0].note = "The café by the station"
-            var edited = model.memories[0]
+            var edited = model.travel.memories[0]
             edited.title = "Where we really met"
             await model.travel.updateMemory(edited)
 
@@ -66,21 +66,21 @@ extension PendingMemoryDiskTests {
             var memory = Memory(title: "Where we met", place: rome, date: Date(timeIntervalSince1970: 1_700_000_000), note: "")
             memory.photos = [kept, removed]
             backend.serverMemories = [memory]
-            await model.refreshMemories()
+            await model.travel.refreshMemories()
 
             // The sheet opens with this copy.
-            let opened = model.memories[0]
+            let opened = model.travel.memories[0]
             // While it is open: a photo is removed from it, and the partner's note arrives.
             await model.travel.removePhoto(removed, from: opened)
             backend.serverMemories[0].note = "The café by the station"
             backend.serverMemories[0].photos = [kept]
-            await model.refreshMemories()
+            await model.travel.refreshMemories()
 
             var edited = opened
             edited.title = "Where we really met"
             await model.travel.updateMemory(edited, from: opened)
 
-            let shown = model.memories.first { $0.id == memory.id }
+            let shown = model.travel.memories.first { $0.id == memory.id }
             #expect(shown?.title == "Where we really met")
             #expect(shown?.note == "The café by the station", "the sheet's old note went back on screen")
             #expect(shown?.photos.map(\.id) == [kept.id], "the removed photo came back")
@@ -94,13 +94,13 @@ extension PendingMemoryDiskTests {
             defer { AppModel.clearPersistedAccountState() }
             let memory = Memory(title: "Where we met", place: rome, date: Date(timeIntervalSince1970: 1_700_000_000), note: "")
             backend.serverMemories = [memory]
-            await model.refreshMemories()
+            await model.travel.refreshMemories()
 
             backend.isOffline = true
-            var first = model.memories[0]
+            var first = model.travel.memories[0]
             first.title = "Where we really met"
             await model.travel.updateMemory(first)
-            var second = model.memories[0]
+            var second = model.travel.memories[0]
             second.note = "Written on the plane"
             await model.travel.updateMemory(second)
             #expect(PendingWriteStore.all().count == 1, "one entry per memory")
@@ -140,15 +140,15 @@ extension PendingMemoryDiskTests {
                 distanceKm: 15_000
             )
             backend.serverTrips = [trip]
-            await model.refreshTrips()
+            await model.travel.refreshTrips()
 
             backend.isRefusing = true
-            var edited = model.trips[0]
+            var edited = model.travel.trips[0]
             edited.category = .reunion
             await model.travel.updateTrip(edited)
 
-            #expect(model.trips[0].category == .together)
-            #expect(model.writeRefusedMessage != nil)
+            #expect(model.travel.trips[0].category == .together)
+            #expect(model.prompts.writeRefusedMessage != nil)
         }
 
         @Test("changing a trip's category leaves the notes a partner has just written")
@@ -165,10 +165,10 @@ extension PendingMemoryDiskTests {
                 distanceKm: 15_000
             )
             backend.serverTrips = [trip]
-            await model.refreshTrips()
+            await model.travel.refreshTrips()
 
             backend.serverTrips[0].notes = "Ferry at six"
-            var edited = model.trips[0]
+            var edited = model.travel.trips[0]
             edited.category = .reunion
             await model.travel.updateTrip(edited)
 
@@ -190,11 +190,11 @@ extension PendingMemoryDiskTests {
                 distanceKm: 15_000
             )
             backend.serverTrips = [trip]
-            await model.refreshTrips()
+            await model.travel.refreshTrips()
 
             let moved = Date(timeIntervalSince1970: 1_810_000_000)
             backend.serverTrips[0].departureDate = moved
-            var edited = model.trips[0]
+            var edited = model.travel.trips[0]
             edited.destination = tokyo
             await model.travel.updateTrip(edited)
 

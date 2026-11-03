@@ -27,13 +27,13 @@ struct PartnerRequiredGateView: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        @Bindable var appModel = appModel
+        @Bindable var session = appModel.session
 
         NavigationStack {
             VStack(spacing: Theme.Spacing.lg) {
                 Spacer()
 
-                if let pending = appModel.pendingOutgoingConnectionRequest {
+                if let pending = appModel.session.pendingOutgoingConnectionRequest {
                     waitingOn(pending)
                 } else {
                     ZStack {
@@ -63,7 +63,7 @@ struct PartnerRequiredGateView: View {
                     PendingConnectionRequestsCard()
                         .padding(.horizontal, Theme.Spacing.lg)
 
-                    PartnerConnectCard(inviteCode: $appModel.inviteCode)
+                    PartnerConnectCard(inviteCode: $session.inviteCode)
                         .padding(.horizontal, Theme.Spacing.lg)
                 }
 
@@ -76,7 +76,7 @@ struct PartnerRequiredGateView: View {
                 }
             }
             .task {
-                await appModel.refreshPendingConnectionRequests()
+                await appModel.session.refreshPendingConnectionRequests()
             }
         }
         .postHogScreenView("Partner Required Gate")

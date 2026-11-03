@@ -17,7 +17,7 @@ struct GameTypeDecksView: View {
     @Environment(AppModel.self) private var appModel
 
     private var allDecks: [GameDeck] {
-        appModel.decks(ofType: gameType)
+        appModel.games.decks(ofType: gameType)
     }
 
     private var unansweredDecks: [GameDeck] {

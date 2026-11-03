@@ -31,7 +31,7 @@ struct PartnerInviteNudgeView: View {
                 .padding(.top, Theme.Spacing.lg)
 
                 PartnerConnectCard(
-                    inviteCode: Binding(get: { appModel.inviteCode }, set: { appModel.inviteCode = $0 }),
+                    inviteCode: Binding(get: { appModel.session.inviteCode }, set: { appModel.session.inviteCode = $0 }),
                     onRedeemSuccess: { dismiss() }
                 )
 

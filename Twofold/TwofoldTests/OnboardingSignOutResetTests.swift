@@ -25,8 +25,8 @@ struct OnboardingSignOutResetTests {
     @Test("resetting account state advances the generation the coordinator watches")
     func resetAdvancesGeneration() {
         let model = AppModel()
-        model.needsOnboarding = true
-        model.hasSavedOnboardingProgress = true
+        model.session.needsOnboarding = true
+        model.session.hasSavedOnboardingProgress = true
         let before = model.accountGeneration
 
         model.resetAccountScopedState()

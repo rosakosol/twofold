@@ -20,7 +20,7 @@ struct LinkFlightPickerView: View {
     @State private var showingCreateFlight = false
 
     private var untetheredFlights: [Flight] {
-        appModel.flights.filter { $0.tripID == nil }
+        appModel.travel.flights.filter { $0.tripID == nil }
     }
 
     var body: some View {

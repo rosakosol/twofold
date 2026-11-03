@@ -54,7 +54,7 @@ struct DeckCardRow: View {
     /// couple saw their partner games locked for the first round trip of every cold launch, and a
     /// tap in that window opened the invite sheet to somebody who already has a partner.
     private var needsPartnerGate: Bool {
-        appModel.session.hasLoadedCoupleState && !appModel.partnerConnected && deck.gameType.requiresPartner
+        appModel.session.hasLoadedCoupleState && !appModel.session.partnerConnected && deck.gameType.requiresPartner
     }
 
     /// True while we do not yet know. The card renders as normal rather than locked — asserting a

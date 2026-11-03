@@ -169,7 +169,7 @@ struct TripsListView: View {
     }
 
     private func travelers(for trip: Trip) -> [Person] {
-        let people = trip.travelerIDs.compactMap { appModel.couple.partner($0) }
+        let people = trip.travelerIDs.compactMap { appModel.session.couple.partner($0) }
         return people.isEmpty ? [appModel.currentUser] : people
     }
 
@@ -489,7 +489,7 @@ struct TripsListView: View {
                                 // Flights still needs a partner — tracking is wired through
                                 // couple_id at the AeroAPI polling/push layer server-side, unlike
                                 // Trips which already has a solo-first local-then-sync path.
-                                guard appModel.partnerConnected else {
+                                guard appModel.session.partnerConnected else {
                                     showingPartnerGate = true
                                     return
                                 }
@@ -645,7 +645,7 @@ struct TripsListView: View {
     @ViewBuilder
     private var expandedContent: some View {
         List {
-            if tab == .trips, appModel.trips.isEmpty {
+            if tab == .trips, appModel.travel.trips.isEmpty {
                 emptyTripsHint
                     .listRowSeparator(.hidden)
                     .listRowInsets(EdgeInsets())
@@ -849,14 +849,14 @@ struct TripsListView: View {
     private func deleteSelection() {
         switch tab {
         case .trips:
-            let toDelete = appModel.trips.filter { selectedTripIDs.contains($0.id) }
+            let toDelete = appModel.travel.trips.filter { selectedTripIDs.contains($0.id) }
             Task {
                 await appModel.travel.deleteTrips(toDelete)
                 isSelecting = false
                 selectedTripIDs.removeAll()
             }
         case .flights:
-            let toDelete = appModel.flights.filter { selectedFlightIDs.contains($0.id) }
+            let toDelete = appModel.travel.flights.filter { selectedFlightIDs.contains($0.id) }
             Task {
                 await appModel.travel.deleteFlights(toDelete)
                 isSelecting = false
@@ -878,7 +878,7 @@ struct TripsListView: View {
     }
 
     private var tripsPeekHint: TripsPeekHint? {
-        Self.tripsPeekHint(hasAnyTrip: !appModel.trips.isEmpty, hasUpcomingTrip: !appModel.travel.upcomingTrips.isEmpty)
+        Self.tripsPeekHint(hasAnyTrip: !appModel.travel.trips.isEmpty, hasUpcomingTrip: !appModel.travel.upcomingTrips.isEmpty)
     }
 
     @ViewBuilder
@@ -904,7 +904,7 @@ struct TripsListView: View {
 
     @ViewBuilder
     private var emptyFlightsHint: some View {
-        if appModel.partnerConnected {
+        if appModel.session.partnerConnected {
             Button {
                 showingAddFlight = true
             } label: {

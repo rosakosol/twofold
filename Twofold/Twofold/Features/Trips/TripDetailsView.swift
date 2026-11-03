@@ -7,7 +7,7 @@
 //  trip-level screen at all; this is now the consistent first stop for every trip, with the
 //  linked flight (if any) one tap deeper from here.
 //
-//  Derives its displayed trip live from `appModel.trips` (keyed by id) rather than holding its
+//  Derives its displayed trip live from `appModel.travel.trips` (keyed by id) rather than holding its
 //  own copy, so edits/links/deletes made from this screen — or anywhere else — are reflected
 //  immediately without needing manual refresh plumbing.
 //
@@ -33,17 +33,17 @@ struct TripDetailsView: View {
     }
 
     private var trip: Trip? {
-        appModel.trips.first { $0.id == tripID }
+        appModel.travel.trips.first { $0.id == tripID }
     }
 
     private var travelers: [Person] {
         guard let trip else { return [appModel.currentUser] }
-        let people = trip.travelerIDs.compactMap { appModel.couple.partner($0) }
+        let people = trip.travelerIDs.compactMap { appModel.session.couple.partner($0) }
         return people.isEmpty ? [appModel.currentUser] : people
     }
 
     private var linkedMemories: [Memory] {
-        appModel.memories.filter { $0.tripID == tripID }.sorted { $0.date < $1.date }
+        appModel.travel.memories.filter { $0.tripID == tripID }.sorted { $0.date < $1.date }
     }
 
     var body: some View {
@@ -216,7 +216,7 @@ struct TripDetailsView: View {
                 // was the one way into the add-flight flow that didn't check, which meant they
                 // searched, picked a flight, tapped Track, and only then met a server refusal.
                 Button(trip.flights.isEmpty ? "Link a flight" : "Link another leg") {
-                    guard appModel.partnerConnected else {
+                    guard appModel.session.partnerConnected else {
                         showingPartnerGate = true
                         return
                     }

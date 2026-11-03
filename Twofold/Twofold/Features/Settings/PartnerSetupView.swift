@@ -62,7 +62,7 @@ struct PartnerSetupView: View {
     }
 
     var body: some View {
-        @Bindable var appModel = appModel
+        @Bindable var session = appModel.session
 
         NavigationStack {
             ScrollView {
@@ -100,7 +100,7 @@ struct PartnerSetupView: View {
                             .foregroundStyle(Theme.textSecondary)
                     }
 
-                    if appModel.partnerConnected {
+                    if appModel.session.partnerConnected {
                         SectionCard {
                             HStack {
                                 Text("City").foregroundStyle(Theme.textSecondary)
@@ -120,7 +120,7 @@ struct PartnerSetupView: View {
                     // somebody else's behalf — one date, authored by whoever it belongs to, so the
                     // reminder cannot end up with two answers. Until they add one there is nothing
                     // to show and nothing this person can do about it except ask.
-                    if appModel.partnerConnected {
+                    if appModel.session.partnerConnected {
                         SectionCard {
                             HStack {
                                 Text("Birthday").foregroundStyle(Theme.textSecondary)
@@ -145,9 +145,9 @@ struct PartnerSetupView: View {
                             .datePickerStyle(.compact)
                     }
 
-                    if !appModel.partnerConnected {
+                    if !appModel.session.partnerConnected {
                         PendingConnectionRequestsCard()
-                        PartnerConnectCard(inviteCode: $appModel.inviteCode)
+                        PartnerConnectCard(inviteCode: $session.inviteCode)
                     }
                 }
                 .padding(Theme.Spacing.md)
@@ -175,11 +175,11 @@ struct PartnerSetupView: View {
                 // than prefilling that literal word as if it were a saved nickname.
                 partnerName = appModel.partner.name == "Partner" ? "" : appModel.partner.name
                 partnerCity = appModel.partner.homeCity
-                anniversaryDate = appModel.couple.startedDatingOn
+                anniversaryDate = appModel.session.couple.startedDatingOn
                 originalAnniversaryDate = anniversaryDate
             }
             .task {
-                await appModel.refreshPendingConnectionRequests()
+                await appModel.session.refreshPendingConnectionRequests()
             }
         }
         .postHogScreenView("Settings: Partner Setup")
@@ -199,7 +199,7 @@ struct PartnerSetupView: View {
             // guess, and the field above is read-only, so writing it back would just re-save an
             // unchanged value. The anniversary is different — it is editable in both states now,
             // so it saves in both.
-            if !appModel.partnerConnected, let partnerCity {
+            if !appModel.session.partnerConnected, let partnerCity {
                 await appModel.updatePartnerHomeCity(partnerCity)
             }
             await appModel.updateAnniversaryDate(anniversaryDate)

@@ -55,8 +55,8 @@ struct SubscriptionStateTests {
     @Test("AppModel reads and writes through to it")
     func appModelForwards() {
         let model = AppModel()
-        model.isSubscriptionActive = true
-        model.subscriptionTier = "premium"
+        model.subscription.isActive = true
+        model.subscription.tier = "premium"
         #expect(model.subscription.isActive)
         #expect(model.subscription.tier == "premium")
         #expect(!model.subscription.isPremiumLocked)

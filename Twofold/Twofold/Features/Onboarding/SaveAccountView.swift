@@ -189,7 +189,7 @@ struct SaveAccountView: View {
         await appModel.applyOnboardingAccount(onboarding)
         // `applyOnboardingAccount` finishes onboarding immediately (skipping the rest of the
         // flow) in the rare case where a real couple already existed — only advance otherwise.
-        if !appModel.hasCouple {
+        if !appModel.session.hasCouple {
             onboarding.continueAfterAccountCreated(to: .invitePartner)
         }
     }

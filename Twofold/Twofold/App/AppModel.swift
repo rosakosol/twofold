@@ -66,9 +66,8 @@ final class AppModel {
 
     // MARK: - Child stores
     //
-    // Each holds one part of the account's state and puts it back with its own `reset()`. The old
-    // property names still work on `AppModel` through the forwarders in AppModel+Forwarding.swift,
-    // kept so views and tests did not have to change when the state moved.
+    // Each holds one part of the account's state and puts it back with its own `reset()`. Read
+    // them directly: `appModel.subscription.tier`, `appModel.travel.trips`.
 
     /// Subscribed or not, which tier, and who pays.
     let subscription = SubscriptionState()
@@ -109,7 +108,7 @@ final class AppModel {
 
     init() {
         travel.host = self
-        games.isPartnerConnected = { [weak self] in self?.partnerConnected ?? false }
+        games.isPartnerConnected = { [weak self] in self?.session.partnerConnected ?? false }
         // The Daily question widget reads this state; the snapshot is otherwise only rewritten on
         // launch and on other changes, so an answer would not reach the Home Screen until then.
         games.onDailyQuestionChanged = { [weak self] in
@@ -149,15 +148,15 @@ final class AppModel {
              .memoryTrip, .memoryPhotos, .removeMemoryPhoto:
             travel.apply(write)
         case .firstName(let name):
-            couple.partnerA.name = name
+            session.couple.partnerA.name = name
         case .partnerNickname(let name):
-            couple.partnerB.name = name
+            session.couple.partnerB.name = name
         case .partnerHomeCity(let city):
-            couple.partnerB.homeCity = city
+            session.couple.partnerB.homeCity = city
         case .homeCity(let city):
-            couple.partnerA.homeCity = city
+            session.couple.partnerA.homeCity = city
         case .anniversaryDate(let date):
-            couple.startedDatingOn = date
+            session.couple.startedDatingOn = date
         }
     }
 
@@ -226,14 +225,14 @@ final class AppModel {
             }
             // Positions after the photos the server already has, read now rather than when the
             // write was queued: others may have been added or removed since.
-            let startingPosition = memories.first { $0.id == memoryID }?.photos.filter { !$0.isPending }.count ?? 0
+            let startingPosition = travel.memories.first { $0.id == memoryID }?.photos.filter { !$0.isPending }.count ?? 0
             let uploaded = try await backend.addMemoryPhotos(memoryID: memoryID, photoPaths: photoPaths, startingPosition: startingPosition)
             guard isCurrent(generation) else { throw CancellationError() }
             // Looked up again after the awaits, by id: a refresh may have replaced the array.
-            if let index = memories.firstIndex(where: { $0.id == memoryID }) {
+            if let index = travel.memories.firstIndex(where: { $0.id == memoryID }) {
                 let standIns = Set(photos.map(\.id))
-                memories[index].photos.removeAll { standIns.contains($0.id) }
-                memories[index].photos.append(contentsOf: uploaded)
+                travel.memories[index].photos.removeAll { standIns.contains($0.id) }
+                travel.memories[index].photos.append(contentsOf: uploaded)
             }
         case let .removeMemoryPhoto(_, photoID, path):
             try await backend.deleteMemoryPhoto(id: photoID, path: path)
@@ -285,9 +284,9 @@ final class AppModel {
                 refusedAny = true
                 // Its stand-in photos point at files that have just been deleted.
                 if case let .memoryPhotos(memoryID, photos) = entry.write,
-                   let index = memories.firstIndex(where: { $0.id == memoryID }) {
+                   let index = travel.memories.firstIndex(where: { $0.id == memoryID }) {
                     let standIns = Set(photos.map(\.id))
-                    memories[index].photos.removeAll { standIns.contains($0.id) }
+                    travel.memories[index].photos.removeAll { standIns.contains($0.id) }
                 }
             }
         }
@@ -302,12 +301,12 @@ final class AppModel {
         }
     }
 
-    var currentUser: Person { couple.partnerA }
-    var partner: Person { couple.partnerB }
+    var currentUser: Person { session.couple.partnerA }
+    var partner: Person { session.couple.partnerB }
 
-    var needsPartnerInvite: Bool { !partnerConnected }
-    var needsFirstTrip: Bool { trips.isEmpty }
-    var needsFirstFlight: Bool { !trips.contains { !$0.flights.isEmpty } }
+    var needsPartnerInvite: Bool { !session.partnerConnected }
+    var needsFirstTrip: Bool { travel.trips.isEmpty }
+    var needsFirstFlight: Bool { !travel.trips.contains { !$0.flights.isEmpty } }
     /// Split in two, because only one of the two missing cities is the current user's to fix.
     ///
     /// This was a single `needsHomeCities` — "either of them is missing" — which put "Turn on
@@ -318,7 +317,7 @@ final class AppModel {
 
     /// Gated on `partnerConnected` so that a solo user is never told they are waiting on somebody
     /// who does not exist yet — `partner` is a placeholder until a couple is formed.
-    var needsPartnerHomeCity: Bool { partnerConnected && partner.homeCity == nil }
+    var needsPartnerHomeCity: Bool { session.partnerConnected && partner.homeCity == nil }
 
     /// Tells the server this account is in use, at most once a day.
     ///
@@ -393,7 +392,7 @@ final class AppModel {
         if let userID = BackendService.currentUserID,
            let cached = OfflineSessionCache.restore(for: userID) {
             applyCachedSession(cached)
-            hasCouple = true
+            session.hasCouple = true
             isLoadingSession = false
         }
 
@@ -428,25 +427,25 @@ final class AppModel {
     /// and haven't uploaded yet.
     private func applyCachedTravelData() {
         guard let cached = OfflineDataCache.restore(for: BackendService.currentUserID) else { return }
-        let pendingTrips = trips.filter { travel.pendingTripIDs.contains($0.id) }
-        let pendingMemories = memories.filter { travel.pendingMemoryIDs.contains($0.id) }
-        trips = cached.trips.filter { !travel.pendingTripIDs.contains($0.id) } + pendingTrips
-        memories = cached.memories.filter { !travel.pendingMemoryIDs.contains($0.id) } + pendingMemories
-        flights = cached.flights
+        let pendingTrips = travel.trips.filter { travel.pendingTripIDs.contains($0.id) }
+        let pendingMemories = travel.memories.filter { travel.pendingMemoryIDs.contains($0.id) }
+        travel.trips = cached.trips.filter { !travel.pendingTripIDs.contains($0.id) } + pendingTrips
+        travel.memories = cached.memories.filter { !travel.pendingMemoryIDs.contains($0.id) } + pendingMemories
+        travel.flights = cached.flights
         // Only fill a city that isn't already known — a live value from the backend is better than
         // a cached one, and this also runs on paths where some state is already real.
-        if couple.partnerA.homeCity == nil { couple.partnerA.homeCity = cached.myCity }
-        if couple.partnerB.homeCity == nil { couple.partnerB.homeCity = cached.partnerCity }
-        if couple.partnerA.avatarURL == nil { couple.partnerA.avatarURL = cached.myAvatarURL }
-        if couple.partnerB.avatarURL == nil { couple.partnerB.avatarURL = cached.partnerAvatarURL }
+        if session.couple.partnerA.homeCity == nil { session.couple.partnerA.homeCity = cached.myCity }
+        if session.couple.partnerB.homeCity == nil { session.couple.partnerB.homeCity = cached.partnerCity }
+        if session.couple.partnerA.avatarURL == nil { session.couple.partnerA.avatarURL = cached.myAvatarURL }
+        if session.couple.partnerB.avatarURL == nil { session.couple.partnerB.avatarURL = cached.partnerAvatarURL }
         // The couple's own fields, and only while `couple` is still the placeholder — once
         // `performAdopt` has run, `couple.id` matches the cached one and the live values stand.
         // `placeholderCouple` dates the relationship to `.now`, so without this the Stats screen
         // opened offline saying a couple of nine years had been together for zero days.
-        if couple.id != cached.coupleID {
-            if let startedDatingOn = cached.startedDatingOn { couple.startedDatingOn = startedDatingOn }
-            if couple.connectedAt == nil { couple.connectedAt = cached.connectedAt }
-            if couple.maxDistanceKm == nil { couple.maxDistanceKm = cached.maxDistanceKm }
+        if session.couple.id != cached.coupleID {
+            if let startedDatingOn = cached.startedDatingOn { session.couple.startedDatingOn = startedDatingOn }
+            if session.couple.connectedAt == nil { session.couple.connectedAt = cached.connectedAt }
+            if session.couple.maxDistanceKm == nil { session.couple.maxDistanceKm = cached.maxDistanceKm }
         }
         // And anything edited offline and not yet sent wins over its cached copy too, for the
         // same reason.
@@ -489,7 +488,7 @@ final class AppModel {
         if case let .paired(state) = outcome {
             await adopt(state, startedIn: generation)
             // A couple cannot exist without both people having been through onboarding.
-            needsOnboarding = false
+            session.needsOnboarding = false
         } else if case .noCouple = outcome, let profile = try? await BackendService.fetchOwnProfile() {
             // Only when the backend actually said so. A failed fetch used to land here too, so a
             // launch on a flaky connection could show a paired couple their solo, unpaired app.
@@ -505,9 +504,9 @@ final class AppModel {
             // ignoring a true one.
             // Read before the routing decision below, because it decides which *root* onboarding
             // shows rather than whether it shows at all.
-            hasSavedOnboardingProgress = profile.hasSavedOnboardingProgress
+            session.hasSavedOnboardingProgress = profile.hasSavedOnboardingProgress
             let completedLocally = BackendService.currentUserID.map(Self.onboardingCompletedLocally) ?? false
-            needsOnboarding = Self.shouldRouteToOnboarding(
+            session.needsOnboarding = Self.shouldRouteToOnboarding(
                 serverSaysCompleted: profile.hasCompletedOnboarding,
                 completedLocally: completedLocally
             )
@@ -531,13 +530,13 @@ final class AppModel {
             // Same reconciliation the adopt branches get. A cache written before a purchase says
             // `false`, and this is the offline-launch path — the one where nothing else will
             // correct it.
-            isSubscriptionActive = await subscription.resolvedActive(backendSaysActive: cached.active)
+            subscription.isActive = await subscription.resolvedActive(backendSaysActive: cached.active)
             // The cache holds the couple-wide answer and cannot say which partner pays, so the
             // device is the only evidence available here about *this* person. It is also the right
             // evidence: an entitlement this install can prove belongs to the account signed into
             // it. Falling back to false when there is none keeps the delete screen quiet rather
             // than telling the wrong partner to cancel something.
-            viewerHoldsSubscription = await subscription.deviceHoldsEntitlement()
+            subscription.viewerHoldsSubscription = await subscription.deviceHoldsEntitlement()
             subscription.markResolved()
             session.hasLoadedCoupleState = true
         }
@@ -546,7 +545,7 @@ final class AppModel {
         guard isCurrent(generation) else { return }
         // Not `true` outright any more — see `needsOnboarding`, which is the one case where a
         // real session should still land on the onboarding flow rather than the app.
-        hasCouple = !needsOnboarding
+        session.hasCouple = !session.needsOnboarding
         // Resolved here, not only from RootView's launch task.
         //
         // That task runs once, at launch. Someone who opens the app signed out gets an early
@@ -559,7 +558,7 @@ final class AppModel {
         // it: launch, manual sign-in, and password recovery all end up here. The call is cheap for
         // a paired couple — `refreshPendingOutgoingConnectionRequest` returns without a round trip
         // when `partnerConnected`.
-        await refreshPendingOutgoingConnectionRequest()
+        await session.refreshPendingOutgoingConnectionRequest()
         Task { await WidgetSnapshotWriter.refresh(appModel: self) }
         checkReviewMilestones()
     }
@@ -572,13 +571,13 @@ final class AppModel {
     /// differs between a pre-network launch and a post-failure fallback, so those stay with the
     /// caller that knows which it is.
     private func applyCachedSession(_ cached: OfflineSessionCache.Snapshot) {
-        isSubscriptionActive = cached.active
-        subscriptionTier = cached.tier
-        partnerConnected = cached.partnerConnected
-        if let myName = cached.myName, !myName.isEmpty { couple.partnerA.name = myName }
-        if let partnerName = cached.partnerName, !partnerName.isEmpty { couple.partnerB.name = partnerName }
-        partnerConnectedCelebrationShown = cached.celebrationShown
-        setupChecklistDismissed = cached.checklistDismissed
+        subscription.isActive = cached.active
+        subscription.tier = cached.tier
+        session.partnerConnected = cached.partnerConnected
+        if let myName = cached.myName, !myName.isEmpty { session.couple.partnerA.name = myName }
+        if let partnerName = cached.partnerName, !partnerName.isEmpty { session.couple.partnerB.name = partnerName }
+        prompts.partnerConnectedCelebrationShown = cached.celebrationShown
+        prompts.setupChecklistDismissed = cached.checklistDismissed
         travel.restorePendingMemoriesFromDisk()
         travel.restorePendingTripsFromDisk()
         applyCachedTravelData()
@@ -599,15 +598,15 @@ final class AppModel {
         guard isCurrent(generation) else { return }
         await travel.stopFlightsRealtimeSubscription()
         guard isCurrent(generation) else { return }
-        if partnerConnected {
-            let name = couple.partnerB.name.isEmpty ? "your partner" : couple.partnerB.name
-            partnerDisconnectedMessage = "We're sorry — your connection with \(name) has ended. Nothing has been deleted; your shared trips, memories, and flights are still there, safe and yours to look back on or export anytime from Settings."
+        if session.partnerConnected {
+            let name = session.couple.partnerB.name.isEmpty ? "your partner" : session.couple.partnerB.name
+            prompts.partnerDisconnectedMessage = "We're sorry — your connection with \(name) has ended. Nothing has been deleted; your shared trips, memories, and flights are still there, safe and yours to look back on or export anytime from Settings."
         }
-        partnerConnected = false
+        session.partnerConnected = false
         session.backendCoupleID = nil
-        trips = trips.filter { travel.pendingTripIDs.contains($0.id) }
-        memories = memories.filter { travel.pendingMemoryIDs.contains($0.id) }
-        flights = []
+        travel.trips = travel.trips.filter { travel.pendingTripIDs.contains($0.id) }
+        travel.memories = travel.memories.filter { travel.pendingMemoryIDs.contains($0.id) }
+        travel.flights = []
         // Unlike every other path that clears `flights`, this one can't just call
         // `refreshFlights()` afterward to reconcile Live Activities — it guards on
         // `backendCoupleID`, which is already nil above. Ending them directly instead, so a
@@ -619,20 +618,20 @@ final class AppModel {
         guard isCurrent(generation) else { return }
         myDrawingURL = nil
         partnerDrawingURL = nil
-        couple = CoupleSession.placeholderCouple
+        session.couple = CoupleSession.placeholderCouple
 
-        couple.partnerA = profile.person
+        session.couple.partnerA = profile.person
         if let partnerName = profile.partnerName, !partnerName.isEmpty {
-            couple.partnerB.name = partnerName
+            session.couple.partnerB.name = partnerName
         }
         if let partnerHomeCity = profile.partnerHomeCity {
-            couple.partnerB.homeCity = partnerHomeCity
+            session.couple.partnerB.homeCity = partnerHomeCity
         }
         if let partnerAvatarURL = profile.partnerAvatarURL {
-            couple.partnerB.avatarURL = partnerAvatarURL
+            session.couple.partnerB.avatarURL = partnerAvatarURL
         }
         if let anniversaryDate = profile.anniversaryDate {
-            couple.startedDatingOn = anniversaryDate
+            session.couple.startedDatingOn = anniversaryDate
         }
         // The profile just read is the server's, so a name or city changed offline and not yet
         // sent goes back on top of it — then gets sent, since solo there is no `performAdopt` to.
@@ -661,9 +660,9 @@ final class AppModel {
             celebrationShown: profile.partnerConnectedCelebrationShown,
             checklistDismissed: profile.setupChecklistDismissed
         )
-        partnerConnectedCelebrationShown = profile.partnerConnectedCelebrationShown
-        setupChecklistDismissed = profile.setupChecklistDismissed
-        partnerSubscriptionLapsedPartnerName = profile.partnerSubscriptionLapseShown ? nil : profile.partnerSubscriptionLapsePartnerName
+        prompts.partnerConnectedCelebrationShown = profile.partnerConnectedCelebrationShown
+        prompts.setupChecklistDismissed = profile.setupChecklistDismissed
+        prompts.partnerSubscriptionLapsedPartnerName = profile.partnerSubscriptionLapseShown ? nil : profile.partnerSubscriptionLapsePartnerName
     }
 
     /// A device's own successful purchase or restore, applied at once — see
@@ -674,7 +673,7 @@ final class AppModel {
         // rather than waiting for somebody to dismiss it — the card has no dismiss any more. Home
         // hides it the moment `canAddContent` flips; this is what stops a stale name coming back
         // if the same account lapses again later for an unrelated reason.
-        markPartnerSubscriptionLapseAcknowledged()
+        prompts.markPartnerSubscriptionLapseAcknowledged()
         Task { await WidgetSnapshotWriter.refresh(appModel: self) }
     }
 
@@ -928,10 +927,10 @@ final class AppModel {
     /// if it actually changed, since `updateFirstName`/`updateHomeCity` are separate writes.
     func updateProfile(name: String) async {
         let trimmedName = name.trimmingCharacters(in: .whitespaces)
-        if !trimmedName.isEmpty, trimmedName != couple.partnerA.name {
-            let previous = couple.partnerA.name
+        if !trimmedName.isEmpty, trimmedName != session.couple.partnerA.name {
+            let previous = session.couple.partnerA.name
             await commit(.firstName(trimmedName)) {
-                couple.partnerA.name = previous
+                session.couple.partnerA.name = previous
                 writeRefusedMessage = Self.profileRefusedMessage
             }
         }
@@ -942,7 +941,7 @@ final class AppModel {
     func updateAvatar(imageData: Data) async throws {
         let url = try await BackendService.uploadAvatar(imageData: imageData)
         AvatarView.preloadCache(imageData: imageData, url: url)
-        couple.partnerA.avatarURL = url
+        session.couple.partnerA.avatarURL = url
     }
 
     /// Always editable, paired or not — this is *your own, personal* name for your partner
@@ -951,10 +950,10 @@ final class AppModel {
     /// overwrites the other's. See `BackendService.updatePartnerNickname`.
     func updatePartnerName(_ name: String) async {
         let trimmed = name.trimmingCharacters(in: .whitespaces)
-        guard !trimmed.isEmpty, trimmed != couple.partnerB.name else { return }
-        let previous = couple.partnerB.name
+        guard !trimmed.isEmpty, trimmed != session.couple.partnerB.name else { return }
+        let previous = session.couple.partnerB.name
         await commit(.partnerNickname(trimmed)) {
-            couple.partnerB.name = previous
+            session.couple.partnerB.name = previous
             writeRefusedMessage = Self.profileRefusedMessage
         }
     }
@@ -963,10 +962,10 @@ final class AppModel {
     /// meaningful to set here before that, as a personalization guess. `SettingsView` disables
     /// this field once `partnerConnected` is true.
     func updatePartnerHomeCity(_ city: Place) async {
-        guard city.id != couple.partnerB.homeCity?.id else { return }
-        let previous = couple.partnerB.homeCity
+        guard city.id != session.couple.partnerB.homeCity?.id else { return }
+        let previous = session.couple.partnerB.homeCity
         await commit(.partnerHomeCity(city)) {
-            couple.partnerB.homeCity = previous
+            session.couple.partnerB.homeCity = previous
             writeRefusedMessage = Self.profileRefusedMessage
         }
     }
@@ -977,18 +976,18 @@ final class AppModel {
     func updatePartnerAvatar(imageData: Data) async throws {
         let url = try await BackendService.uploadPartnerAvatar(imageData: imageData)
         AvatarView.preloadCache(imageData: imageData, url: url)
-        couple.partnerB.avatarURL = url
+        session.couple.partnerB.avatarURL = url
     }
 
     /// Once paired, `couples.started_dating_on` is the value re-fetches actually read back
     /// (`profiles.anniversary_date` only matters pre-pairing), so this must target whichever one
     /// is actually authoritative right now or the edit silently reverts on the next refresh.
     func updateAnniversaryDate(_ date: Date) async {
-        guard date != couple.startedDatingOn else { return }
-        let previous = couple.startedDatingOn
+        guard date != session.couple.startedDatingOn else { return }
+        let previous = session.couple.startedDatingOn
         // Which of the two it lands on is decided when it is sent — see `deliver`.
         await commit(.anniversaryDate(date)) {
-            couple.startedDatingOn = previous
+            session.couple.startedDatingOn = previous
             writeRefusedMessage = Self.profileRefusedMessage
         }
     }
@@ -1004,10 +1003,10 @@ final class AppModel {
     /// Applied locally after the write rather than before, so a failure leaves the screen showing
     /// what is actually stored.
     func updateBirthday(_ birthday: Birthday?) async {
-        guard birthday != couple.partnerA.birthday else { return }
+        guard birthday != session.couple.partnerA.birthday else { return }
         do {
             try await BackendService.updateBirthday(birthday)
-            couple.partnerA.birthday = birthday
+            session.couple.partnerA.birthday = birthday
         } catch {
             writeRefusedMessage = BackendFailure.message(for: error)
         }
@@ -1030,7 +1029,7 @@ final class AppModel {
             let coupleID = try await BackendService.respondToConnectionRequest(
                 id: request.id, accept: accept, restoreArchive: restoreArchive
             )
-            pendingConnectionRequests.removeAll { $0.id == request.id }
+            session.pendingConnectionRequests.removeAll { $0.id == request.id }
             if coupleID != nil {
                 await refreshCoupleStateIfNeeded()
             }
@@ -1089,14 +1088,14 @@ final class AppModel {
         // non-"pending" code) — without clearing it, `PartnerConnectCard`'s `if inviteCode ==
         // nil` guard would reshare this same dead code to whoever the user invites next, and
         // their redemption attempt would fail with no obvious reason why.
-        inviteCode = nil
+        session.inviteCode = nil
         await loadSignedInState()
         // HomeView's setup checklist card (the "invite your partner" hint) remembers a past
         // dismissal forever, server-side — without resetting it, someone who'd already
         // dismissed it once (e.g. during their original onboarding) would see no hint at all
         // here, even though they're now genuinely back in the same unpaired state a brand-new
         // user starts in and need that same nudge again.
-        setupChecklistDismissed = false
+        prompts.setupChecklistDismissed = false
         Task { await BackendService.resetSetupChecklistDismissed() }
     }
 
@@ -1111,7 +1110,7 @@ final class AppModel {
     /// was actually dissolved, until a full sign-out/sign-in or cold relaunch.
     func refreshCoupleStateIfNeeded() async {
         if DemoMode.isOn { return }  // -demoMode: the sample couple, nothing fetched
-        guard hasCouple else { return }
+        guard session.hasCouple else { return }
         // Taken before the fetch: an answer about the account that has since signed out must not
         // be adopted for whoever is signed in now (or for nobody).
         let generation = accountGeneration
@@ -1123,7 +1122,7 @@ final class AppModel {
             // may tear down a pairing — see `CoupleStateOutcome` for the Wi-Fi blip that used to
             // reach here and announce that the partner had disconnected.
             guard isCurrent(generation) else { return }
-            if partnerConnected, let profile = try? await BackendService.fetchOwnProfile() {
+            if session.partnerConnected, let profile = try? await BackendService.fetchOwnProfile() {
                 await adoptSoloProfile(profile, startedIn: generation)
             } else {
                 // Still solo, so this is the foreground or reconnect that would have replayed the
@@ -1167,8 +1166,8 @@ final class AppModel {
     /// state AppModel tracks directly, so that one's raised via `noteReviewMilestone(_:)` from
     /// `GameResultsView` instead.
     func checkReviewMilestones() {
-        guard hasCouple, partnerConnected else { return }
-        guard !trips.isEmpty || !memories.isEmpty || !flights.isEmpty else { return }
+        guard session.hasCouple, session.partnerConnected else { return }
+        guard !travel.trips.isEmpty || !travel.memories.isEmpty || !travel.flights.isEmpty else { return }
         prompts.notePartnerConnectedMilestone()
     }
 
@@ -1177,7 +1176,7 @@ final class AppModel {
     /// invite anyone to) or while a request is already pending (they've already invited someone —
     /// Home's own pending-invite card, not this nudge, is the right prompt for that state).
     func noteSoloActionCompleted() {
-        guard !partnerConnected, pendingOutgoingConnectionRequest == nil else { return }
+        guard !session.partnerConnected, session.pendingOutgoingConnectionRequest == nil else { return }
         prompts.noteSoloActionCompleted()
     }
 
@@ -1216,15 +1215,15 @@ final class AppModel {
         // has ever added a second time along with them. Solo, it returns early on `hasCouple`,
         // and the individual refreshes are the only thing that fetches anything at all.
         async let coupleState: Void = refreshCoupleStateIfNeeded()
-        async let trips: Void = hasCouple ? () : refreshTrips()
-        async let flights: Void = hasCouple ? () : refreshFlights()
-        async let memories: Void = hasCouple ? () : refreshMemories()
-        async let decks: Void = refreshGameDecks()
-        async let streak: Void = refreshDailyStreak()
+        async let trips: Void = session.hasCouple ? () : travel.refreshTrips()
+        async let flights: Void = session.hasCouple ? () : travel.refreshFlights()
+        async let memories: Void = session.hasCouple ? () : travel.refreshMemories()
+        async let decks: Void = games.refreshGameDecks()
+        async let streak: Void = games.refreshDailyStreak()
         async let pads: Void = loadDrawingPads()
         _ = await (coupleState, trips, flights, memories, decks, streak, pads)
         if needsPartnerInvite {
-            await refreshPendingConnectionRequests()
+            await session.refreshPendingConnectionRequests()
         }
     }
 
@@ -1313,14 +1312,14 @@ final class AppModel {
         // the array, decides what is still waiting.
         travel.restorePendingMemoriesFromDisk()
         travel.restorePendingTripsFromDisk()
-        let localOnlyTrips = trips.filter { travel.pendingTripIDs.contains($0.id) }
-        let localOnlyMemories = memories.filter { travel.pendingMemoryIDs.contains($0.id) }
+        let localOnlyTrips = travel.trips.filter { travel.pendingTripIDs.contains($0.id) }
+        let localOnlyMemories = travel.memories.filter { travel.pendingMemoryIDs.contains($0.id) }
 
-        couple = state.couple
+        session.couple = state.couple
         session.backendCoupleID = state.couple.id
-        trips = state.trips
-        memories = state.memories
-        flights = state.flights
+        travel.trips = state.trips
+        travel.memories = state.memories
+        travel.flights = state.flights
         // These three assignments replace the arrays wholesale, so an optimistic edit made while
         // the fetch was in the air is overwritten by the server's older copy. `refreshTrips`,
         // `refreshFlights` and `refreshMemories` have always reapplied here; this one never did,
@@ -1340,15 +1339,15 @@ final class AppModel {
         // function, so there was never a reason to set them late. Ordering is the whole fix: no
         // suspension point may sit between a flag being false-by-default and the value that
         // corrects it. Same shape as the subscription card that flashed on Home.
-        partnerConnectedCelebrationShown = state.partnerConnectedCelebrationShown
-        setupChecklistDismissed = state.setupChecklistDismissed
-        partnerConnected = true
-        hasCouple = true
+        prompts.partnerConnectedCelebrationShown = state.partnerConnectedCelebrationShown
+        prompts.setupChecklistDismissed = state.setupChecklistDismissed
+        session.partnerConnected = true
+        session.hasCouple = true
         // Reconnecting makes the notice obsolete. It is set by `adoptSoloProfile` when a partner
         // leaves and was only ever cleared by the alert being dismissed, so re-pairing — with the
         // same person or a new one — left "your connection with X has ended" sitting over a Home
         // screen that was showing the new couple.
-        partnerDisconnectedMessage = nil
+        prompts.partnerDisconnectedMessage = nil
         let subscribed = await subscription.resolvedActive(backendSaysActive: state.subscriptionActive)
         // ORed with the device, because the row can lag a purchase made moments ago — and a buyer
         // who is told nothing about cancelling is the worse of the two mistakes.
@@ -1419,10 +1418,10 @@ final class AppModel {
     /// record, both to avoid a pointless network call on every refresh and because the RPC's own
     /// `GREATEST` is a safety net for races, not something to lean on for the common case.
     private func noteCurrentDistanceIfRecord() {
-        guard let mine = couple.partnerA.homeCity?.coordinate, let theirs = couple.partnerB.homeCity?.coordinate else { return }
+        guard let mine = session.couple.partnerA.homeCity?.coordinate, let theirs = session.couple.partnerB.homeCity?.coordinate else { return }
         let currentKm = Geo.distanceKm(mine, theirs)
-        guard currentKm > (couple.maxDistanceKm ?? 0) else { return }
-        let coupleID = couple.id
+        guard currentKm > (session.couple.maxDistanceKm ?? 0) else { return }
+        let coupleID = session.couple.id
         Task { try? await BackendService.updateCoupleMaxDistance(coupleID: coupleID, distanceKm: currentKm) }
     }
 
@@ -1464,7 +1463,7 @@ final class AppModel {
         // Set locally as well as remotely, and not only as an optimisation: nothing re-reads
         // the profile between here and the end of the flow, so without this the flag would be
         // false for the rest of this session.
-        hasSavedOnboardingProgress = true
+        session.hasSavedOnboardingProgress = true
         do {
             try await BackendService.markOnboardingAccountCreated()
         } catch {
@@ -1481,8 +1480,8 @@ final class AppModel {
             guard isCurrent(generation) else { return }
             await adopt(state, startedIn: generation)
             guard isCurrent(generation) else { return }
-            inviteCode = onboarding.inviteCode
-            hasCouple = true
+            session.inviteCode = onboarding.inviteCode
+            session.hasCouple = true
             return
         }
 
@@ -1529,12 +1528,12 @@ final class AppModel {
         if let selfPhotoData = onboarding.selfPhotoData,
            let url = try? await BackendService.uploadAvatar(imageData: selfPhotoData) {
             AvatarView.preloadCache(imageData: selfPhotoData, url: url)
-            couple.partnerA.avatarURL = url
+            session.couple.partnerA.avatarURL = url
         }
         if let partnerPhotoData = onboarding.partnerPhotoData,
            let url = try? await BackendService.uploadPartnerAvatar(imageData: partnerPhotoData) {
             AvatarView.preloadCache(imageData: partnerPhotoData, url: url)
-            couple.partnerB.avatarURL = url
+            session.couple.partnerB.avatarURL = url
         }
 
         // `signUp` carries first_name in the user metadata that `handle_new_user` reads, so the
@@ -1571,10 +1570,10 @@ final class AppModel {
         // sensible default for a birthday and because the column pair is all-or-nothing.
         if let birthday = onboarding.birthday {
             try? await BackendService.updateBirthday(birthday)
-            couple.partnerA.birthday = birthday
+            session.couple.partnerA.birthday = birthday
         }
 
-        inviteCode = onboarding.inviteCode
+        session.inviteCode = onboarding.inviteCode
     }
 
     /// The actual last step of onboarding — called once the paywall/trial flow finishes, so
@@ -1643,12 +1642,12 @@ final class AppModel {
         }
         guard isCurrent(generation) else { return }
         if let userID = BackendService.currentUserID { OnboardingResume.clear(for: userID) }
-        needsOnboarding = false
+        session.needsOnboarding = false
         // Known either way now: adopted above, or asked and found empty. Saying so is what lets
         // Home show the setup checklist immediately rather than a round trip later.
         session.hasLoadedCoupleState = true
-        await refreshPendingOutgoingConnectionRequest()
-        hasCouple = true
+        await session.refreshPendingOutgoingConnectionRequest()
+        session.hasCouple = true
         Task { await WidgetSnapshotWriter.refresh(appModel: self) }
     }
 
@@ -1703,9 +1702,9 @@ final class AppModel {
     /// profile row, so there's no "set it on their behalf" path anymore.
     func setHomeCity(for personID: Person.ID, city: Place) async {
         guard personID == currentUser.id else { return }
-        let previous = couple.partnerA.homeCity
+        let previous = session.couple.partnerA.homeCity
         await commit(.homeCity(city)) {
-            couple.partnerA.homeCity = previous
+            session.couple.partnerA.homeCity = previous
             writeRefusedMessage = Self.profileRefusedMessage
         }
     }
@@ -1718,7 +1717,7 @@ final class AppModel {
     /// cache) on every single foreground for no reason.
     func updateCurrentCityIfChanged(_ place: Place) async {
         if DemoMode.isOn { return }  // -demoMode: the sample couple, nothing fetched
-        guard place.city != couple.partnerA.homeCity?.city || place.country != couple.partnerA.homeCity?.country else { return }
+        guard place.city != session.couple.partnerA.homeCity?.city || place.country != session.couple.partnerA.homeCity?.country else { return }
         await setHomeCity(for: currentUser.id, city: place)
     }
 
@@ -1726,10 +1725,10 @@ final class AppModel {
     /// during the rest of onboarding (before pairing) carries the real profile id rather
     /// than a throwaway placeholder.
     func adoptSignedInIdentity(id: UUID, firstName: String) {
-        couple.partnerA = Person(
+        session.couple.partnerA = Person(
             id: id,
             name: firstName.isEmpty ? "You" : firstName,
-            homeCity: couple.partnerA.homeCity,
+            homeCity: session.couple.partnerA.homeCity,
             accentColor: Person.palette[1]
         )
     }
@@ -1747,18 +1746,18 @@ extension AppModel {
     /// backend behind it (`-demoMode`, see App/DemoMode.swift). In this file because several of
     /// the fields it sets are `private(set)`.
     func applyDemoState() {
-        couple = DemoData.couple
-        trips = DemoData.trips
-        flights = DemoData.flights
-        memories = DemoData.memories()
-        hasCouple = true
-        needsOnboarding = false
+        session.couple = DemoData.couple
+        travel.trips = DemoData.trips
+        travel.flights = DemoData.flights
+        travel.memories = DemoData.memories()
+        session.hasCouple = true
+        session.needsOnboarding = false
         // `-demoPartner none`: signed in on your own, which is the only state Home shows the
         // "Set up your partner" card in. The request lookup counts as answered, as the card waits for it.
-        partnerConnected = DemoMode.argument("demoPartner") != "none"
+        session.partnerConnected = DemoMode.argument("demoPartner") != "none"
         session.hasResolvedOutgoingConnectionRequest = true
-        partnerConnectedCelebrationShown = DemoMode.argument("demoScreen") != "connected"
-        setupChecklistDismissed = true
+        prompts.partnerConnectedCelebrationShown = DemoMode.argument("demoScreen") != "connected"
+        prompts.setupChecklistDismissed = true
         subscription.apply(active: true, viewerHolds: true, tier: "premium", viewerStore: nil)
         session.hasResolvedOutgoingConnectionRequest = true
         session.hasLoadedCoupleState = true
@@ -1770,6 +1769,12 @@ extension AppModel {
 #endif
 
 extension AppModel: TravelStoreHost {
+    var backendCoupleID: UUID? { session.backendCoupleID }
+    var writeRefusedMessage: String? {
+        get { prompts.writeRefusedMessage }
+        set { prompts.writeRefusedMessage = newValue }
+    }
+
     func refreshWidgets() {
         Task { await WidgetSnapshotWriter.refresh(appModel: self) }
     }

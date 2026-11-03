@@ -29,9 +29,9 @@ struct SignInLoadingGateTests {
     @Test("a paired couple resolves without a round trip")
     func pairedResolvesImmediately() async {
         let model = AppModel()
-        model.partnerConnected = true
-        await model.refreshPendingOutgoingConnectionRequest()
+        model.session.partnerConnected = true
+        await model.session.refreshPendingOutgoingConnectionRequest()
         #expect(model.session.hasResolvedOutgoingConnectionRequest)
-        #expect(model.pendingOutgoingConnectionRequest == nil)
+        #expect(model.session.pendingOutgoingConnectionRequest == nil)
     }
 }

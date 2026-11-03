@@ -169,7 +169,7 @@ struct StreakRepairPromptView: View {
             repaired = await store.purchaseAndRepair()
         }
         if repaired {
-            await appModel.refreshDailyStreak()
+            await appModel.games.refreshDailyStreak()
             await appModel.games.refreshStreakRepairState()
         }
     }

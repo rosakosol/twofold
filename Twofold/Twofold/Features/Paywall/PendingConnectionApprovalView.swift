@@ -63,7 +63,7 @@ struct PendingConnectionApprovalView: View {
                         Task {
                             isRefreshing = true
                             await appModel.refreshCoupleStateIfNeeded()
-                            await appModel.refreshPendingOutgoingConnectionRequest()
+                            await appModel.session.refreshPendingOutgoingConnectionRequest()
                             isRefreshing = false
                         }
                     } label: {

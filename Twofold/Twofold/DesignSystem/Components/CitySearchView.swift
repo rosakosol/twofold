@@ -27,7 +27,7 @@ struct CitySearchView: View {
         if let city = appModel.currentUser.homeCity {
             suggestions.append(("Your city", city))
         }
-        if appModel.partnerConnected, let city = appModel.partner.homeCity, city.displayCity != suggestions.first?.place.displayCity {
+        if appModel.session.partnerConnected, let city = appModel.partner.homeCity, city.displayCity != suggestions.first?.place.displayCity {
             suggestions.append(("\(appModel.partner.name)'s city", city))
         }
         return suggestions

@@ -125,7 +125,7 @@ extension PendingMemoryDiskTests {
             defer { AppModel.clearPersistedAccountState() }
             let model = AppModel()
             model.backend = FakeCoupleDataBackend()
-            model.hasCouple = true
+            model.session.hasCouple = true
             let gate = Gate()
             let state = pairedState(pairedCouple())
             model.fetchCoupleStateOutcome = {
@@ -140,8 +140,8 @@ extension PendingMemoryDiskTests {
             gate.open()
             await refresh.value
 
-            #expect(!model.hasCouple, "the signed-out user was put back in the previous couple's app")
-            #expect(model.backendCoupleID == nil)
+            #expect(!model.session.hasCouple, "the signed-out user was put back in the previous couple's app")
+            #expect(model.session.backendCoupleID == nil)
             #expect(model.partner.name != "Sam", "the previous partner's name is back on screen")
         }
 
@@ -180,9 +180,9 @@ extension PendingMemoryDiskTests {
             URLProtocol.registerClass(HeldURLProtocol.self)
             defer { URLProtocol.unregisterClass(HeldURLProtocol.self) }
             let model = AppModel()
-            model.partnerConnected = true
-            model.couple = pairedCouple()
-            model.couple.partnerA.avatarURL = URL(string: "https://\(HeldURLProtocol.host)/me.jpg")
+            model.session.partnerConnected = true
+            model.session.couple = pairedCouple()
+            model.session.couple.partnerA.avatarURL = URL(string: "https://\(HeldURLProtocol.host)/me.jpg")
             let written = WrittenSnapshots()
 
             let refresh = Task { await WidgetSnapshotWriter.refresh(appModel: model) { written.items.append($0) } }

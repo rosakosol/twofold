@@ -44,7 +44,7 @@ struct FullTripStatsView: View {
     }
 
     private var scopedTrips: [Trip] {
-        let byKind = appModel.trips.filter { trip in
+        let byKind = appModel.travel.trips.filter { trip in
             switch scope {
             case .all: true
             case .reunion: trip.category == .reunion
@@ -67,7 +67,7 @@ struct FullTripStatsView: View {
     /// the currently-scoped ones, so switching between kinds doesn't make the year you're looking
     /// at disappear out from under you.
     private var availableYears: [Int] {
-        Array(Set(appModel.trips.map(Self.year))).sorted(by: >)
+        Array(Set(appModel.travel.trips.map(Self.year))).sorted(by: >)
     }
 
     private var stats: TripStats { TripStats(trips: scopedTrips) }

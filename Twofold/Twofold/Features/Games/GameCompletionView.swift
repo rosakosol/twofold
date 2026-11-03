@@ -101,7 +101,7 @@ struct GameCompletionView: View {
             // flip below covers "Your turn" the moment this screen appears, rather than however
             // long this fetch takes to land.
             appModel.games.markDeckProgressMineCompleted(deckID: deckID)
-            Task { await appModel.refreshGameDecks() }
+            Task { await appModel.games.refreshGameDecks() }
         }
         // `isSendingReminder` is owned by the caller (each typed game view runs its own
         // fire-and-forget `notifyPartner` call) — watching its true → false transition here

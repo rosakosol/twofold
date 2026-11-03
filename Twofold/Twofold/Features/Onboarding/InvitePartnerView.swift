@@ -41,7 +41,7 @@ struct InvitePartnerView: View {
         // the account screens are gone (`continueAfterAccountCreated`) — and Welcome is for
         // people with no account. Someone resuming has `ResumeSetupView` behind it instead, which
         // is worth going back to.
-        .navigationBarBackButtonHidden(onboarding.path.count == 1 && !appModel.needsOnboarding)
+        .navigationBarBackButtonHidden(onboarding.path.count == 1 && !appModel.session.needsOnboarding)
     }
 }
 
@@ -85,7 +85,7 @@ extension InvitePartnerView {
             onRedeemSuccess: {
                 Task {
                     await appModel.applyOnboardingAccount(onboarding)
-                    if appModel.hasCouple {
+                    if appModel.session.hasCouple {
                         // Rare case a couple already existed by the time we get here (e.g. it was
                         // somehow already accepted) — nothing left to do.
                         return
