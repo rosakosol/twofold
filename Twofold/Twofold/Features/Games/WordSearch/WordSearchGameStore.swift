@@ -114,7 +114,7 @@ final class WordSearchGameStore: PuzzleScreenStore {
                 submitResult()
             }
         } catch {
-            phase = .failed(error.localizedDescription)
+            phase = .failed(ErrorStateView.message(for: error))
         }
     }
 

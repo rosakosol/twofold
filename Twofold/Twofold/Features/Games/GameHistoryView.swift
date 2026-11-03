@@ -70,10 +70,7 @@ struct GameHistoryView: View {
             if isLoading {
                 ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if let errorMessage {
-                VStack(spacing: Theme.Spacing.sm) {
-                    GameErrorState(message: errorMessage)
-                    Button("Try again") { Task { await load() } }
-                }
+                ErrorStateView(message: errorMessage) { await load() }
             } else if sessions.isEmpty {
                 emptyState
             } else {
@@ -135,38 +132,23 @@ struct GameHistoryView: View {
     }
 
     private var emptyState: some View {
-        VStack(spacing: Theme.Spacing.sm) {
-            Image(systemName: "clock.arrow.circlepath")
-                .font(.largeTitle)
-                .foregroundStyle(Theme.textSecondary)
-            Text("No completed games yet")
-                .font(.headline)
-            Text("Finish a game together and it'll show up here.")
-                .font(.caption)
-                .foregroundStyle(Theme.textSecondary)
-                .multilineTextAlignment(.center)
-        }
-        .padding(Theme.Spacing.xl)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        EmptyStateView(
+            systemImage: "clock.arrow.circlepath",
+            title: "No completed games yet",
+            message: "Finish a game together and it'll show up here."
+        )
     }
 
     /// Shown instead of the row list when filters narrow `sessions` down to nothing — distinct
     /// from `emptyState` above, which only covers there being no completed games at all.
     private var filteredEmptyState: some View {
-        VStack(spacing: Theme.Spacing.sm) {
-            Image(systemName: "line.3.horizontal.decrease.circle")
-                .font(.largeTitle)
-                .foregroundStyle(Theme.textSecondary)
-            Text("No games match these filters")
-                .font(.headline)
+        EmptyStateView(systemImage: "line.3.horizontal.decrease.circle", title: "No games match these filters") {
             Button("Clear filters") {
                 selectedGameType = nil
                 dailyOnly = false
             }
-            .font(.caption.weight(.semibold))
+            .buttonStyle(.twofoldSecondaryCompact)
         }
-        .padding(Theme.Spacing.xl)
-        .frame(maxWidth: .infinity)
     }
 
     /// Mirrors `AllDecksBrowseView.filterPill`'s pill styling for visual consistency across the
@@ -337,7 +319,7 @@ struct GameHistoryView: View {
             // Only fatal for the first page. A later one failing leaves what's already on screen
             // alone and simply stops paging, rather than replacing a working list with an error.
             if sessions.isEmpty {
-                errorMessage = error.localizedDescription
+                errorMessage = ErrorStateView.message(for: error)
             } else {
                 hasMore = false
             }

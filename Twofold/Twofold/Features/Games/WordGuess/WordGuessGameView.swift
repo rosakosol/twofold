@@ -37,8 +37,7 @@ struct WordGuessGameView: View {
             case .loading:
                 ProgressView()
             case .failed(let message):
-                GameErrorState(message: message)
-                    .padding(Theme.Spacing.lg)
+                ErrorStateView(message: message) { await store.load() }
             case .ready:
                 content
             case .ended:

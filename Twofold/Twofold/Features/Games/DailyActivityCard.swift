@@ -327,12 +327,8 @@ struct DailyActivityCard: View {
         } else if let sessionID = appModel.games.todaysDailySessionID {
             DeepConversationsGameView(sessionID: sessionID)
         } else if let error = appModel.games.dailyQuestionError {
-            VStack(spacing: Theme.Spacing.md) {
-                GameErrorState(message: error)
-                Button("Try again") {
-                    Task { await appModel.games.startOrResumeDailyQuestion() }
-                }
-                .buttonStyle(.borderedProminent)
+            ErrorStateView(message: error) {
+                await appModel.games.startOrResumeDailyQuestion()
             }
         } else {
             ProgressView()

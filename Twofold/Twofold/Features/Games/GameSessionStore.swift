@@ -258,7 +258,7 @@ final class GameSessionStore {
             responses = detail.responses
             flagMissingContent()
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = ErrorStateView.message(for: error)
         }
         isLoading = false
         applyQueuedAnswers(for: sessionID)

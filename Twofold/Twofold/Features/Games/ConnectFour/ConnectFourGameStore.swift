@@ -89,7 +89,7 @@ final class ConnectFourGameStore {
             apply(moves: fetched, status: detail.session.status)
             phase = .ready
         } catch {
-            phase = .failed(error.localizedDescription)
+            phase = .failed(ErrorStateView.message(for: error))
         }
     }
 

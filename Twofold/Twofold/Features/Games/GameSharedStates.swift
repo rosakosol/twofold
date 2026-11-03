@@ -200,19 +200,3 @@ extension View {
         }
     }
 }
-
-struct GameErrorState: View {
-    let message: String
-
-    var body: some View {
-        VStack(spacing: Theme.Spacing.sm) {
-            Image(systemName: "exclamationmark.triangle.fill").font(.largeTitle).foregroundStyle(Theme.error)
-            Text(message)
-                .font(.subheadline)
-                .foregroundStyle(Theme.textSecondary)
-                .multilineTextAlignment(.center)
-        }
-        .padding(Theme.Spacing.xl)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-}

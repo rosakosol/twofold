@@ -56,7 +56,9 @@ struct ThisOrThatGameView: View {
             if store.isLoading {
                 ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if let errorMessage = store.errorMessage {
-                GameErrorState(message: errorMessage)
+                ErrorStateView(message: errorMessage) {
+                    await store.load(sessionID: sessionID, deckTitle: title)
+                }
             } else if let session = store.session, session.status == .abandoned {
                 GameAbandonedState()
             } else if store.isRevealed && store.viewingRoundNumber == nil {

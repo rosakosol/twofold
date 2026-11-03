@@ -156,7 +156,7 @@ final class SudokuGameStore: PuzzleScreenStore {
                 submitSolve()
             }
         } catch {
-            phase = .failed(error.localizedDescription)
+            phase = .failed(ErrorStateView.message(for: error))
         }
     }
 
