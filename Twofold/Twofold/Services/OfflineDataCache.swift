@@ -43,6 +43,14 @@ enum OfflineDataCache {
         /// what it did even with the images sitting on disk.
         var myAvatarURL: URL?
         var partnerAvatarURL: URL?
+        /// Both drawing pads, with the signature taken off (HOME-9).
+        ///
+        /// What matters is the path: `RemoteImageDiskCache` keys on it, so with these an offline
+        /// launch draws the pads it already has instead of two blank rectangles. The query is the
+        /// signature, a bearer credential, and offline it buys nothing — so it is not written.
+        /// Optional so a snapshot written before they were cached still decodes.
+        var myDrawingURL: URL?
+        var partnerDrawingURL: URL?
         /// The couple's own scalar fields, which nothing else on the restore path carries.
         ///
         /// Without them an offline launch runs on `placeholderCouple`, whose `startedDatingOn` is
@@ -74,6 +82,8 @@ enum OfflineDataCache {
         partnerCity: Place?,
         myAvatarURL: URL?,
         partnerAvatarURL: URL?,
+        myDrawingURL: URL? = nil,
+        partnerDrawingURL: URL? = nil,
         couple: Couple?,
         userID: UUID?
     ) {
@@ -85,6 +95,8 @@ enum OfflineDataCache {
             partnerCity: partnerCity,
             myAvatarURL: myAvatarURL,
             partnerAvatarURL: partnerAvatarURL,
+            myDrawingURL: myDrawingURL.map(Self.unsigned),
+            partnerDrawingURL: partnerDrawingURL.map(Self.unsigned),
             coupleID: couple?.id.uuidString,
             startedDatingOn: couple?.startedDatingOn,
             connectedAt: couple?.connectedAt,
@@ -109,6 +121,13 @@ enum OfflineDataCache {
         DataProtectionMigration.excludeFromBackup(fileURL)
     }
 
+    /// `url` without its query: the signed URL's path, which is all the disk cache keys on.
+    static func unsigned(_ url: URL) -> URL {
+        guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return url }
+        components.query = nil
+        return components.url ?? url
+    }
+
     /// Account-scoped and age-bounded for the same reasons as `OfflineSessionCache.restore` — a
     /// previous user of this device must never see their trips resurface under a new account.
     static func restore(for userID: UUID?) -> Restored? {
@@ -124,6 +143,8 @@ enum OfflineDataCache {
             partnerCity: snapshot.partnerCity,
             myAvatarURL: snapshot.myAvatarURL,
             partnerAvatarURL: snapshot.partnerAvatarURL,
+            myDrawingURL: snapshot.myDrawingURL,
+            partnerDrawingURL: snapshot.partnerDrawingURL,
             coupleID: snapshot.coupleID.flatMap(UUID.init(uuidString:)),
             startedDatingOn: snapshot.startedDatingOn,
             connectedAt: snapshot.connectedAt,
@@ -139,6 +160,8 @@ enum OfflineDataCache {
         var partnerCity: Place?
         var myAvatarURL: URL?
         var partnerAvatarURL: URL?
+        var myDrawingURL: URL?
+        var partnerDrawingURL: URL?
         var coupleID: UUID?
         var startedDatingOn: Date?
         var connectedAt: Date?

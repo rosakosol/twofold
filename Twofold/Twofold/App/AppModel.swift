@@ -438,6 +438,11 @@ final class AppModel {
         if session.couple.partnerB.homeCity == nil { session.couple.partnerB.homeCity = cached.partnerCity }
         if session.couple.partnerA.avatarURL == nil { session.couple.partnerA.avatarURL = cached.myAvatarURL }
         if session.couple.partnerB.avatarURL == nil { session.couple.partnerB.avatarURL = cached.partnerAvatarURL }
+        // The pads' storage paths, so an offline cold launch can find the drawings on disk
+        // (HOME-9). Not signed — see `OfflineDataCache.Snapshot.myDrawingURL` — so they only ever
+        // reach the disk cache, and the first successful `loadDrawingPads` replaces them.
+        if myDrawingURL == nil { myDrawingURL = cached.myDrawingURL }
+        if partnerDrawingURL == nil { partnerDrawingURL = cached.partnerDrawingURL }
         // The couple's own fields, and only while `couple` is still the placeholder — once
         // `performAdopt` has run, `couple.id` matches the cached one and the live values stand.
         // `placeholderCouple` dates the relationship to `.now`, so without this the Stats screen
@@ -1143,19 +1148,27 @@ final class AppModel {
     /// URL string — and since each signed URL embeds its own unique token, it's never the same
     /// string twice, which is what used to require the separate manual cache-busting step here
     /// (re-fired from `DrawingPadCard.onAppear` on top of whatever `saveMyDrawing` just set).
-    func loadDrawingPads() async {
+    ///
+    /// `sign` is the signing round trip, passed in so a failed one can be tested without a network.
+    func loadDrawingPads(
+        sign: (UUID, UUID) async throws -> URL = BackendService.drawingPadSignedURL(coupleID:personID:)
+    ) async {
         if DemoMode.isOn { return }  // -demoMode: the sample couple, nothing fetched
         guard let backendCoupleID else { return }
         // Signed URLs, so landing after sign-out would hand the previous couple's drawings to the
         // next account's Home — the leak `resetAccountScopedState` describes.
         let generation = accountGeneration
         let personIDs = (mine: currentUser.id, theirs: partner.id)
-        let mine = try? await BackendService.drawingPadSignedURL(coupleID: backendCoupleID, personID: personIDs.mine)
+        // Only a URL that was actually signed replaces the one held (HOME-9). Signing is a network
+        // round trip, so offline — or on any passing failure, and this runs on every refresh —
+        // `try?` used to assign nil, and both pads went blank while their drawings sat in
+        // `RemoteImageDiskCache` under a path nothing could look up any more.
+        let mine = try? await sign(backendCoupleID, personIDs.mine)
         guard isCurrent(generation) else { return }
-        myDrawingURL = mine
-        let theirs = try? await BackendService.drawingPadSignedURL(coupleID: backendCoupleID, personID: personIDs.theirs)
+        if let mine { myDrawingURL = mine }
+        let theirs = try? await sign(backendCoupleID, personIDs.theirs)
         guard isCurrent(generation) else { return }
-        partnerDrawingURL = theirs
+        if let theirs { partnerDrawingURL = theirs }
     }
 
     /// Fires once — the first time a couple both (a) has a connected partner and (b) has already
@@ -1380,6 +1393,8 @@ final class AppModel {
             partnerCity: state.couple.partnerB.homeCity,
             myAvatarURL: state.couple.partnerA.avatarURL,
             partnerAvatarURL: state.couple.partnerB.avatarURL,
+            myDrawingURL: myDrawingURL,
+            partnerDrawingURL: partnerDrawingURL,
             couple: state.couple,
             userID: BackendService.currentUserID
         )
