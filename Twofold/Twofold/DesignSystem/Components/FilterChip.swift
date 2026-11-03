@@ -42,10 +42,57 @@ struct FilterChip: View {
     }
 }
 
+/// A pill in a row of filters you pick from directly: Game history's game types and All decks'
+/// Your turn / Answered / New.
+///
+/// These were two copies that had drifted apart in dark mode (one filled the selected pill with
+/// the button gradient, the other with `selectedTab` and an accent ring), both branching on
+/// `colorScheme` for what the tokens already do, and neither telling VoiceOver which was chosen.
+/// Unselected, it is the chip of section 5, `raised` with a `line` edge, as on the Games hub;
+/// selected, it takes the primary button's gradient, in both appearances.
+struct SelectableChip: View {
+    let label: String
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(label)
+                .font(.caption.weight(.semibold))
+                // Inside a horizontal ScrollView an unpinned label wraps rather than letting the
+                // row scroll, which collapses to one letter per line at accessibility sizes.
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
+                .padding(.horizontal, Theme.Spacing.md)
+                .padding(.vertical, Theme.Spacing.xs)
+                .frame(minHeight: 32)
+                .foregroundStyle(isSelected ? Theme.onPrimaryButton : Theme.textPrimary)
+                .background(
+                    isSelected ? AnyShapeStyle(Theme.primaryButtonGradient) : AnyShapeStyle(Theme.raised),
+                    in: Capsule()
+                )
+                .overlay {
+                    if !isSelected {
+                        Capsule().strokeBorder(Theme.line, lineWidth: 1)
+                    }
+                }
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+}
+
 #Preview {
-    HStack {
-        FilterChip(text: "All locations", icon: "mappin")
-        FilterChip(text: "2026", icon: "calendar")
+    VStack {
+        HStack {
+            FilterChip(text: "All locations", icon: "mappin")
+            FilterChip(text: "2026", icon: "calendar")
+        }
+        HStack {
+            SelectableChip(label: "All", isSelected: true) {}
+            SelectableChip(label: "Sudoku", isSelected: false) {}
+        }
     }
     .padding()
 }

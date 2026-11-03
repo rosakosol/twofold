@@ -143,46 +143,9 @@ struct AllDecksBrowseView: View {
     }
 
     private func filterPill(_ filter: DeckBrowseFilter?, label: String) -> some View {
-        let isSelected = selectedFilter == filter
-        return Button {
+        SelectableChip(label: label, isSelected: selectedFilter == filter) {
             selectedFilter = filter
-        } label: {
-            Text(label)
-                .font(.caption.weight(.semibold))
-                // Same reasoning as `GameHistoryView.filterPill` — inside a horizontal ScrollView
-                // an unpinned label wraps rather than letting the row scroll, which collapses to
-                // one letter per line at accessibility text sizes.
-                .lineLimit(1)
-                .fixedSize(horizontal: true, vertical: false)
-                .padding(.horizontal, Theme.Spacing.md)
-                .padding(.vertical, Theme.Spacing.xs)
-                // Dark mode's selected pill now carries a real blue chip fill + text (blue =
-                // interactive/selected, principle 2 of the redesign) instead of the same neutral card wash
-                // every unselected pill also had — that read as barely distinguishable next to
-                // its unselected neighbors. Light mode is untouched (solid blue gradient fill).
-                .foregroundStyle(foregroundColor(isSelected: isSelected))
-                .background(backgroundStyle(isSelected: isSelected), in: Capsule())
-                .overlay {
-                    if colorScheme == .dark {
-                        Capsule().strokeBorder(isSelected ? Theme.accent : Theme.line, lineWidth: isSelected ? 1.5 : 1.25)
-                    }
-                }
         }
-        .buttonStyle(.plain)
-    }
-
-    private func foregroundColor(isSelected: Bool) -> Color {
-        if colorScheme == .dark {
-            return isSelected ? Theme.accent : Theme.textSecondary
-        }
-        return isSelected ? Theme.onPrimaryButton : Theme.textPrimary
-    }
-
-    private func backgroundStyle(isSelected: Bool) -> AnyShapeStyle {
-        if colorScheme == .dark {
-            return isSelected ? AnyShapeStyle(Theme.selectedTab) : AnyShapeStyle(Theme.surface)
-        }
-        return isSelected ? AnyShapeStyle(Theme.primaryButtonGradient) : AnyShapeStyle(Theme.surface)
     }
 }
 

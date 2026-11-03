@@ -13,7 +13,6 @@ import SwiftUI
 
 struct GameHistoryView: View {
     @Environment(AppModel.self) private var appModel
-    @Environment(\.colorScheme) private var colorScheme
     @State private var sessions: [GameSession] = []
     @State private var isLoading = true
     @State private var errorMessage: String?
@@ -151,7 +150,7 @@ struct GameHistoryView: View {
         }
     }
 
-    /// Mirrors `AllDecksBrowseView.filterPill`'s pill styling for visual consistency across the
+    /// The same `SelectableChip` as `AllDecksBrowseView`'s filters, for visual consistency across the
     /// Games feature's two filter UIs. `dailyOnly` is a plain toggle rather than a member of the
     /// same mutually-exclusive set as the game-type pills — see `dailyOnly`'s own doc comment.
     private var filterRow: some View {
@@ -167,32 +166,7 @@ struct GameHistoryView: View {
     }
 
     private func filterPill(isSelected: Bool, label: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(label)
-                .font(.caption.weight(.semibold))
-                // Without these the enclosing horizontal ScrollView proposes each pill a width
-                // narrow enough to wrap its label — at accessibility text sizes that degenerates
-                // into one letter per line and a column of very tall capsules. Pinned to their
-                // natural single-line width, the row scrolls instead, which is what it's for.
-                .lineLimit(1)
-                .fixedSize(horizontal: true, vertical: false)
-                .padding(.horizontal, Theme.Spacing.md)
-                .padding(.vertical, Theme.Spacing.xs)
-                .foregroundStyle(isSelected ? Theme.onPrimaryButton : Theme.textPrimary)
-                .background(
-                    isSelected ? AnyShapeStyle(Theme.primaryButtonGradient) : AnyShapeStyle(Theme.surface),
-                    in: Capsule()
-                )
-                // Unselected pills had no edge of their own in dark mode — plain neutral
-                // hairline, same as the Games hub's own filter pills (this is a filter choice,
-                // not a blue/green/red state, so no colored gradient here).
-                .overlay {
-                    if !isSelected && colorScheme == .dark {
-                        Capsule().strokeBorder(Theme.line, lineWidth: 1.25)
-                    }
-                }
-        }
-        .buttonStyle(.plain)
+        SelectableChip(label: label, isSelected: isSelected, action: action)
     }
 
     private func historyRow(_ session: GameSession) -> some View {
