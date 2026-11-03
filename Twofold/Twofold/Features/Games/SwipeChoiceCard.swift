@@ -144,7 +144,7 @@ struct SwipeChoiceCard<Content: View>: View {
         RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
             .fill(cardGradient)
             .frame(maxWidth: .infinity, minHeight: 240)
-            .shadow(color: .black.opacity(0.1), radius: 8, y: 4)
+            .themedShadow(Theme.Shadow.paper)
             .scaleEffect(scale)
             .offset(y: yOffset)
             .opacity(opacity)
@@ -181,7 +181,7 @@ struct SwipeChoiceCard<Content: View>: View {
             .font(.caption.weight(.heavy))
             .lineLimit(1)
             .minimumScaleFactor(0.6)
-            .foregroundStyle(.white)
+            .foregroundStyle(Theme.onFill)
             .padding(.horizontal, Theme.Spacing.sm)
             .padding(.vertical, 6)
             .overlay(Capsule().strokeBorder(.white, lineWidth: 2))
@@ -190,7 +190,7 @@ struct SwipeChoiceCard<Content: View>: View {
     }
 
     private var brandMark: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: Theme.Spacing.xs) {
             Image("GlobeHeart")
                 .resizable()
                 .scaledToFit()

@@ -119,7 +119,7 @@ struct CitySearchView: View {
     }
 
     private func cityRow(title: String, subtitle: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
             Text(title).foregroundStyle(Theme.textPrimary)
             if !subtitle.isEmpty {
                 Text(subtitle).font(.caption).foregroundStyle(Theme.textSecondary)

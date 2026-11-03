@@ -431,7 +431,7 @@ private struct PhotoPager: View {
         }
         .tabViewStyle(.page(indexDisplayMode: photos.count > 1 ? .automatic : .never))
         .frame(height: 220)
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Spacing.sm, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.xsmall, style: .continuous))
         .accessibilityLabel(
             photos.count == 1 ? "1 photo" : "\(photos.count) photos, swipe to see more"
         )

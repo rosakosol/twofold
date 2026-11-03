@@ -41,7 +41,7 @@ struct StatShareView: View {
                         .padding(.top, Theme.Spacing.lg)
                         .padding(.horizontal, Theme.Spacing.lg)
                         .padding(.bottom, Theme.Spacing.xl)
-                        .shadow(color: .black.opacity(0.25), radius: 24, y: 12)
+                        .themedShadow(Theme.Shadow.preview)
                 }
 
                 ShareCardAppearancePicker(selection: Binding(get: { resolvedAppearance }, set: { appearance = $0 }))
@@ -84,7 +84,7 @@ struct StatShareView: View {
         .padding(Theme.Spacing.sm)
         .frame(width: 360)
         .background(Theme.backgroundGradient)
-        .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.shareCard, style: .continuous))
         .environment(\.colorScheme, resolvedAppearance)
     }
 

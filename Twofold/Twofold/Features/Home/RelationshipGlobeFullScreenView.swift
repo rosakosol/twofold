@@ -62,7 +62,7 @@ struct RelationshipGlobeFullScreenView: View {
     /// between you", and dropping the distance the moment you look closer at it would be an odd
     /// thing to do. Sits at the bottom so it never covers the pins, which are framed centrally.
     private var distanceCaption: some View {
-        VStack(spacing: 2) {
+        VStack(spacing: Theme.Spacing.xxs) {
             Text("Distance between you")
                 .font(.footnote.weight(.semibold))
                 .foregroundStyle(Theme.textSecondary)

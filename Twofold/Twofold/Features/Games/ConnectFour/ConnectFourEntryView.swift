@@ -201,7 +201,7 @@ struct ConnectFourEntryView: View {
             Image(systemName: outcomeIcon(entry))
                 .foregroundStyle(entry.winnerID == BackendService.currentUserID ? Theme.success : Theme.textSecondary)
                 .frame(width: 24)
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
                 Text(outcomeText(entry))
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(Theme.textPrimary)

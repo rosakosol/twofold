@@ -160,7 +160,7 @@ struct AddTripDetailsView: View {
     private func selectedFlightRow(_ candidate: AeroFlightCandidate) -> some View {
         HStack(spacing: Theme.Spacing.sm) {
             AirlineLogoView(url: candidate.logoURL, size: 28)
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
                 Text(candidate.displayFlightNumber)
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(Theme.textPrimary)
@@ -192,7 +192,7 @@ struct AddTripDetailsView: View {
             HStack(spacing: Theme.Spacing.sm) {
                 Image(systemName: "airplane")
                     .foregroundStyle(Theme.accent)
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
                     Text(addFlightLabel)
                         .font(.subheadline.weight(.medium))
                         .foregroundStyle(Theme.textPrimary)

@@ -105,12 +105,49 @@ enum Theme {
         static let color = Color.dynamic(light: 0x0E1A26, dark: 0x000000, lightAlpha: 0.14, darkAlpha: 0.20)
         static let radius: CGFloat = 16
         static let y: CGFloat = 12
+
+        /// One shadow, for `.themedShadow(_:)`.
+        struct Style {
+            let color: Color
+            let radius: CGFloat
+            let y: CGFloat
+        }
+
+        /// The floating element's shadow above: tab bar, game cards, share cards on a screen.
+        static let floating = Style(color: color, radius: radius, y: y)
+        /// A share card's preview on its share sheet, which sits on a dark sheet or a mock phone,
+        /// so it is black whatever the appearance.
+        static let preview = Style(color: .black.opacity(0.25), radius: 24, y: 12)
+        /// A sheet of paper lifted off the screen: the drawing pad, a swipe card.
+        static let paper = Style(color: .black.opacity(0.1), radius: 8, y: 4)
+        /// Something sitting on a map or a photo: a pin, an avatar, a plane. Black, because the
+        /// map under it is the same colour in both appearances.
+        static let marker = Style(color: .black.opacity(0.2), radius: 4, y: 2)
+        /// The finest lift, for a dot or a label on a map.
+        static let hairline = Style(color: .black.opacity(0.2), radius: 2, y: 1)
     }
 
     // MARK: Shape and spacing
 
+    /// Heights and padding the shared controls are built to.
+    enum Control {
+        /// Primary and secondary buttons.
+        static let height: CGFloat = 54
+        /// The compact buttons, and the smallest tap target (44pt).
+        static let compactHeight: CGFloat = 44
+        /// A compact button's side padding: it sizes to its label, so this is what gives it shape.
+        static let compactHorizontalPadding: CGFloat = 20
+        /// A filter chip. Below the 44pt target on purpose: a row of chips sits in a scroll view
+        /// whose row is the target, and 44pt chips would push the content below off the screen.
+        static let chipHeight: CGFloat = 32
+    }
+
     enum Spacing {
+        /// Between a label and the value it names, or two lines of one block.
+        static let xxs: CGFloat = 2
         static let xs: CGFloat = 4
+        /// Between `xs` and `sm`: inside pills and chips.
+        static let xsm: CGFloat = 6
         static let sm: CGFloat = 8
         static let md: CGFloat = 16
         static let lg: CGFloat = 24
@@ -120,10 +157,20 @@ enum Theme {
     enum Radius {
         /// Cards.
         static let card: CGFloat = 26
+        /// Primary and secondary buttons (a capsule at their 54pt height).
+        static let button: CGFloat = 27
+        /// The compact buttons (a capsule at 44pt).
+        static let buttonCompact: CGFloat = 22
         /// Tiles and rows.
         static let tile: CGFloat = 20
         /// Images inside cards.
         static let image: CGFloat = 18
+        /// Small panels and thumbnails inside a card: a photo in a grid, a tip, a document row.
+        static let small: CGFloat = 12
+        /// Icon chips, map pins, inline banners.
+        static let chip: CGFloat = 10
+        /// The smallest pieces: keypad keys, a board's cells, a strip of photos.
+        static let xsmall: CGFloat = 8
         /// Sheet top corners.
         static let sheet: CGFloat = 34
         /// A card exported as an image.
@@ -132,6 +179,11 @@ enum Theme {
 }
 
 extension View {
+    /// One of `Theme.Shadow`'s shadows. A shadow means something floats, so a flat card has none.
+    func themedShadow(_ style: Theme.Shadow.Style) -> some View {
+        shadow(color: style.color, radius: style.radius, y: style.y)
+    }
+
     /// The standard card surface (section 5): `surface`, a 1pt `line` border, card radius. For views
     /// with their own layout that need the card fill; a new screen should use `SectionCard`.
     func themedCardBackground(cornerRadius: CGFloat = Theme.Radius.card) -> some View {

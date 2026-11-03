@@ -35,22 +35,21 @@ struct SubscriptionBanner: View {
                     .scaledToFit()
                     .frame(width: 28, height: 28)
 
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
                     Text(isSubscribed ? "Manage subscription" : "Unlock Twofold Plus")
                         .font(.subheadline.weight(.bold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.onFill)
                     Text(isSubscribed ? "View or change your plan" : "Games, widgets, and more for you both")
                         .font(.caption)
-                        .foregroundStyle(.white.opacity(0.85))
+                        .foregroundStyle(Theme.onFill.opacity(0.85))
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
                 Spacer()
-                Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.white.opacity(0.85))
+                Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(Theme.onFill.opacity(0.85))
             }
             .padding(Theme.Spacing.md)
             .background(Theme.heroBlue, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
-            .shadow(color: .black.opacity(0.15), radius: 10, y: 4)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

@@ -54,10 +54,10 @@ struct MemoriesSellView: View {
     private func memoryRow(_ memory: Memory) -> some View {
         SectionCard {
             HStack(alignment: .center, spacing: Theme.Spacing.md) {
-                OnboardingMemoryImage(seed: memory.photoSeed, cornerRadius: 14)
+                OnboardingMemoryImage(seed: memory.photoSeed, cornerRadius: Theme.Radius.small)
                     .frame(width: 72, height: 72)
 
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                     Text(memory.title)
                         .font(.headline)
                         .foregroundStyle(Theme.textPrimary)

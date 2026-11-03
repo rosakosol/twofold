@@ -65,7 +65,7 @@ struct TopicsSection: View {
             }
             .frame(width: 36, height: 36)
 
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                 Text(topic.displayName).font(.subheadline.weight(.semibold)).foregroundStyle(Theme.textPrimary)
                 ProgressView(value: fraction)
                     .tint(topic.color)
@@ -96,7 +96,7 @@ struct TopicsSection: View {
             }
             .frame(width: 36, height: 36)
 
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                 Text(topic.displayName).font(.subheadline.weight(.semibold)).foregroundStyle(Theme.textPrimary)
                 Capsule()
                     .fill(Theme.textSecondary.opacity(0.15))

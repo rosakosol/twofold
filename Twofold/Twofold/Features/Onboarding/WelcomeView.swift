@@ -92,7 +92,7 @@ struct WelcomeView: View {
 
                     Text("twofold")
                         .font(.newsreader(size: 56))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.onFill)
                 }
 
                 Spacer()
@@ -123,7 +123,7 @@ struct WelcomeView: View {
                             .font(
                                 .subheadline.weight(.medium)
                             )
-                            .foregroundStyle(.white)
+                            .foregroundStyle(Theme.onFill)
                     }
                 }
                 .padding(

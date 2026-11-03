@@ -76,7 +76,7 @@ struct RoundPhotoPicker: View {
                         Circle().fill(Theme.accentFill)
                         Image(systemName: "plus")
                             .font(.system(size: size * 0.14, weight: .bold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(Theme.onFill)
                     }
                     .frame(width: size * 0.3, height: size * 0.3)
                     .overlay(Circle().strokeBorder(.white, lineWidth: 2))

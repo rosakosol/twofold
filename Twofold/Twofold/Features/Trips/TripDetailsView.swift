@@ -167,14 +167,14 @@ struct TripDetailsView: View {
             Divider()
 
             HStack {
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
                     Text("Start").font(.caption).foregroundStyle(Theme.textSecondary)
                     Text(trip.departureDate, format: .dateTime.day().month(.abbreviated).year())
                         .font(.subheadline.weight(.medium))
                 }
                 .accessibilityElement(children: .combine)
                 Spacer()
-                VStack(alignment: .trailing, spacing: 2) {
+                VStack(alignment: .trailing, spacing: Theme.Spacing.xxs) {
                     Text("End").font(.caption).foregroundStyle(Theme.textSecondary)
                     Text(trip.arrivalDate, format: .dateTime.day().month(.abbreviated).year())
                         .font(.subheadline.weight(.medium))
@@ -229,7 +229,7 @@ struct TripDetailsView: View {
                 Text("No flight linked yet.").font(.caption).foregroundStyle(Theme.textSecondary)
             } else {
                 ForEach(trip.orderedFlights) { flight in
-                    VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                         NavigationLink {
                             FlightTrackingView(flight: flight)
                         } label: {
@@ -270,8 +270,8 @@ struct TripDetailsView: View {
                             NavigationLink {
                                 MemoryDetailView(memory: memory)
                             } label: {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    MemoryPhotoView(memory: memory, cornerRadius: 12)
+                                VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+                                    MemoryPhotoView(memory: memory, cornerRadius: Theme.Radius.small)
                                         .frame(width: 88, height: 88)
                                     Text(memory.title)
                                         .font(.caption2)

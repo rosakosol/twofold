@@ -36,7 +36,7 @@ struct OpenGamesSection: View {
                     if yourTurnCount > 0 {
                         Text("\(yourTurnCount)")
                             .font(.caption2.weight(.bold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(Theme.onFill)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
                             .background(Theme.coralFill, in: Capsule())
@@ -103,13 +103,13 @@ struct OpenGamesSection: View {
         // accessibility sizes. Capped so one card never fills more than most of the screen.
         .frame(width: min(cardWidth, 300), alignment: .leading)
         .frame(minHeight: cardHeight, alignment: .topLeading)
-        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14))
+        .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.Radius.tile, style: .continuous))
         // A ring rather than a fill on the ones that need you: a card whose whole background
         // changes colour reads as a different kind of card, where this is the same card with
         // something waiting in it.
         .overlay {
             if game.isMyTurn {
-                RoundedRectangle(cornerRadius: 14)
+                RoundedRectangle(cornerRadius: Theme.Radius.tile, style: .continuous)
                     .strokeBorder(Theme.coral.opacity(0.55), lineWidth: 1.5)
             }
         }

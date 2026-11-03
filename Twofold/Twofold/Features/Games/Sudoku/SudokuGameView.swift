@@ -336,7 +336,7 @@ struct SudokuGameView: View {
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
-            VStack(spacing: 2) {
+            VStack(spacing: Theme.Spacing.xxs) {
                 Image(systemName: icon).font(.title3)
                 // Five words across one row cannot fit at accessibility sizes: they were cut to
                 // "Un…", "Era…". There the row keeps its icons, the way a tab bar does, and a long
@@ -353,7 +353,7 @@ struct SudokuGameView: View {
             .frame(minHeight: 52)
             .background(
                 Theme.surface,
-                in: RoundedRectangle(cornerRadius: Theme.Spacing.sm, style: .continuous)
+                in: RoundedRectangle(cornerRadius: Theme.Radius.xsmall, style: .continuous)
             )
         }
         .buttonStyle(.plain)
@@ -380,7 +380,7 @@ struct SudokuGameView: View {
                         .frame(height: 52)
                         .background(
                             Theme.surface,
-                            in: RoundedRectangle(cornerRadius: Theme.Spacing.sm, style: .continuous)
+                            in: RoundedRectangle(cornerRadius: Theme.Radius.xsmall, style: .continuous)
                         )
                 }
                 .buttonStyle(.plain)

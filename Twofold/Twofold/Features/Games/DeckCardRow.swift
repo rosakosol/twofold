@@ -102,7 +102,7 @@ struct DeckCardRow: View {
     private var content: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
             HStack(alignment: .top, spacing: Theme.Spacing.sm) {
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                     // Always the game type — it used to swap places with the topic, which left the
                     // All/Your turn/Answered/New lists (the one place that mixes all four types,
                     // and so the one place you most need to tell them apart) not showing it at all.
@@ -146,7 +146,7 @@ struct DeckCardRow: View {
                     }
                     .frame(width: 30, height: 30)
                 } else if showsTopic || showsEmoji {
-                    HStack(spacing: 6) {
+                    HStack(spacing: Theme.Spacing.xsm) {
                         if showsTopic, let topic = GameTopic(rawValue: deck.topic) {
                             // Plain text rather than a second pill: two chips side by side read as
                             // competing labels, and the topic is context for the deck rather than a
@@ -224,7 +224,7 @@ struct DeckCardRow: View {
             if completed {
                 ZStack {
                     Circle().fill(Theme.successFill)
-                    Image(systemName: "checkmark").font(.system(size: 8, weight: .bold)).foregroundStyle(.white)
+                    Image(systemName: "checkmark").font(.system(size: 8, weight: .bold)).foregroundStyle(Theme.onFill)
                 }
                 .frame(width: 16, height: 16)
                 .overlay(Circle().strokeBorder(Theme.surface, lineWidth: 2))

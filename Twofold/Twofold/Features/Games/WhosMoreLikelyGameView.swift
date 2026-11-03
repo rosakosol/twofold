@@ -212,7 +212,7 @@ struct WhosMoreLikelyGameView: View {
 
                                 HStack(spacing: Theme.Spacing.xl) {
                                     VStack(spacing: Theme.Spacing.xs) {
-                                        HStack(spacing: 4) {
+                                        HStack(spacing: Theme.Spacing.xs) {
                                             Image(systemName: "chevron.left")
                                                 .font(.caption2.weight(.bold))
                                                 .foregroundStyle(Theme.onFill.opacity(0.92))
@@ -226,7 +226,7 @@ struct WhosMoreLikelyGameView: View {
                                             .frame(maxWidth: 72)
                                     }
                                     VStack(spacing: Theme.Spacing.xs) {
-                                        HStack(spacing: 4) {
+                                        HStack(spacing: Theme.Spacing.xs) {
                                             AvatarView(person: appModel.partner, size: 56, showsRing: true)
                                             Image(systemName: "chevron.right")
                                                 .font(.caption2.weight(.bold))

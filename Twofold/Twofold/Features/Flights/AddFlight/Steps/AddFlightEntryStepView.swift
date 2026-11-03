@@ -92,7 +92,7 @@ struct AddFlightEntryStepView: View {
             } label: {
                 HStack(spacing: Theme.Spacing.sm) {
                     AirlineLogoView(url: AirlineLogo.url(forIATACode: detectedAirline?.iata), size: 32)
-                    VStack(alignment: .leading, spacing: 2) {
+                    VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
                         Text(detectedAirline.map { "\($0.name) \(digitsInQuery)" } ?? "Flight number \(digitsInQuery)")
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(Theme.textPrimary)
@@ -131,7 +131,7 @@ struct AddFlightEntryStepView: View {
                                 Image(systemName: "airplane.circle.fill")
                                     .font(.title3)
                                     .foregroundStyle(Theme.accent)
-                                VStack(alignment: .leading, spacing: 2) {
+                                VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
                                     Text(airport.name)
                                         .font(.subheadline.weight(.medium))
                                         .foregroundStyle(Theme.textPrimary)

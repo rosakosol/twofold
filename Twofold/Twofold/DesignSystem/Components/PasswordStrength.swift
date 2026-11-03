@@ -48,9 +48,9 @@ struct PasswordStrengthView: View {
 
     var body: some View {
         if !password.isEmpty {
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                 HStack(spacing: Theme.Spacing.sm) {
-                    HStack(spacing: 4) {
+                    HStack(spacing: Theme.Spacing.xs) {
                         ForEach(0..<3, id: \.self) { index in
                             Capsule()
                                 .fill(index <= strength.rawValue ? strength.barColor : Theme.textSecondary.opacity(0.2))

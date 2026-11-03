@@ -21,7 +21,7 @@ import SwiftUI
 /// radius is half that height. Where Dynamic Type wraps a label onto more lines the button grows
 /// and keeps straight sides, where a true `Capsule` would turn into an oval that cuts into the text.
 private func buttonShape(isCompact: Bool = false) -> RoundedRectangle {
-    RoundedRectangle(cornerRadius: isCompact ? 22 : 27, style: .continuous)
+    RoundedRectangle(cornerRadius: isCompact ? Theme.Radius.buttonCompact : Theme.Radius.button, style: .continuous)
 }
 
 /// 54pt capsule on `primaryButtonGradient`, 17pt semibold. The label is white in light mode and
@@ -39,8 +39,8 @@ struct TwofoldPrimaryButtonStyle: ButtonStyle {
             .padding(.vertical, 10)
             .tint(isEnabled ? Theme.onPrimaryButton : Theme.textSecondary)
             .foregroundStyle(isEnabled ? Theme.onPrimaryButton : Theme.textSecondary)
-            .frame(maxWidth: isCompact ? nil : .infinity, minHeight: isCompact ? 44 : 54)
-            .padding(.horizontal, isCompact ? 20 : Theme.Spacing.md)
+            .frame(maxWidth: isCompact ? nil : .infinity, minHeight: isCompact ? Theme.Control.compactHeight : Theme.Control.height)
+            .padding(.horizontal, isCompact ? Theme.Control.compactHorizontalPadding : Theme.Spacing.md)
             .background {
                 if isEnabled {
                     buttonShape(isCompact: isCompact).fill(Theme.primaryButtonGradient)
@@ -71,8 +71,8 @@ struct TwofoldSecondaryButtonStyle: ButtonStyle {
             .padding(.vertical, 10)
             .tint(isEnabled ? Theme.textPrimary : Theme.textSecondary)
             .foregroundStyle(isEnabled ? Theme.textPrimary : Theme.textSecondary)
-            .frame(maxWidth: isCompact ? nil : .infinity, minHeight: isCompact ? 44 : 54)
-            .padding(.horizontal, isCompact ? 20 : Theme.Spacing.md)
+            .frame(maxWidth: isCompact ? nil : .infinity, minHeight: isCompact ? Theme.Control.compactHeight : Theme.Control.height)
+            .padding(.horizontal, isCompact ? Theme.Control.compactHorizontalPadding : Theme.Spacing.md)
             .overlay { buttonShape(isCompact: isCompact).strokeBorder(Theme.controlLine, lineWidth: 1) }
             .contentShape(buttonShape(isCompact: isCompact))
             // Never shorter than its label: squeezed for height, a wrapped label spills out of the capsule.
@@ -91,7 +91,7 @@ struct TwofoldCoralButtonStyle: ButtonStyle {
             .padding(.vertical, 10)
             .tint(Theme.onFill)
             .foregroundStyle(Theme.onFill)
-            .frame(maxWidth: .infinity, minHeight: 54)
+            .frame(maxWidth: .infinity, minHeight: Theme.Control.height)
             .padding(.horizontal, Theme.Spacing.md)
             .background(Theme.coralGradient, in: buttonShape())
             .contentShape(buttonShape())
@@ -113,7 +113,7 @@ struct TwofoldDestructiveButtonStyle: ButtonStyle {
             .padding(.vertical, 10)
             .tint(isEnabled ? Theme.onFill : Theme.textSecondary)
             .foregroundStyle(isEnabled ? Theme.onFill : Theme.textSecondary)
-            .frame(maxWidth: .infinity, minHeight: 54)
+            .frame(maxWidth: .infinity, minHeight: Theme.Control.height)
             .padding(.horizontal, Theme.Spacing.md)
             .background(isEnabled ? Theme.errorFill : Theme.segmentTrack, in: buttonShape())
             .contentShape(buttonShape())
@@ -137,7 +137,7 @@ struct TwofoldGameButtonStyle: ButtonStyle {
             .padding(.vertical, 10)
             .tint(isEnabled ? Theme.onFill : Theme.textSecondary)
             .foregroundStyle(isEnabled ? Theme.onFill : Theme.textSecondary)
-            .frame(maxWidth: .infinity, minHeight: 54)
+            .frame(maxWidth: .infinity, minHeight: Theme.Control.height)
             .padding(.horizontal, Theme.Spacing.md)
             .background {
                 if isEnabled {

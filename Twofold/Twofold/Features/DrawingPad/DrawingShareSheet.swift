@@ -136,7 +136,7 @@ struct DrawingShareSheet: View {
             }
             .foregroundStyle(Theme.textSecondary)
         } else if mode == .card, let card {
-            card.shadow(color: .black.opacity(0.45), radius: 18, y: 16)
+            card.themedShadow(Theme.Shadow.preview)
         } else {
             stickerPreview
         }

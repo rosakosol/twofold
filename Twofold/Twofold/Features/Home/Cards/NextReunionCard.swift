@@ -35,7 +35,7 @@ struct NextReunionCard: View {
         let daysToGo = TimeMath.daysUntil(trip.departureDate)
         return SectionCard {
             HStack {
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
                     Text(trip.isActive ? "Right now" : "Next reunion")
                         .font(.subheadline)
                         .foregroundStyle(Theme.textSecondary)
@@ -51,7 +51,7 @@ struct NextReunionCard: View {
             Divider()
 
             HStack {
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                     // Past tense once they have gone. "Max flies to you" is a promise, and reading
                     // it on day four of the visit makes the app look like it has not noticed.
                     Text(tripSubtitle(trip))
@@ -79,7 +79,7 @@ struct NextReunionCard: View {
                 ZStack {
                     Circle().fill(Theme.accentFill)
                     Image(systemName: "airplane")
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.onFill)
                 }
                 .frame(width: 36, height: 36)
             }

@@ -157,7 +157,7 @@ struct TrialTrustView: View {
                 Image(systemName: row.icon).foregroundStyle(Theme.accent)
             }
             .frame(width: 36, height: 36)
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
                 Text(row.label).font(.caption2.weight(.bold)).foregroundStyle(Theme.textSecondary)
                 Text(row.title).font(.subheadline.weight(.semibold))
                     .fixedSize(horizontal: false, vertical: true)

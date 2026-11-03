@@ -18,7 +18,7 @@ struct FilterChip: View {
     let icon: String
 
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: Theme.Spacing.xs) {
             Image(systemName: icon)
                 .font(.caption2)
                 .accessibilityHidden(true)
@@ -32,7 +32,7 @@ struct FilterChip: View {
         // text size turns any of them into two lines and the capsule grows into the row above it.
         .lineLimit(1)
         .padding(.horizontal, Theme.Spacing.sm)
-        .padding(.vertical, 6)
+        .padding(.vertical, Theme.Spacing.xsm)
         .foregroundStyle(Theme.textPrimary)
         .background(Theme.surface, in: Capsule())
         // Takes only the width it needs, so a chip sharing a row with a segmented control leaves
@@ -65,7 +65,7 @@ struct SelectableChip: View {
                 .fixedSize(horizontal: true, vertical: false)
                 .padding(.horizontal, Theme.Spacing.md)
                 .padding(.vertical, Theme.Spacing.xs)
-                .frame(minHeight: 32)
+                .frame(minHeight: Theme.Control.chipHeight)
                 .foregroundStyle(isSelected ? Theme.onPrimaryButton : Theme.textPrimary)
                 .background(
                     isSelected ? AnyShapeStyle(Theme.primaryButtonGradient) : AnyShapeStyle(Theme.raised),

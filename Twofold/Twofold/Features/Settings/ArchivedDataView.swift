@@ -77,7 +77,7 @@ struct ArchivedDataView: View {
                         NavigationLink {
                             ArchivedCoupleDetailView(couple: couple, onChange: { Task { await load() } })
                         } label: {
-                            VStack(alignment: .leading, spacing: 2) {
+                            VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
                                 HStack(spacing: Theme.Spacing.xs) {
                                     Text("With \(couple.partnerName)").font(.headline)
                                     if couple.isHidden {
@@ -197,7 +197,7 @@ struct ArchivedCoupleDetailView: View {
                         HStack(spacing: Theme.Spacing.sm) {
                             Image(systemName: "clock.badge.exclamationmark")
                                 .foregroundStyle(couple.deletionIsImminent ? Theme.error : Theme.accent)
-                            VStack(alignment: .leading, spacing: 2) {
+                            VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
                                 Text(couple.deletionNotice ?? "")
                                     .font(.subheadline.weight(.semibold))
                                     .foregroundStyle(Theme.textPrimary)
@@ -317,7 +317,7 @@ struct ArchivedCoupleDetailView: View {
                     // Relationship Record screen handles its own export: a control that is not
                     // there explains nothing.
                     Toggle(isOn: $includeRecord) {
-                        VStack(alignment: .leading, spacing: 2) {
+                        VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
                             Text("Include your Relationship Record")
                                 .font(.subheadline)
                             Text(appModel.subscription.isPremiumLocked

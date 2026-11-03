@@ -23,7 +23,7 @@ struct RelationshipStatsShareView: View {
                 ScrollView {
                     card
                         .padding(Theme.Spacing.lg)
-                        .shadow(color: .black.opacity(0.25), radius: 24, y: 12)
+                        .themedShadow(Theme.Shadow.preview)
                 }
 
                 ShareCardAppearancePicker(selection: Binding(get: { resolvedAppearance }, set: { appearance = $0 }))

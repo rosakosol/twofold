@@ -52,7 +52,7 @@ struct AboutYouView: View {
                     // to force an immediate re-check right after actually landing somewhere new,
                     // rather than waiting for the next natural foreground trigger.
                     HStack {
-                        VStack(alignment: .leading, spacing: 2) {
+                        VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
                             Text("Current city").font(.caption).foregroundStyle(Theme.textSecondary)
                             Text(appModel.currentUser.homeCity.map { "\($0.displayCity), \($0.country)" } ?? "Not detected yet")
                                 .foregroundStyle(Theme.textPrimary)

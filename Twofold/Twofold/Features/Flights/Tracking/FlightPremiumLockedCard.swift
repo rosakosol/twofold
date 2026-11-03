@@ -57,7 +57,7 @@ struct FlightPremiumLockedCard: View {
                         Image(systemName: "lock.fill").font(.subheadline).foregroundStyle(Theme.textSecondary)
                     }
                     .frame(width: 32, height: 32)
-                    VStack(alignment: .leading, spacing: 2) {
+                    VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
                         Text(feature.title).font(.subheadline.weight(.semibold)).foregroundStyle(Theme.textPrimary)
                         Text("Unlock with Premium").font(.caption).foregroundStyle(Theme.textSecondary)
                     }

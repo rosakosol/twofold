@@ -24,7 +24,7 @@ struct PassportShareView: View {
                         .padding(.top, Theme.Spacing.lg)
                         .padding(.horizontal, Theme.Spacing.lg)
                         .padding(.bottom, Theme.Spacing.xl)
-                        .shadow(color: .black.opacity(0.25), radius: 24, y: 12)
+                        .themedShadow(Theme.Shadow.preview)
                 }
 
                 ShareCardAppearancePicker(selection: Binding(get: { resolvedAppearance }, set: { appearance = $0 }))

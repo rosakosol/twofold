@@ -65,9 +65,9 @@ struct SwipeToDeleteRow<Content: View>: View {
         } label: {
             Image(systemName: "trash")
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.onFill)
                 .frame(width: revealWidth, height: 36)
-                .background(Theme.errorFill, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .background(Theme.errorFill, in: RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(accessibilityLabel)
@@ -102,7 +102,7 @@ struct SwipeToDeleteRow<Content: View>: View {
 }
 
 #Preview {
-    VStack(spacing: 8) {
+    VStack(spacing: Theme.Spacing.sm) {
         ForEach(["Boarding pass.pdf", "Spain visa.pdf"], id: \.self) { name in
             SwipeToDeleteRow(onDelete: {}, accessibilityLabel: "Delete \(name)") {
                 HStack {

@@ -197,7 +197,7 @@ struct WordGuessEntryView: View {
 
     private func historyRow(_ entry: BackendService.WordGuessHistoryEntry) -> some View {
         HStack(spacing: Theme.Spacing.sm) {
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
                 Text(entry.mine == nil ? "In progress" : (WordGuessWords.answer(for: entry.puzzleID)?.uppercased() ?? "—"))
                     .font(.subheadline.weight(.semibold).monospaced())
                     .foregroundStyle(Theme.textPrimary)
@@ -206,7 +206,7 @@ struct WordGuessEntryView: View {
                     .foregroundStyle(Theme.textSecondary)
             }
             Spacer(minLength: Theme.Spacing.sm)
-            VStack(alignment: .trailing, spacing: 2) {
+            VStack(alignment: .trailing, spacing: Theme.Spacing.xxs) {
                 scoreLine(name: "You", summary: entry.mine, pending: "Not finished")
                 scoreLine(
                     name: appModel.partner.name,

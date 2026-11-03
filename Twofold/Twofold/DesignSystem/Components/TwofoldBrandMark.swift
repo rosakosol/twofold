@@ -15,7 +15,7 @@ struct TwofoldBrandMark: View {
     var textStyle: Font.TextStyle = .title2
 
     var body: some View {
-        VStack(spacing: 4) {
+        VStack(spacing: Theme.Spacing.xs) {
             Image("GlobeHeart")
                 .resizable()
                 .scaledToFit()

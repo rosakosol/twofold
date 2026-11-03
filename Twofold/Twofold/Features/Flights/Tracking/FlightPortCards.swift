@@ -65,7 +65,7 @@ enum FlightPortCard {
                 Image(systemName: icon).font(.subheadline).foregroundStyle(Theme.accent)
             }
             .frame(width: 32, height: 32)
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
                 Text(title).font(.subheadline.weight(.semibold))
                 Text("\(code) · \(city)").font(.caption).foregroundStyle(Theme.textSecondary).lineLimit(1)
             }

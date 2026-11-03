@@ -72,7 +72,7 @@ struct WordSearchThemePickerView: View {
         } label: {
             SectionCard {
                 HStack(spacing: Theme.Spacing.md) {
-                    VStack(alignment: .leading, spacing: 2) {
+                    VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
                         Text(theme.displayName)
                             .font(.headline)
                             .foregroundStyle(Theme.textPrimary)

@@ -47,11 +47,11 @@ struct HappyAnniversaryView: View {
                 VStack(spacing: Theme.Spacing.sm) {
                     Text("Happy anniversary 🎉")
                         .font(.system(.largeTitle, weight: .bold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.onFill)
                         .multilineTextAlignment(.center)
                     Text(subtitle)
                         .font(.body)
-                        .foregroundStyle(.white.opacity(0.85))
+                        .foregroundStyle(Theme.onFill.opacity(0.85))
                         .multilineTextAlignment(.center)
                 }
                 .opacity(contentVisible ? 1 : 0)

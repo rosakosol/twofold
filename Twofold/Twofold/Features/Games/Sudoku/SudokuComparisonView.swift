@@ -50,7 +50,7 @@ struct SudokuComparisonView: View {
                 }
                 .padding(.top, Theme.Spacing.xs)
 
-                VStack(spacing: 2) {
+                VStack(spacing: Theme.Spacing.xxs) {
                     Text(comparison.verdict)
                         .font(.caption)
                         .foregroundStyle(Theme.textSecondary)

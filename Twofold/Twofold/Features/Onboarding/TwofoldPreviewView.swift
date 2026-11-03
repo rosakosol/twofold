@@ -96,7 +96,7 @@ struct TwofoldPreviewView: View {
                     if let trip, let daysToGo {
                         SectionCard {
                             HStack {
-                                VStack(alignment: .leading, spacing: 4) {
+                                VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                                     Text("Next reunion")
                                         .font(.subheadline)
                                         .foregroundStyle(Theme.textSecondary)
@@ -120,7 +120,7 @@ struct TwofoldPreviewView: View {
                     } else {
                         SectionCard {
                             HStack {
-                                VStack(alignment: .leading, spacing: 4) {
+                                VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                                     Text("No trips yet")
                                         .font(.subheadline.weight(.semibold))
                                     Text("Add a flight anytime to start your countdown.")
@@ -139,9 +139,9 @@ struct TwofoldPreviewView: View {
                     if let memory = appModel.travel.memories.last {
                         SectionCard {
                             HStack(spacing: Theme.Spacing.md) {
-                                MemoryPhotoView(memory: memory, cornerRadius: 12)
+                                MemoryPhotoView(memory: memory, cornerRadius: Theme.Radius.small)
                                     .frame(width: 56, height: 56)
-                                VStack(alignment: .leading, spacing: 2) {
+                                VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
                                     Text(memory.title)
                                         .font(.subheadline.weight(.semibold))
                                         .foregroundStyle(Theme.textPrimary)
@@ -206,7 +206,7 @@ struct TwofoldPreviewView: View {
         .frame(width: size, height: size)
         .clipShape(Circle())
         .overlay(Circle().strokeBorder(.white, lineWidth: 2))
-        .shadow(color: .black.opacity(0.12), radius: 4, y: 2)
+        .themedShadow(Theme.Shadow.marker)
     }
 }
 

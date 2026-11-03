@@ -39,7 +39,7 @@ struct AnimatedHeartsView: View {
                 ForEach(Array(Self.hearts.enumerated()), id: \.offset) { _, heart in
                     Image(systemName: "heart.fill")
                         .font(.system(size: heart.size))
-                        .foregroundStyle(.white.opacity(heart.opacity))
+                        .foregroundStyle(Theme.onFill.opacity(heart.opacity))
                         // Ambient decoration only, no information in the motion itself — under
                         // Reduce Motion the hearts stay put at a fixed spot instead of
                         // continuously drifting/looping.

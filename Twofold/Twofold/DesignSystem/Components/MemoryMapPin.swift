@@ -32,8 +32,8 @@ struct MemoryMapPin<Photo: View>: View {
             photo()
                 .frame(width: Self.photoSize, height: Self.photoSize)
                 .padding(5)
-                .background(.white, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                .shadow(color: .black.opacity(0.22), radius: 5, y: 3)
+                .background(.white, in: RoundedRectangle(cornerRadius: Theme.Radius.chip, style: .continuous))
+                .themedShadow(Theme.Shadow.marker)
                 // Tilted like the detail screen's print, a touch further: two degrees reads as a
                 // rendering mistake at this size, where four reads as deliberate.
                 .rotationEffect(.degrees(-4))
@@ -41,7 +41,7 @@ struct MemoryMapPin<Photo: View>: View {
             if count > 1 {
                 Text("\(count)")
                     .font(.caption2.weight(.bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.onFill)
                     .padding(4)
                     .background(Theme.coralFill, in: Circle())
                     .overlay(Circle().strokeBorder(.white, lineWidth: 1.5))
@@ -52,7 +52,7 @@ struct MemoryMapPin<Photo: View>: View {
 }
 
 #Preview {
-    HStack(spacing: 24) {
+    HStack(spacing: Theme.Spacing.lg) {
         MemoryMapPin(count: 1) { Color.gray }
         MemoryMapPin(count: 4) { Color.gray }
     }

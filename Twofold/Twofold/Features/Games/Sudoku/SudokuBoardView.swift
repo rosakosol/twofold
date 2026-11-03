@@ -38,7 +38,7 @@ struct SudokuBoardView: View {
             }
             .frame(width: side, height: side)
             .background(Theme.surface)
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Spacing.sm, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.xsmall, style: .continuous))
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         }
         .aspectRatio(1, contentMode: .fit)

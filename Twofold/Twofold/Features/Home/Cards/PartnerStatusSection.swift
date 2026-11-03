@@ -66,7 +66,7 @@ struct PartnerStatusSection: View {
 
                     Text("\(request.requesterFirstName) wants to connect")
                         .font(.title3.weight(.bold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.onFill)
                         .lineLimit(2)
 
                     Spacer(minLength: 0)
@@ -74,16 +74,16 @@ struct PartnerStatusSection: View {
 
                 Text("Accept to start sharing trips, flights, and memories together.")
                     .font(.subheadline)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.onFill)
                     .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
 
-                HStack(spacing: 4) {
+                HStack(spacing: Theme.Spacing.xs) {
                     Text("Review request")
                         .font(.subheadline.weight(.semibold))
                     Image(systemName: "chevron.right").font(.caption)
                 }
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.onFill)
             }
             .padding(Theme.Spacing.lg)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -116,7 +116,7 @@ struct PartnerStatusSection: View {
 
                     Text("Invite pending with \(request.inviterFirstName)")
                         .font(.title3.weight(.bold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.onFill)
                         .lineLimit(2)
 
                     Spacer(minLength: 0)
@@ -124,16 +124,16 @@ struct PartnerStatusSection: View {
 
                 Text("They haven't accepted yet — feel free to explore Twofold while you wait, or send them a nudge.")
                     .font(.subheadline)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.onFill)
                     .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
 
-                HStack(spacing: 4) {
+                HStack(spacing: Theme.Spacing.xs) {
                     Text("View status")
                         .font(.subheadline.weight(.semibold))
                     Image(systemName: "chevron.right").font(.caption)
                 }
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.onFill)
             }
             .padding(Theme.Spacing.lg)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -166,29 +166,29 @@ struct PartnerStatusSection: View {
                         Circle().fill(.white.opacity(0.2))
                         Image(systemName: "person.2.fill")
                             .font(.title2)
-                            .foregroundStyle(.white)
+                            .foregroundStyle(Theme.onFill)
                     }
                     .frame(width: 56, height: 56)
 
                     Text("Set up your partner")
                         .font(.title3.weight(.bold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.onFill)
 
                     Spacer(minLength: 0)
                 }
 
                 Text("Twofold is built for couples. Connect with your partner to unlock \(partnerValuePropGameCount) questions and games, track each other's flights, and add shared trips and memories.")
                     .font(.subheadline)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.onFill)
                     .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
 
-                HStack(spacing: 4) {
+                HStack(spacing: Theme.Spacing.xs) {
                     Text("Get started")
                         .font(.subheadline.weight(.semibold))
                     Image(systemName: "chevron.right").font(.caption)
                 }
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.onFill)
             }
             .padding(Theme.Spacing.lg)
             .frame(maxWidth: .infinity, alignment: .leading)

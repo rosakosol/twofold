@@ -48,7 +48,7 @@ struct FlightUpdatesCard: View {
                         .frame(width: 28, height: 28)
                         .accessibilityHidden(true)
 
-                        VStack(alignment: .leading, spacing: 2) {
+                        VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
                             Text(event.label(timeZone: flight.destination.timeZone)).font(.subheadline.weight(.medium))
                             Text(event.occurredAt, format: Date.FormatStyle(timeZone: flight.origin.timeZone ?? homeTimeZone).hour().minute())
                                 .font(.caption2)

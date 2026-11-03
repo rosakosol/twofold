@@ -80,7 +80,7 @@ struct StatTile: View {
             .font(.system(size: 16, weight: .semibold))
             .foregroundStyle(Theme.onFill)
             .frame(width: 36, height: 36)
-            .background(chip.gradient, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .background(chip.gradient, in: RoundedRectangle(cornerRadius: Theme.Radius.chip, style: .continuous))
             .accessibilityHidden(true)
     }
 

@@ -60,7 +60,7 @@ struct DistanceSnapshotCard: View {
                 mapSnapshot: mapSnapshot
             )
 
-            VStack(spacing: 6) {
+            VStack(spacing: Theme.Spacing.xsm) {
                 Text("THE DISTANCE BETWEEN YOU")
                     .font(.caption2.weight(.semibold))
                     .tracking(1.5)
@@ -114,7 +114,7 @@ struct DistanceSnapshotCard: View {
     /// because it was unreadable against that gradient's light green bottom edge, and white would
     /// be invisible on the light canvas.
     private func statTile(icon: String, value: String, label: String) -> some View {
-        VStack(spacing: 4) {
+        VStack(spacing: Theme.Spacing.xs) {
             Image(systemName: icon)
                 .font(.subheadline)
                 .foregroundStyle(palette.accent)

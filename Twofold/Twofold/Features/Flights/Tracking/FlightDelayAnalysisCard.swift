@@ -56,7 +56,7 @@ struct FlightDelayAnalysisCard: View {
     }
 
     private func delayHeadlineStat(value: String, label: String) -> some View {
-        VStack(spacing: 2) {
+        VStack(spacing: Theme.Spacing.xxs) {
             Text(value).font(.title3.weight(.bold)).foregroundStyle(Theme.textPrimary)
             Text(label)
                 .font(.caption2)

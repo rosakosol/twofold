@@ -239,7 +239,7 @@ struct MemoryPhotosSheet: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(Theme.Spacing.sm)
-                .background(Theme.error.opacity(0.1), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .background(Theme.error.opacity(0.1), in: RoundedRectangle(cornerRadius: Theme.Radius.chip, style: .continuous))
                 .padding(.horizontal, Theme.Spacing.md)
                 .padding(.top, Theme.Spacing.xs)
                 .transition(.opacity)
@@ -272,7 +272,7 @@ struct MemoryPhotosSheet: View {
                 }
             }
             .frame(width: 68, height: 68)
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.chip, style: .continuous))
 
             Button {
                 onRemove(photo)

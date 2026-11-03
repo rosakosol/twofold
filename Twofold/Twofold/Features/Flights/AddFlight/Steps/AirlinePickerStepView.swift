@@ -36,7 +36,7 @@ struct AirlinePickerStepView: View {
                             } label: {
                                 HStack(spacing: Theme.Spacing.sm) {
                                     AirlineLogoView(url: AirlineLogo.url(forIATACode: entry.iata), size: 32)
-                                    VStack(alignment: .leading, spacing: 2) {
+                                    VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
                                         Text(entry.name)
                                             .font(.subheadline.weight(.medium))
                                             .foregroundStyle(Theme.textPrimary)

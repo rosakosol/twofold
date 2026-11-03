@@ -82,7 +82,7 @@ struct BlockedPeopleView: View {
 
     private func row(_ person: BackendService.BlockedProfile) -> some View {
         HStack {
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
                 Text(person.firstName.isEmpty ? "Someone" : person.firstName)
                     .font(.headline)
                 Text("Blocked \(person.blockedAt.formatted(date: .abbreviated, time: .omitted))")

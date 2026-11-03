@@ -68,7 +68,7 @@ struct HappyBirthdayView: View {
                             .multilineTextAlignment(.center)
                             .opacity(0.9)
                     }
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.onFill)
                     .opacity(contentVisible ? 1 : 0)
 
                     if let onSendMessage {
@@ -84,7 +84,7 @@ struct HappyBirthdayView: View {
                             .padding(.vertical, Theme.Spacing.sm)
                     }
                     .buttonStyle(.plain)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.onFill)
                     .opacity(0.9)
                 }
                 .padding(Theme.Spacing.md)
@@ -104,7 +104,7 @@ struct HappyBirthdayView: View {
                 // screen after sending invites a second send of the same words.
                 Label("Sent", systemImage: "checkmark.circle.fill")
                     .font(.headline)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.onFill)
             } else {
                 TextField("Happy birthday!", text: $message, axis: .vertical)
                     .lineLimit(1...4)
@@ -120,7 +120,7 @@ struct HappyBirthdayView: View {
                 if sendFailed {
                     Text("That didn't send. Try again in a moment.")
                         .font(.caption)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.onFill)
                 }
 
                 Button {

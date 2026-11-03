@@ -75,7 +75,7 @@ struct TimeZoneCard: View {
                     Spacer(minLength: 0)
                 }
                 if let weather {
-                    VStack(alignment: dynamicTypeSize.isAccessibilitySize ? .leading : .trailing, spacing: 4) {
+                    VStack(alignment: dynamicTypeSize.isAccessibilitySize ? .leading : .trailing, spacing: Theme.Spacing.xs) {
                         WeatherSymbol(name: weather.symbolName, size: 26)
                         Text(weather.temperatureLabel)
                             .font(.title.weight(.light))
@@ -107,7 +107,7 @@ struct TimeZoneCard: View {
             }
         }
         // White throughout, as in Weather: every sky clears 4.5:1 under it (see WeatherSky).
-        .foregroundStyle(.white)
+        .foregroundStyle(Theme.onFill)
         .padding(Theme.Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(sky.gradient(isDay: isDay), in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))

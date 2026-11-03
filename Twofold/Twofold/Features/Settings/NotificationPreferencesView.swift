@@ -130,7 +130,7 @@ struct NotificationPreferencesView: View {
     /// the same as the gap to the *next* row (SectionCard applies one uniform spacing
     /// between all of its direct children).
     private func toggleRow(_ label: String, isOn: Binding<Bool>, caption: String? = nil) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
             Toggle(label, isOn: isOn).font(.subheadline)
             if let caption {
                 Text(caption).font(.caption2).foregroundStyle(Theme.textSecondary)

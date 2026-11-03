@@ -25,7 +25,7 @@ struct DistanceShareView: View {
                     DistanceShareCard(couple: couple, myCity: myCity, partnerCity: partnerCity, distanceKm: distanceKm, theme: selectedTheme, mapSnapshot: mapSnapshot)
                         .padding(.vertical, Theme.Spacing.lg)
                         .padding(.horizontal, Theme.Spacing.lg)
-                        .shadow(color: .black.opacity(0.25), radius: 24, y: 12)
+                        .themedShadow(Theme.Shadow.preview)
                 }
                 // The card is a fixed ~550pt tall (a 300pt globe plus the distance above it), and
                 // on a shorter screen that's more than this scroll view gets once the theme picker

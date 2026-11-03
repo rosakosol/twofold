@@ -45,7 +45,7 @@ struct StatsHeroNumber: View {
     @ScaledMetric(relativeTo: .title3) private var valueSize: CGFloat = 22
 
     var body: some View {
-        VStack(spacing: 2) {
+        VStack(spacing: Theme.Spacing.xxs) {
             Text(label)
                 .font(.caption.weight(.semibold))
                 .opacity(0.92)

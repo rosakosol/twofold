@@ -386,7 +386,7 @@ struct GameResultsView: View {
                 }
 
                 if gameType == .triviaBattle, case let .trivia(question)? = store.content(for: round) {
-                    HStack(spacing: 4) {
+                    HStack(spacing: Theme.Spacing.xs) {
                         correctnessBadge(label: "You", isCorrect: mine?.isCorrect)
                         correctnessBadge(label: partnerName, isCorrect: partner?.isCorrect)
                     }
@@ -430,7 +430,7 @@ struct GameResultsView: View {
     }
 
     private func answerChip(name: String, text: String, tint: Color) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
             Text(name).font(.caption2.weight(.semibold)).foregroundStyle(Theme.textSecondary)
             Text(text).font(.subheadline.weight(.medium)).foregroundStyle(tint)
         }
@@ -448,7 +448,7 @@ struct GameResultsView: View {
     }
 
     private func responseBlock(name: String, text: String?, placeholder: String = "Skipped this one") -> some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
             Text(name).font(.caption.weight(.semibold)).foregroundStyle(Theme.textSecondary)
             Text(text?.isEmpty == false ? text! : placeholder)
                 .font(.subheadline)

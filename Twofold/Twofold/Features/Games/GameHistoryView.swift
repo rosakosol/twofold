@@ -174,7 +174,7 @@ struct GameHistoryView: View {
         let topic = deck.flatMap { GameTopic(rawValue: $0.topic) }
         return SectionCard {
             HStack {
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                     if session.isDaily {
                         PillBadge(text: "Daily deep question", tint: Theme.coral)
                     } else if let topic {
@@ -191,7 +191,7 @@ struct GameHistoryView: View {
                     Text(sudokuTitle(for: session) ?? (session.isDaily ? (dailyQuestionText[session.id] ?? session.gameType.displayName) : (deck?.title ?? session.gameType.displayName)))
                         .font(.subheadline.weight(.semibold))
                         .lineLimit(2)
-                    HStack(spacing: 4) {
+                    HStack(spacing: Theme.Spacing.xs) {
                         Text(session.gameType.displayName)
                         Text("•")
                         Text(completionDate(for: session), format: .dateTime.day().month(.abbreviated).year())

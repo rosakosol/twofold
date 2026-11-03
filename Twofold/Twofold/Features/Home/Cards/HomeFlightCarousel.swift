@@ -48,7 +48,7 @@ struct HomeFlightCarousel: View {
                     .scrollClipDisabled()
                     .scrollPosition(id: $page)
 
-                    HStack(spacing: 6) {
+                    HStack(spacing: Theme.Spacing.xsm) {
                         ForEach(flights) { flight in
                             Circle()
                                 .fill(flight.id == (page ?? flights.first?.id) ? Theme.accent : Theme.textSecondary.opacity(0.25))
@@ -88,7 +88,7 @@ struct ActiveFlightCard: View {
     var body: some View {
         SectionCard {
             rowLayout {
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
                     Text(flight.status.isActivelyTracked ? "Tracking now" : "Next flight")
                         .font(.footnote.weight(.semibold))
                         .foregroundStyle(Theme.textSecondary)

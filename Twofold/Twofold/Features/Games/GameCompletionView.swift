@@ -79,7 +79,7 @@ struct GameCompletionView: View {
 
                 if let onEditAnswers {
                     Button(action: onEditAnswers) {
-                        HStack(spacing: 4) {
+                        HStack(spacing: Theme.Spacing.xs) {
                             Image(systemName: "pencil")
                             Text("Edit my answers")
                         }
@@ -145,7 +145,7 @@ struct GameCompletionView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             ForEach(myAnswersRecap) { entry in
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                     Text(entry.question)
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(Theme.textSecondary)

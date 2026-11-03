@@ -46,9 +46,9 @@ struct LinkMemoryPickerView: View {
                                 }
                             } label: {
                                 HStack(spacing: Theme.Spacing.sm) {
-                                    MemoryPhotoView(memory: memory, cornerRadius: 10)
+                                    MemoryPhotoView(memory: memory, cornerRadius: Theme.Radius.chip)
                                         .frame(width: 44, height: 44)
-                                    VStack(alignment: .leading, spacing: 2) {
+                                    VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
                                         Text(memory.title).font(.subheadline.weight(.medium)).foregroundStyle(Theme.textPrimary).lineLimit(1)
                                         Text(memory.date, format: .dateTime.day().month(.abbreviated).year())
                                             .font(.caption)

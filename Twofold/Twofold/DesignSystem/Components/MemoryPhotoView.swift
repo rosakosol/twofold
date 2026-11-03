@@ -121,7 +121,7 @@ struct MemoryPhotoView: View {
             LinearGradient(colors: gradientColors, startPoint: .topLeading, endPoint: .bottomTrailing)
             Image(systemName: "photo.fill")
                 .font(.system(size: 28))
-                .foregroundStyle(.white.opacity(0.85))
+                .foregroundStyle(Theme.onFill.opacity(0.85))
         }
     }
 

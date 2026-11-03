@@ -222,7 +222,7 @@ struct OnboardingCard: View {
                     .font(.system(size: 32))
                     .frame(width: 40)
                     .accessibilityHidden(true)
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
                     Text(title)
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(Theme.textPrimary)

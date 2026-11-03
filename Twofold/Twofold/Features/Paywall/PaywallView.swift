@@ -220,7 +220,7 @@ struct PaywallView: View {
             content: {
                 VStack(spacing: Theme.Spacing.md) {
                     VStack(spacing: Theme.Spacing.xs) {
-                        HStack(spacing: 4) {
+                        HStack(spacing: Theme.Spacing.xs) {
                             Text("Best for frequent flyers")
                             Image(systemName: "arrow.down")
                         }
@@ -588,7 +588,7 @@ private struct PeriodCard: View {
                         .foregroundStyle(isSelected ? Theme.accent : Theme.controlLine)
                         .accessibilityHidden(true)
                 }
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
                     Text(priceCaption)
                         .font(.callout.weight(.medium))
                         .foregroundStyle(Theme.textPrimary)

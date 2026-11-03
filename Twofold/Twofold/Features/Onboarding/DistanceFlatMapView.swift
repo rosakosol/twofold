@@ -255,7 +255,7 @@ struct DistanceFlatMapView: View {
                 .position(point)
             Text(city.displayCity)
                 .font(.system(size: 9, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.onFill)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
                 .padding(.horizontal, 5)
@@ -273,13 +273,13 @@ struct DistanceFlatMapView: View {
                 Circle().fill(tint)
                 Image(systemName: "person.fill")
                     .font(.caption)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.onFill)
             }
         }
         .frame(width: Self.pinAvatarRadius * 2, height: Self.pinAvatarRadius * 2)
         .clipShape(Circle())
         .overlay(Circle().strokeBorder(.white, lineWidth: 2))
-        .shadow(color: .black.opacity(0.2), radius: 4, y: 2)
+        .themedShadow(Theme.Shadow.marker)
     }
 
     // MARK: - Great-circle sampling + antimeridian unwrap (ported from `FlightMapView`)

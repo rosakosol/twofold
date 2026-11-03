@@ -72,7 +72,7 @@ struct LiveActivitySellView: View {
                 // chassis — was 270, which put the card's bottom edge too close to the pinned
                 // Continue button below. Also gives more breathing room above the card itself.
                 .padding(.top, 240)
-                .shadow(color: .black.opacity(0.45), radius: 28, x: 0, y: 16)
+                .themedShadow(Theme.Shadow.preview)
                 .scaleEffect(cardVisible ? 1 : 0.85)
                 .opacity(cardVisible ? 1 : 0)
                 .offset(y: cardVisible ? 0 : 16)
@@ -85,17 +85,17 @@ struct LiveActivitySellView: View {
     /// backdrop and rounded clip; `.regularMaterial` forced dark stands in for it here, since an
     /// onboarding screen has no ActivityKit presentation to inherit one from.
     private var lockScreenMock: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: Theme.Spacing.md) {
             HStack(alignment: .center, spacing: 12) {
                 partnerAvatar
 
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
                     Text("\(partnerName) is on the way")
                         .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.onFill)
                     Text("QF10 to Perth")
                         .font(.system(size: 15))
-                        .foregroundStyle(.white.opacity(0.7))
+                        .foregroundStyle(Theme.onFill.opacity(0.7))
                 }
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
@@ -111,7 +111,7 @@ struct LiveActivitySellView: View {
                         .minimumScaleFactor(0.6)
                     Text("to landing")
                         .font(.system(size: 15))
-                        .foregroundStyle(.white.opacity(0.7))
+                        .foregroundStyle(Theme.onFill.opacity(0.7))
                 }
             }
 
@@ -147,7 +147,7 @@ struct LiveActivitySellView: View {
                     Circle().fill(Theme.coralFill)
                     Text(String(partnerName.prefix(1)).uppercased())
                         .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.onFill)
                 }
             }
         }
@@ -164,7 +164,7 @@ struct LiveActivitySellView: View {
                 .font(.system(size: 17))
                 .opacity(0.85)
         }
-        .foregroundStyle(.white)
+        .foregroundStyle(Theme.onFill)
         .lineLimit(1)
     }
 

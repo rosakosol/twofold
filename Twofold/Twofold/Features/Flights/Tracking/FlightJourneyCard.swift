@@ -96,7 +96,7 @@ struct FlightJourneyCard: View {
             .frame(width: 32, height: 32)
             .accessibilityHidden(true)
 
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
                 Text("\(code) · \(city)").font(.headline).lineLimit(1).minimumScaleFactor(0.85)
                 if let time {
                     // Falls back to the user's home city, not the device. When an airport's own

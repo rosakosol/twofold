@@ -36,7 +36,7 @@ struct PartnerRequiredOverlay: View {
             .overlay(alignment: .bottomTrailing) {
                 Text("Partner required")
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.onFill)
                     .padding(.horizontal, Theme.Spacing.sm)
                     .padding(.vertical, 6)
                     .background(.black.opacity(0.3), in: Capsule())

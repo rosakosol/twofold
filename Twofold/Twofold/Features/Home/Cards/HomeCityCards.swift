@@ -17,7 +17,7 @@ struct HomeCityPromptCard: View {
                 onTap()
             } label: {
                 HStack {
-                    VStack(alignment: .leading, spacing: 2) {
+                    VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
                         Text("See the distance between you")
                             .font(.headline)
                         Text("Turn on location access to light up the map.")
@@ -44,7 +44,7 @@ struct PartnerHomeCityPendingCard: View {
     var body: some View {
         SectionCard {
             HStack {
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
                     Text("See the distance between you")
                         .font(.headline)
                     Text("\(appModel.partner.name) needs to turn on location access before the map can light up.")
@@ -67,7 +67,7 @@ struct SameCityCard: View {
     var body: some View {
         SectionCard {
             HStack {
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
                     Text("Same city")
                         .font(.footnote.weight(.semibold))
                         .foregroundStyle(Theme.textSecondary)
@@ -102,7 +102,7 @@ struct DistanceCard: View {
     var body: some View {
         SectionCard {
             HStack {
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
                     Text("Distance between you")
                         .font(.footnote.weight(.semibold))
                         .foregroundStyle(Theme.textSecondary)

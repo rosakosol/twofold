@@ -369,7 +369,7 @@ struct MemoriesMapView: View {
                         Image(systemName: "photo.badge.plus").foregroundStyle(Theme.accent)
                     }
                     .frame(width: 40, height: 40)
-                    VStack(alignment: .leading, spacing: 2) {
+                    VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
                         Text("Add your first memory").font(.headline).foregroundStyle(Theme.textPrimary)
                         Text("Tap to save a photo from a moment together.")
                             .font(.caption)

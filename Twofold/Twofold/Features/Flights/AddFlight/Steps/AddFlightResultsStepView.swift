@@ -231,7 +231,7 @@ struct AddFlightResultsStepView: View {
         let resolved = timeZone.flatMap(TimeZone.init(identifier:))
             ?? AirportTimeZoneResolver.timeZone(forIATACode: code)
         let tz: TimeZone = resolved ?? .current
-        return HStack(spacing: 4) {
+        return HStack(spacing: Theme.Spacing.xs) {
             Image(systemName: systemImage).font(.caption2)
             Text(code)
             Text(date, format: Date.FormatStyle(timeZone: tz).hour().minute())
@@ -258,7 +258,7 @@ struct AddFlightResultsStepView: View {
     private func statusColumn(_ candidate: AeroFlightCandidate) -> some View {
         if let summary = candidate.progressSummary() {
             let tint = summary.isPast ? Theme.textSecondary : Theme.accent
-            VStack(spacing: 2) {
+            VStack(spacing: Theme.Spacing.xxs) {
                 if let symbol = summary.symbol {
                     Image(systemName: symbol).font(.caption).foregroundStyle(tint)
                 }

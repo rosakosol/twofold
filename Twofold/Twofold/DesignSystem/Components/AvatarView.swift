@@ -98,7 +98,7 @@ struct AvatarView: View {
                 Circle().strokeBorder(.white, lineWidth: 2)
             }
         }
-        .shadow(color: .black.opacity(0.12), radius: 4, y: 2)
+        .themedShadow(Theme.Shadow.marker)
         // Without this VoiceOver reads the placeholder's initials literally — "P" — which tells
         // nobody anything, and the accessibility audit flags those initials as unscalable text.
         // They genuinely can't scale: the circle is a fixed diameter because it doubles as a map
@@ -152,7 +152,7 @@ struct AvatarView: View {
                 )
             Text(person.initials)
                 .font(.system(size: size * 0.38, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.onFill)
                 // Explicitly hidden as well as covered by the container's
                 // `.accessibilityElement(children: .ignore)` below. That modifier alone wasn't
                 // enough everywhere: where a caller wraps the avatar in its own overlay or button

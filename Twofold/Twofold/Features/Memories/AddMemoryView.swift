@@ -227,7 +227,7 @@ struct AddMemoryView: View {
     }
 
     private var dateLocationSummary: some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
             Button {
                 showingDatePicker = true
             } label: {
@@ -274,7 +274,7 @@ struct AddMemoryView: View {
                     ZStack(alignment: .topTrailing) {
                         MemoryPhotoThumbnail(photo: photo)
                             .frame(width: 72, height: 72)
-                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous))
                         removeButton { removeExistingPhoto(photo) }
                     }
                 }
@@ -291,7 +291,7 @@ struct AddMemoryView: View {
         ZStack(alignment: .topTrailing) {
             image.resizable().scaledToFill()
                 .frame(width: 72, height: 72)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous))
             removeButton(action: remove)
         }
     }

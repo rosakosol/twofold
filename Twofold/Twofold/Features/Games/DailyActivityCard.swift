@@ -93,7 +93,7 @@ struct DailyActivityCard: View {
                 HStack(spacing: Theme.Spacing.sm) {
                     ShimmeringGlobeHeart()
                         .frame(width: 28, height: 28)
-                    VStack(alignment: .leading, spacing: 2) {
+                    VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
                         Text("Today's deep question")
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(Theme.onFill)
@@ -199,7 +199,7 @@ struct DailyActivityCard: View {
     private var innerRadius: CGFloat { Theme.Radius.card - Theme.Spacing.md }
 
     private var streakText: some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
             Text(streakHeadline)
                 .font(.subheadline.weight(.bold))
             Text(streakSubline)
@@ -229,7 +229,7 @@ struct DailyActivityCard: View {
     }
 
     private var countdownBlock: some View {
-        VStack(alignment: .trailing, spacing: 2) {
+        VStack(alignment: .trailing, spacing: Theme.Spacing.xxs) {
             TimelineView(.periodic(from: .now, by: 1)) { context in
                 Text(countdownLabel(from: context.date))
                     .font(.caption2.weight(.medium))
@@ -348,7 +348,7 @@ struct DailyActivityCard: View {
                         Circle().fill(Theme.successFill)
                         Image(systemName: "checkmark")
                             .font(.system(size: 8, weight: .bold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(Theme.onFill)
                     }
                     .frame(width: 13, height: 13)
                     .overlay(Circle().strokeBorder(.white, lineWidth: 1.5))

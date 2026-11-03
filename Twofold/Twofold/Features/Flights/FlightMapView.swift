@@ -921,14 +921,14 @@ struct MapKitRouteView: UIViewRepresentable {
                     .fill(pinInk)
                     .frame(width: 10, height: 10)
                     .overlay(Circle().strokeBorder(.white, lineWidth: 2))
-                    .shadow(color: .black.opacity(0.2), radius: 2, y: 1)
+                    .themedShadow(Theme.Shadow.hairline)
                 Text(code)
                     .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(pinInk)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 3)
                     .background(.white, in: Capsule())
-                    .shadow(color: .black.opacity(0.15), radius: 2, y: 1)
+                    .themedShadow(Theme.Shadow.hairline)
             }
             .frame(width: size.width, height: size.height, alignment: .top)
         }
@@ -937,7 +937,7 @@ struct MapKitRouteView: UIViewRepresentable {
         /// flight, so it should read clearly at a glance rather than blend in with the route.
         private static func travelerMarker(_ person: Person) -> some View {
             AvatarView(person: person, size: 44, showsRing: true)
-                .shadow(color: .black.opacity(0.25), radius: 5, y: 2)
+                .themedShadow(Theme.Shadow.marker)
         }
 
         /// Both partners travelling together — two smaller avatars overlapping rather than one
@@ -954,7 +954,7 @@ struct MapKitRouteView: UIViewRepresentable {
                         .zIndex(person.id == currentUserID ? 1 : 0)
                 }
             }
-            .shadow(color: .black.opacity(0.25), radius: 5, y: 2)
+            .themedShadow(Theme.Shadow.marker)
         }
 
         private static func planeMarker(heading: Double?) -> some View {
@@ -962,7 +962,7 @@ struct MapKitRouteView: UIViewRepresentable {
                 Circle().fill(Theme.accentFill)
                 Image(systemName: "airplane")
                     .font(.caption.weight(.bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.onFill)
                     // SF Symbols' "airplane" glyph points due east (right) at rotation 0 —
                     // verified by rendering it at several rotations and comparing, since the
                     // commonly-assumed "points ~45° NE at rotation 0" turned out to be wrong.
@@ -978,7 +978,7 @@ struct MapKitRouteView: UIViewRepresentable {
                     .rotationEffect(.degrees((heading ?? 90) - 90))
             }
             .frame(width: 30, height: 30)
-            .shadow(color: .black.opacity(0.22), radius: 4, y: 2)
+            .themedShadow(Theme.Shadow.marker)
         }
 
         // MARK: - Great-circle route sampling

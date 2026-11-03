@@ -65,7 +65,7 @@ struct FlightMapSection: View {
         } label: {
             Image(systemName: "airplane")
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.onFill)
                 .padding(10)
                 .background(isCameraLocked ? AnyShapeStyle(Theme.accentFill) : AnyShapeStyle(.black.opacity(0.55)), in: Circle())
                 .overlay {

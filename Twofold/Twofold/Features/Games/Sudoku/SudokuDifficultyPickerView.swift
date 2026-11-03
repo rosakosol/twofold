@@ -103,7 +103,7 @@ struct SudokuDifficultyPickerView: View {
     }
 
     private func tally(_ value: String, label: String, isLeading: Bool) -> some View {
-        VStack(spacing: 2) {
+        VStack(spacing: Theme.Spacing.xxs) {
             Text(value)
                 .scaledFont(size: 30, weight: .bold, relativeTo: .title)
                 .monospacedDigit()
@@ -164,7 +164,7 @@ struct SudokuDifficultyPickerView: View {
         } label: {
             SectionCard {
                 HStack(spacing: Theme.Spacing.md) {
-                    VStack(alignment: .leading, spacing: 2) {
+                    VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
                         Text(difficulty.displayName)
                             .font(.headline)
                             .foregroundStyle(Theme.textPrimary)
@@ -218,7 +218,7 @@ struct SudokuDifficultyPickerView: View {
 
     private func historyRow(_ entry: BackendService.SudokuHistoryEntry) -> some View {
         HStack(spacing: Theme.Spacing.sm) {
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
                 Text(entry.difficulty.map { "\($0.displayName) Sudoku" } ?? "Sudoku")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(Theme.textPrimary)
@@ -227,7 +227,7 @@ struct SudokuDifficultyPickerView: View {
                     .foregroundStyle(Theme.textSecondary)
             }
             Spacer(minLength: Theme.Spacing.sm)
-            VStack(alignment: .trailing, spacing: 2) {
+            VStack(alignment: .trailing, spacing: Theme.Spacing.xxs) {
                 timeLine(name: "You", time: entry.mine, pending: "Not finished")
                 timeLine(name: appModel.partner.name, time: entry.partner, pending: entry.mine == nil ? "" : "Waiting")
             }

@@ -338,7 +338,7 @@ struct FullStatsView: View {
     }
 
     private func regionTile(region: CountryRegion, count: Int) -> some View {
-        VStack(spacing: 2) {
+        VStack(spacing: Theme.Spacing.xxs) {
             Text("\(count)x")
                 .font(.title3.bold())
                 .foregroundStyle(count > 0 ? Theme.textPrimary : Theme.textSecondary)
@@ -351,7 +351,7 @@ struct FullStatsView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, Theme.Spacing.sm)
-        .themedCardBackground(cornerRadius: 12)
+        .themedCardBackground(cornerRadius: Theme.Radius.small)
         .accessibilityElement(children: .combine)
     }
 
@@ -394,7 +394,7 @@ struct FullStatsView: View {
     private func multipleRow(emoji: String, value: Double, precision: Int, label: String) -> some View {
         HStack(spacing: Theme.Spacing.sm) {
             Text(emoji)
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                 HStack {
                     Text(label)
                         .font(.subheadline)

@@ -41,7 +41,7 @@ struct DistanceRevealShareView: View {
                     card
                         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { cardHeight = $0 }
                         .scaleEffect(scale, anchor: .center)
-                        .shadow(color: .black.opacity(0.2), radius: 20, y: 10)
+                        .themedShadow(Theme.Shadow.preview)
                         .frame(width: proxy.size.width, height: proxy.size.height)
                 }
                 .padding(.horizontal, Theme.Spacing.md)

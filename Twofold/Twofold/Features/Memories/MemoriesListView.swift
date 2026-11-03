@@ -252,7 +252,7 @@ struct MemoriesListView: View {
     // MARK: - Year scrubber
 
     private func yearScrubber(onSelect: @escaping (Int) -> Void) -> some View {
-        VStack(spacing: 8) {
+        VStack(spacing: Theme.Spacing.sm) {
             ForEach(availableYears, id: \.self) { year in
                 Button {
                     onSelect(year)
@@ -375,7 +375,7 @@ struct MemoriesListView: View {
                 MemoryPhotoView(memory: memory, cornerRadius: Theme.Radius.image - 4)
                     .frame(width: 72, height: 72)
 
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                     Text(memory.title)
                         .font(.headline)
                         .foregroundStyle(Theme.textPrimary)
@@ -407,7 +407,7 @@ struct MemoriesListView: View {
                             Image(systemName: "photo.badge.plus").foregroundStyle(Theme.accent)
                         }
                         .frame(width: 40, height: 40)
-                        VStack(alignment: .leading, spacing: 2) {
+                        VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
                             Text("Add your first memory").font(.headline).foregroundStyle(Theme.textPrimary)
                             Text("Tap to save a photo from a moment together.")
                                 .font(.caption)

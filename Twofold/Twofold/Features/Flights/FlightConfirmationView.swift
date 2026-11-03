@@ -86,10 +86,10 @@ struct FlightConfirmationView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: Theme.Spacing.md) {
-                    VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                         HStack(spacing: Theme.Spacing.sm) {
                             AirlineLogoView(url: candidate.logoURL, size: 32)
-                            VStack(alignment: .leading, spacing: 2) {
+                            VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
                                 Text(candidate.displayFlightNumber).font(.title2.weight(.bold))
                                 if let operatorName = candidate.operatorName {
                                     Text(operatorName).font(.caption).foregroundStyle(Theme.textSecondary)

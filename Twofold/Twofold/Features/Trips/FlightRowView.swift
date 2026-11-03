@@ -62,7 +62,7 @@ struct FlightRowView: View {
     }
 
     private var details: some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
             // "Departs in 24d 8h" in accent while it is ahead, "Arrived 10 days ago" in
             // textSecondary once it is behind you (section 6, Travel).
             Text(flight.countdownSummary)

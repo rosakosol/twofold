@@ -173,7 +173,7 @@ struct FlightDocumentsCard: View {
         .padding(.horizontal, Theme.Spacing.sm)
         .padding(.vertical, Theme.Spacing.xs + 2)
         .frame(maxWidth: .infinity)
-        .themedCardBackground(cornerRadius: 12)
+        .themedCardBackground(cornerRadius: Theme.Radius.small)
     }
 
     /// Renders either a bundled asset (e.g. the boarding-pass glyph, tinted like an SF Symbol

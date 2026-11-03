@@ -39,7 +39,7 @@ struct GameCard: View {
         .frame(maxWidth: width == nil ? .infinity : nil, alignment: .center)
         .themedCardBackground(cornerRadius: Theme.Radius.card)
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
-        .shadow(color: .black.opacity(0.06), radius: 6, y: 3)
+        .themedShadow(Theme.Shadow.paper)
         .overlay {
             if isLocked {
                 PartnerRequiredOverlay()

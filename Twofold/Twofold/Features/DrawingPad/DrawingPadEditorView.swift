@@ -90,7 +90,7 @@ struct DrawingPadEditorView: View {
                     backgroundImage: backgroundImage
                 )
                     .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
-                    .shadow(color: .black.opacity(0.1), radius: 8, y: 4)
+                    .themedShadow(Theme.Shadow.paper)
                     .padding(Theme.Spacing.md)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
 

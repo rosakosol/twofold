@@ -66,7 +66,7 @@ struct FlightDocumentTagSheet: View {
                         .submitLabel(.done)
                         .onSubmit { if canConfirm { confirm() } }
                         .padding(Theme.Spacing.sm)
-                        .themedCardBackground(cornerRadius: 12)
+                        .themedCardBackground(cornerRadius: Theme.Radius.small)
                 }
                 .transition(.opacity)
             }
@@ -109,7 +109,7 @@ struct FlightDocumentTagSheet: View {
             }
             .padding(Theme.Spacing.sm)
             .frame(maxWidth: .infinity)
-            .themedCardBackground(cornerRadius: 12)
+            .themedCardBackground(cornerRadius: Theme.Radius.small)
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(docType == type ? [.isButton, .isSelected] : .isButton)

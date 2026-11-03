@@ -49,19 +49,19 @@ struct FlightGoodToKnowCard: View {
 
     private func weatherPanel(code: String, weather: FlightWeather?) -> some View {
         VStack(spacing: Theme.Spacing.xs) {
-            Text(code).font(.caption.weight(.semibold)).foregroundStyle(.white.opacity(0.85))
+            Text(code).font(.caption.weight(.semibold)).foregroundStyle(Theme.onFill.opacity(0.85))
             Image(systemName: Self.weatherIcon(for: weather?.conditions))
                 .font(.title2)
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.onFill)
             Text(weather?.temperatureC.map { "\(Int($0))°C" } ?? "—")
                 .font(.title3.weight(.bold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.onFill)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(.vertical, Theme.Spacing.sm)
         .background(
             Theme.flight,
-            in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+            in: RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous)
         )
     }
 
@@ -85,7 +85,7 @@ struct FlightGoodToKnowCard: View {
                 let hoursApart = Int((Double(destTZ.secondsFromGMT(for: context.date) - originTZ.secondsFromGMT(for: context.date)) / 3600).rounded())
                 HStack(spacing: Theme.Spacing.sm) {
                     timeZoneChip(code: flight.origin.displayCode, timeZone: originTZ, date: context.date)
-                    VStack(spacing: 2) {
+                    VStack(spacing: Theme.Spacing.xxs) {
                         Image(systemName: "arrow.left.and.right").font(.caption2)
                         Text(hoursApart == 0 ? "Same time" : "\(hoursApart > 0 ? "+" : "")\(hoursApart)h")
                             .font(.caption2.weight(.bold))
@@ -101,7 +101,7 @@ struct FlightGoodToKnowCard: View {
     private func timeZoneChip(code: String, timeZone: TimeZone, date: Date) -> some View {
         let hour = TimeMath.hourFraction(in: timeZone, at: date)
         let isDaytime = hour >= 6 && hour < 18
-        return VStack(spacing: 4) {
+        return VStack(spacing: Theme.Spacing.xs) {
             Image(systemName: isDaytime ? "sun.max.fill" : "moon.stars.fill")
                 .font(.caption)
                 .foregroundStyle(isDaytime ? Theme.accent : Theme.textSecondary)
@@ -110,6 +110,6 @@ struct FlightGoodToKnowCard: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(.vertical, Theme.Spacing.sm)
-        .background(Theme.textSecondary.opacity(0.06), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(Theme.textSecondary.opacity(0.06), in: RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous))
     }
 }

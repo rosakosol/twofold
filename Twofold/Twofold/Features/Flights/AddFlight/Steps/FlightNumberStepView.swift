@@ -37,7 +37,7 @@ struct FlightNumberStepView: View {
                 HStack(alignment: .top, spacing: Theme.Spacing.sm) {
                     Image(systemName: "number")
                         .foregroundStyle(Theme.textSecondary)
-                    VStack(alignment: .leading, spacing: 2) {
+                    VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
                         Text("Just the number").font(.subheadline.weight(.semibold))
                         Text("Leave out the airline code — that's the box on the left")
                             .font(.caption).foregroundStyle(Theme.textSecondary)
@@ -50,7 +50,7 @@ struct FlightNumberStepView: View {
                     } label: {
                         HStack(spacing: Theme.Spacing.sm) {
                             AirlineLogoView(url: AirlineLogo.url(forIATACode: airline.iata), size: 32)
-                            VStack(alignment: .leading, spacing: 2) {
+                            VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
                                 Text("\(airline.name) \(model.flightNumberDigits)")
                                     .font(.subheadline.weight(.semibold))
                                     .foregroundStyle(Theme.textPrimary)

@@ -106,7 +106,7 @@ struct AddFlightRouteStepView: View {
                 .foregroundStyle(airport == nil ? Theme.textSecondary : Theme.accent)
                 .frame(width: 28)
 
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
                 Text(isDeparture ? "From" : "To")
                     .font(.footnote.weight(.semibold))
                     .foregroundStyle(Theme.textSecondary)
@@ -202,7 +202,7 @@ struct AddFlightRouteStepView: View {
                     .padding(.vertical, 6)
                     .background(Theme.accent.opacity(0.15), in: Capsule())
 
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
                     Text(airport.name)
                         .font(.subheadline.weight(.medium))
                         .foregroundStyle(Theme.textPrimary)

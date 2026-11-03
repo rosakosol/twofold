@@ -110,7 +110,7 @@ struct AddFlightDateStepView: View {
                 Image(systemName: "calendar.badge.checkmark")
                     .font(.title3)
                     .foregroundStyle(Theme.success)
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
                     Text(date, format: .dateTime.weekday(.wide).day().month(.wide).year())
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(Theme.textPrimary)
@@ -143,7 +143,7 @@ struct AddFlightDateStepView: View {
             HStack {
                 Image(systemName: isSelected ? "checkmark.square.fill" : "square")
                     .foregroundStyle(isSelected ? Theme.success : Theme.textSecondary)
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
                     Text(title).font(.subheadline.weight(.medium)).foregroundStyle(Theme.textPrimary)
                     Text(date, format: .dateTime.weekday(.abbreviated).day().month(.abbreviated))
                         .font(.caption)

@@ -59,7 +59,7 @@ struct MemoriesView: View {
     }
 
     private var modeToggle: some View {
-        HStack(spacing: 2) {
+        HStack(spacing: Theme.Spacing.xxs) {
             toggleButton(mode: .list, systemImage: "list.bullet")
             toggleButton(mode: .map, systemImage: "map")
         }

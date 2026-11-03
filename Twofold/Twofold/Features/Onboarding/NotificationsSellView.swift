@@ -156,23 +156,23 @@ struct NotificationsSellView: View {
 
             // MARK: Notification copy
 
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
+                HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.xsm) {
                     Text(preview.title)
                         .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.onFill)
                         .lineLimit(1)
 
                     Spacer(minLength: 8)
 
                     Text("now")
                         .font(.system(size: 15))
-                        .foregroundStyle(.white.opacity(0.55))
+                        .foregroundStyle(Theme.onFill.opacity(0.55))
                 }
 
                 Text(preview.body)
                     .font(.system(size: 15))
-                    .foregroundStyle(.white.opacity(0.9))
+                    .foregroundStyle(Theme.onFill.opacity(0.9))
                     .lineLimit(2)
             }
         }
@@ -194,7 +194,7 @@ struct NotificationsSellView: View {
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
                         .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
                 }
-                .shadow(color: .black.opacity(0.28), radius: 18, x: 0, y: 10)
+                .themedShadow(Theme.Shadow.preview)
         }
         // 10 (was 28) — same "pop out" margin the Live Activity card uses, so the banner
         // stretches wider than the phone chassis instead of sitting flush inside it.
