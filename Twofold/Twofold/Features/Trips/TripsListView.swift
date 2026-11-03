@@ -20,6 +20,7 @@ import SwiftUI
 
 struct TripsListView: View {
     @Environment(AppModel.self) private var appModel
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     // Trips unless -demoMode asks for Flights (App/DemoMode.swift), for a screenshot of that segment.
     @State private var tab: TripsTab = DemoMode.argument("demoTravelSegment") == "flights" ? .flights : .trips
     @State private var showingAddTrip = false
@@ -390,7 +391,7 @@ struct TripsListView: View {
             // that it covers the header too, and so that the flexible `Spacer` below — which has
             // no natural height of its own and would simply report back whatever height the panel
             // already had — stays outside it.
-            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height in
+            .onContentHeightChange { height in
                 // Only at rest, and only while peek is what's actually laid out. Mid-drag the
                 // panel is shorter than its content, so the stack is compressed and reports a
                 // height that would feed straight back into the height driving the compression.
@@ -417,6 +418,9 @@ struct TripsListView: View {
                 Spacer(minLength: 0)
             }
         }
+        // Top-aligned, so content measured taller than the panel (see `onContentHeightChange`)
+        // runs off the bottom edge rather than being centred and losing the title off the top.
+        .frame(maxHeight: .infinity, alignment: .top)
         // Explicit, so the peek-card/full-list swap always cross-fades rather than popping —
         // `settledDetent` now only ever changes once, at rest (`DraggablePanelHost`'s
         // `onSettle`), but this still keeps that one transition smooth.
@@ -559,7 +563,11 @@ struct TripsListView: View {
     /// trips" and so duplicated what expanding already does. That still holds — these are stacked,
     /// not scrollable, so peek stays a glance at what's next rather than a browsing mode of its
     /// own. It just shows two of them, which is what most couples have in flight at once anyway.
-    private let peekItemLimit = 2
+    ///
+    /// One at accessibility text sizes. A card there is several times its usual height, and two of
+    /// them are taller than iPhone Duo's outer display — or a small phone — can give the panel at
+    /// all, so the second would only ever be cut off at the bottom.
+    private var peekItemLimit: Int { dynamicTypeSize.isAccessibilitySize ? 1 : 2 }
 
     /// True when peek is showing an empty-state hint rather than cards. Mirrors `peekContent`'s
     /// own two branches exactly — Trips on *upcoming* trips (`tripsPeekHint`), Flights on *tracked*

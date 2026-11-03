@@ -251,3 +251,21 @@ struct DraggablePanelHost<Content: View>: UIViewRepresentable {
         }
     }
 }
+
+extension View {
+    /// Reports the height this view needs, for a panel that sizes itself to its content.
+    ///
+    /// The height it *needs*, not the height it was given. A panel measured from inside itself is
+    /// only as tall as its last measurement, and content taller than that gets laid out squeezed —
+    /// text truncated to fit — and reports the squeezed height back. The panel could then shrink to
+    /// its content but never grow to it: at accessibility text sizes the Travel panel's peek held
+    /// its trip and flight cards at "Melbourne t…" and "Departs in 19d…" for good.
+    ///
+    /// Laid out at its ideal height instead, the content may run past the panel's bottom edge for
+    /// the one pass before the panel catches up; the panel clips it, and its content is pinned to
+    /// the top so the overflow is at the bottom.
+    func onContentHeightChange(_ action: @escaping (CGFloat) -> Void) -> some View {
+        fixedSize(horizontal: false, vertical: true)
+            .onGeometryChange(for: CGFloat.self, of: { $0.size.height }, action: action)
+    }
+}
