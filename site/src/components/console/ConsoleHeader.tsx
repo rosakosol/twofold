@@ -35,19 +35,23 @@ const CONSOLE_LINKS = [
   //
   // Distinct from /feedback itself, which stays in the website's nav: the privacy policy describes
   // that board as readable by anyone, signed in or not, and it is where users post and vote.
-  { href: "/admin", label: "Feedback", exact: true },
+  //
+  // Feedback, Games and Studio are the content role's: their writes are `is_feedback_admin()`,
+  // which is role = 'content' (20261109000000). Shown to a support- or billing-only admin they were
+  // tabs whose every save failed.
+  { href: "/admin", label: "Feedback", exact: true, role: "content" as const },
   // Accounts. Its own role, because reading somebody's email, partner and subscription is a
   // narrower grant than editing a deck — see 20261109000000.
   { href: "/admin/support", label: "Support", exact: false, role: "support" as const },
   { href: "/admin/users", label: "Users", exact: false, role: "support" as const },
   // Blocks, and an honest note about why there is no report queue.
   { href: "/admin/moderation", label: "Moderation", exact: false, role: "support" as const },
-  { href: "/admin/games", label: "Games", exact: false },
+  { href: "/admin/games", label: "Games", exact: false, role: "content" as const },
   // Spend. Its own role, so its own visibility — see useIsBillingAdmin below.
   { href: "/admin/usage", label: "Usage", exact: false, role: "billing" as const },
   // Sanity Studio renders its own full-viewport chrome and is not wrapped by this layout, so this
   // is a link out rather than a tab that keeps the bar on screen.
-  { href: "/studio", label: "Studio", exact: false },
+  { href: "/studio", label: "Studio", exact: false, role: "content" as const },
 ];
 
 export function ConsoleHeader() {
@@ -86,9 +90,7 @@ export function ConsoleHeader() {
 
         <nav aria-label="Console">
           <ul className="site-nav-links">
-            {CONSOLE_LINKS.filter((link) =>
-              link.role === "billing" ? roles.billing : link.role === "support" ? roles.support : true,
-            ).map((link) => {
+            {CONSOLE_LINKS.filter((link) => roles[link.role]).map((link) => {
               const isActive = link.exact ? pathname === link.href : pathname.startsWith(link.href);
               return (
                 <li key={link.href}>

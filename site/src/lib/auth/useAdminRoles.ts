@@ -27,6 +27,12 @@ const NONE: AdminRoles = { content: false, support: false, billing: false };
  * real thing anyway, so a stale answer here shows or hides a tab, never grants anything.
  */
 export function useAdminRoles(): AdminRoles {
+  return useAdminRolesState().roles;
+}
+
+/** The same, plus whether the answer is in yet, for a caller that must not act on the
+ *  all-false placeholder (a "you can't edit this" note would flash for every admin). */
+export function useAdminRolesState(): { roles: AdminRoles; isLoaded: boolean } {
   const { data } = useQuery({
     queryKey: ["auth", "my_admin_roles"],
     queryFn: async () => {
@@ -38,5 +44,5 @@ export function useAdminRoles(): AdminRoles {
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
-  return data ?? NONE;
+  return { roles: data ?? NONE, isLoaded: data !== undefined };
 }

@@ -9,6 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet";
 import { useCreateDeck, useUpdateDeck } from "@/lib/queries/useGameContentMutations";
+import { describeDbError } from "@/lib/supabase/dbError";
 import { DECK_CONTENT_TYPES, TIER_VALUES, type GameDeck, type GameType } from "@/lib/games/contentTypes";
 
 interface Props {
@@ -69,8 +70,8 @@ export function DeckForm({ editingDeck, open, onOpenChange }: Props) {
         toast.success("Created");
       }
       onOpenChange(false);
-    } catch {
-      toast.error("Couldn't save — check the fields and try again.");
+    } catch (error) {
+      toast.error(describeDbError(error, "Couldn't save — check the fields and try again."));
     }
   }
 

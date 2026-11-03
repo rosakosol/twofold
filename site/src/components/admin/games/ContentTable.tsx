@@ -23,6 +23,7 @@ import { useGameContentForDeck, useGameContentPage, useGameDecks } from "@/lib/q
 import { useDeleteContent, useUpdateContent } from "@/lib/queries/useGameContentMutations";
 import { ContentForm } from "@/components/admin/games/ContentForm";
 import { deckIdOf, tierOf } from "@/lib/games/contentTypes";
+import { describeDbError } from "@/lib/supabase/dbError";
 import type { ContentRow, ContentTypeConfig, TieredContentTypeKey } from "@/lib/games/contentTypes";
 
 /** Enough to scan a category without scrolling forever; the daily question bank alone is over a
@@ -38,8 +39,8 @@ function DeleteButton({ contentType, row }: { contentType: ContentTypeConfig; ro
       await del.mutateAsync(row.id);
       toast.success("Deleted");
       setOpen(false);
-    } catch {
-      toast.error("Couldn't delete this entry.");
+    } catch (error) {
+      toast.error(describeDbError(error, "Couldn't delete this entry."));
     }
   }
 
@@ -84,7 +85,7 @@ function ActiveToggle({ contentType, row }: { contentType: ContentTypeConfig; ro
       onCheckedChange={(checked) =>
         update.mutate(
           { id: row.id, patch: { active: checked } as never },
-          { onError: () => toast.error("Couldn't update.") }
+          { onError: (error) => toast.error(describeDbError(error, "Couldn't update.")) }
         )
       }
     />

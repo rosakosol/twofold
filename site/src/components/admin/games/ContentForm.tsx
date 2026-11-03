@@ -18,6 +18,7 @@ import {
   SheetFooter,
 } from "@/components/ui/sheet";
 import { useCreateContent, useUpdateContent } from "@/lib/queries/useGameContentMutations";
+import { describeDbError } from "@/lib/supabase/dbError";
 import { DIFFICULTY_VALUES, TIER_VALUES, deckIdOf, tierOf, type ContentRow, type ContentTypeConfig, type GameDeck, type TriviaQuestion } from "@/lib/games/contentTypes";
 
 const NO_DECK = "__no_deck__";
@@ -131,7 +132,7 @@ export function ContentForm({ contentType, decks, editingRow, open, onOpenChange
       // "check the fields" would send someone looking for a mistake that isn't there.
       const { code, message } = (error ?? {}) as { code?: string; message?: string };
       const deckIsFull = code === "23514" && Boolean(message?.includes("is full"));
-      toast.error(deckIsFull ? message : "Couldn't save — check the fields and try again.");
+      toast.error(deckIsFull ? message : describeDbError(error, "Couldn't save — check the fields and try again."));
     }
   }
 

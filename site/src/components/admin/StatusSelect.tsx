@@ -3,6 +3,7 @@
 import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useUpdateFeatureStatus } from "@/lib/queries/useAdminMutations";
+import { describeDbError } from "@/lib/supabase/dbError";
 import { STATUS_LABELS, STATUS_VALUES, type FeatureStatus } from "@/lib/utils/constants";
 
 export function StatusSelect({ featureId, status }: { featureId: string; status: FeatureStatus }) {
@@ -12,7 +13,7 @@ export function StatusSelect({ featureId, status }: { featureId: string; status:
     if (!value) return;
     updateStatus.mutate(
       { id: featureId, status: value as FeatureStatus },
-      { onError: () => toast.error("Couldn't update status.") }
+      { onError: (error) => toast.error(describeDbError(error, "Couldn't update status.")) }
     );
   }
 

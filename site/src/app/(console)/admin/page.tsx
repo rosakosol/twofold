@@ -1,19 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SearchBar } from "@/components/feedback/SearchBar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AdminFeatureTable } from "@/components/admin/AdminFeatureTable";
 import { ConsoleEmpty, ConsolePageHead, StatTiles, ConsoleError } from "@/components/console/ConsoleUI";
 import { useAdminFeatureList, type AdminFeatureFilters } from "@/lib/queries/useAdminFeatures";
+import { useAdminRolesState } from "@/lib/auth/useAdminRoles";
 import { STATUS_LABELS, STATUS_VALUES, type FeatureStatus } from "@/lib/utils/constants";
 
 const ALL = "__all__";
 
 /** The public board, from the inside (docs/TWOFOLD_WEBSITE.md, section 9.2): set a status, merge,
- *  pin, and post updates. */
+ *  pin and edit. */
 export default function AdminPage() {
+  const { roles, isLoaded } = useAdminRolesState();
   const [status, setStatus] = useState<FeatureStatus | undefined>(undefined);
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<AdminFeatureFilters["sort"]>("newest");
@@ -30,8 +33,17 @@ export default function AdminPage() {
     <div>
       <ConsolePageHead
         title="Feedback requests"
-        description="Requests from the public feedback board. Set a status, merge duplicates, pin and post updates."
+        description="Requests from the public feedback board. Set a status, merge duplicates, pin and edit."
       />
+
+      <Suspense>
+        <DeniedNotice />
+      </Suspense>
+      {isLoaded && !roles.content && (
+        <p className="field-hint">
+          You can read the board here, but changing requests needs the content role.
+        </p>
+      )}
 
       <StatTiles
         items={[
@@ -94,5 +106,22 @@ export default function AdminPage() {
         </>
       )}
     </div>
+  );
+}
+
+const ROLE_NAMES: Record<string, string> = { support: "support", billing: "billing" };
+
+/**
+ * Why somebody has just landed here. A page whose role you don't hold sends you to /admin, which
+ * used to happen silently, so following a colleague's link to /admin/usage just showed Feedback.
+ */
+function DeniedNotice() {
+  const role = ROLE_NAMES[useSearchParams().get("denied") ?? ""];
+  if (!role) return null;
+  return (
+    <p className="field-error" role="status">
+      That page needs the {role} role, which this account doesn&apos;t have. Ask whoever manages console
+      access if you need it.
+    </p>
   );
 }

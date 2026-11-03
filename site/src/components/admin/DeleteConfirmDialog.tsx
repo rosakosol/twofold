@@ -15,6 +15,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { describeDbError } from "@/lib/supabase/dbError";
 import { useDeleteFeature } from "@/lib/queries/useAdminMutations";
 
 export function DeleteConfirmDialog({ featureId, title }: { featureId: string; title: string }) {
@@ -26,8 +27,8 @@ export function DeleteConfirmDialog({ featureId, title }: { featureId: string; t
       await deleteFeature.mutateAsync(featureId);
       toast.success("Request deleted");
       setOpen(false);
-    } catch {
-      toast.error("Couldn't delete this request.");
+    } catch (error) {
+      toast.error(describeDbError(error, "Couldn't delete this request."));
     }
   }
 

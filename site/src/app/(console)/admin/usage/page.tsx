@@ -41,7 +41,7 @@ export default async function UsagePage() {
     supabase.rpc("api_usage_daily_series", { p_provider: "aeroapi" }),
   ]);
 
-  if (dataOrThrow(roleResult, "your console role") !== true) redirect("/admin");
+  if (dataOrThrow(roleResult, "your console role") !== true) redirect("/admin?denied=billing");
 
   // `api_usage_summary` returns a single row; supabase-js gives a one-element array for a
   // table-returning function. A failed read throws rather than showing $0 of spend.

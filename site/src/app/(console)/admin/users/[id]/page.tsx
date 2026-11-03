@@ -45,7 +45,7 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
     supabase.rpc("admin_reports_about", { p_profile_id: id }),
   ]);
 
-  if (dataOrThrow(roleResult, "your console role") !== true) redirect("/admin");
+  if (dataOrThrow(roleResult, "your console role") !== true) redirect("/admin?denied=support");
   // "No such account" only when it is one: a null row (unknown id) or a malformed id. A refusal or
   // an outage used to land here too, telling the operator an account they could see a moment ago
   // did not exist.

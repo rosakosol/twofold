@@ -40,7 +40,7 @@ export default async function SupportPage({
 
   // Role first (the inbox read fails on purpose without it), then a failed inbox read throws to
   // the console's error page rather than rendering as an empty inbox.
-  if (dataOrThrow(roleResult, "your console role") !== true) redirect("/admin");
+  if (dataOrThrow(roleResult, "your console role") !== true) redirect("/admin?denied=support");
   const requests = listOrThrow(requestsResult, "the support inbox") as SupportRequest[];
 
   return (

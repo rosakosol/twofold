@@ -52,7 +52,7 @@ export default async function ModerationPage() {
   // The role first: for anybody without it the other three reads fail on purpose (42501), and they
   // belong on /admin rather than on an error page. Then every read has to have worked, because this
   // page's empty state says "nothing to look at", which a failed read must never say.
-  if (dataOrThrow(roleResult, "your console role") !== true) redirect("/admin");
+  if (dataOrThrow(roleResult, "your console role") !== true) redirect("/admin?denied=support");
   const rows = listOrThrow(blockedResult, "repeatedly blocked accounts") as MostBlocked[];
   // Block notices ride along in the same rows; an account only blocked, never reported, is the
   // other card's business.

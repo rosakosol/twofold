@@ -14,6 +14,7 @@ import { useAdminFeature } from "@/lib/queries/useAdminFeatures";
 import { useUpdateFeatureDetails } from "@/lib/queries/useAdminMutations";
 import { ConsoleError } from "@/components/console/ConsoleUI";
 import { isNotFoundError } from "@/lib/console/readResult";
+import { describeDbError } from "@/lib/supabase/dbError";
 import { CATEGORY_LABELS, CATEGORY_VALUES, type FeatureCategory } from "@/lib/utils/constants";
 
 export default function AdminEditFeaturePage({ params }: { params: Promise<{ id: string }> }) {
@@ -44,8 +45,8 @@ export default function AdminEditFeaturePage({ params }: { params: Promise<{ id:
     try {
       await updateDetails.mutateAsync({ title, description, category });
       toast.success("Saved");
-    } catch {
-      toast.error("Couldn't save changes.");
+    } catch (error) {
+      toast.error(describeDbError(error, "Couldn't save changes."));
     }
   }
 

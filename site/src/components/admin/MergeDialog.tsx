@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { useAdminFeatureList } from "@/lib/queries/useAdminFeatures";
+import { describeDbError } from "@/lib/supabase/dbError";
 import { useMergeFeatures } from "@/lib/queries/useAdminMutations";
 
 export function MergeDialog({ featureId, title }: { featureId: string; title: string }) {
@@ -30,8 +31,8 @@ export function MergeDialog({ featureId, title }: { featureId: string; title: st
       await mergeFeatures.mutateAsync({ sourceId: featureId, targetId });
       toast.success("Merged");
       setOpen(false);
-    } catch {
-      toast.error("Couldn't merge these requests.");
+    } catch (error) {
+      toast.error(describeDbError(error, "Couldn't merge these requests."));
     }
   }
 

@@ -25,6 +25,7 @@ import {
 import { useGameDecks } from "@/lib/queries/useGameContent";
 import { useDeleteDeck, useUpdateDeck } from "@/lib/queries/useGameContentMutations";
 import { DeckForm } from "@/components/admin/games/DeckForm";
+import { describeDbError } from "@/lib/supabase/dbError";
 import { CONTENT_TYPES, type GameDeck, type GameType } from "@/lib/games/contentTypes";
 
 const LABEL_BY_GAME_TYPE = new Map(CONTENT_TYPES.map((c) => [c.gameType, c.label]));
@@ -43,8 +44,8 @@ function DeleteButton({ deck }: { deck: GameDeck }) {
             : "."),
       );
       setOpen(false);
-    } catch {
-      toast.error("Couldn't delete this deck.");
+    } catch (error) {
+      toast.error(describeDbError(error, "Couldn't delete this deck."));
     }
   }
 
@@ -90,7 +91,7 @@ function ActiveToggle({ deck }: { deck: GameDeck }) {
       checked={deck.active}
       disabled={update.isPending}
       onCheckedChange={(checked) =>
-        update.mutate({ id: deck.id, patch: { active: checked } }, { onError: () => toast.error("Couldn't update.") })
+        update.mutate({ id: deck.id, patch: { active: checked } }, { onError: (error) => toast.error(describeDbError(error, "Couldn't update.")) })
       }
     />
   );

@@ -1,6 +1,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/db/types";
+// Updates and deletes ask for an exact count: one that RLS filters out returns no error, only 0.
+import { requireChanged } from "@/lib/supabase/dbError";
 import { CONTENT_TYPES, type ContentTypeKey, type GameDeck } from "@/lib/games/contentTypes";
 
 type ContentInsert<T extends ContentTypeKey> = Database["public"]["Tables"][T]["Insert"];
@@ -31,8 +33,10 @@ export function useUpdateContent<T extends ContentTypeKey>(table: T) {
   return useMutation({
     mutationFn: async ({ id, patch }: { id: string; patch: ContentUpdate<T> }) => {
       const supabase = createClient();
-      const { error } = await supabase.from(table).update(patch as never).eq("id" as never, id);
-      if (error) throw error;
+      requireChanged(
+        await supabase.from(table).update(patch as never, { count: "exact" }).eq("id" as never, id),
+        "entry",
+      );
     },
     onSuccess: () => invalidateContent(queryClient, table),
   });
@@ -43,8 +47,7 @@ export function useDeleteContent(table: ContentTypeKey) {
   return useMutation({
     mutationFn: async (id: string) => {
       const supabase = createClient();
-      const { error } = await supabase.from(table).delete().eq("id" as never, id);
-      if (error) throw error;
+      requireChanged(await supabase.from(table).delete({ count: "exact" }).eq("id" as never, id), "entry");
     },
     onSuccess: () => invalidateContent(queryClient, table),
   });
@@ -67,8 +70,7 @@ export function useUpdateDeck() {
   return useMutation({
     mutationFn: async ({ id, patch }: { id: string; patch: Database["public"]["Tables"]["game_decks"]["Update"] }) => {
       const supabase = createClient();
-      const { error } = await supabase.from("game_decks").update(patch).eq("id", id);
-      if (error) throw error;
+      requireChanged(await supabase.from("game_decks").update(patch, { count: "exact" }).eq("id", id), "deck");
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin", "game_decks"] }),
   });

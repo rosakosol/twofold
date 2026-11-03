@@ -1,5 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
+// Updates and deletes ask for an exact count: one that RLS filters out returns no error, only 0.
+import { requireChanged } from "@/lib/supabase/dbError";
 import type { FeatureCategory, FeatureStatus } from "@/lib/utils/constants";
 
 function invalidateFeatureQueries(queryClient: ReturnType<typeof useQueryClient>) {
@@ -12,8 +14,7 @@ export function useUpdateFeatureStatus() {
   return useMutation({
     mutationFn: async ({ id, status }: { id: string; status: FeatureStatus }) => {
       const supabase = createClient();
-      const { error } = await supabase.from("feature_requests").update({ status }).eq("id", id);
-      if (error) throw error;
+      requireChanged(await supabase.from("feature_requests").update({ status }, { count: "exact" }).eq("id", id), "request");
     },
     onSuccess: () => invalidateFeatureQueries(queryClient),
   });
@@ -24,11 +25,10 @@ export function useTogglePin() {
   return useMutation({
     mutationFn: async ({ id, isPinned }: { id: string; isPinned: boolean }) => {
       const supabase = createClient();
-      const { error } = await supabase
-        .from("feature_requests")
-        .update({ is_pinned: !isPinned })
-        .eq("id", id);
-      if (error) throw error;
+      requireChanged(
+        await supabase.from("feature_requests").update({ is_pinned: !isPinned }, { count: "exact" }).eq("id", id),
+        "request",
+      );
     },
     onSuccess: () => invalidateFeatureQueries(queryClient),
   });
@@ -39,8 +39,7 @@ export function useDeleteFeature() {
   return useMutation({
     mutationFn: async (id: string) => {
       const supabase = createClient();
-      const { error } = await supabase.from("feature_requests").delete().eq("id", id);
-      if (error) throw error;
+      requireChanged(await supabase.from("feature_requests").delete({ count: "exact" }).eq("id", id), "request");
     },
     onSuccess: () => invalidateFeatureQueries(queryClient),
   });
@@ -66,8 +65,7 @@ export function useUpdateFeatureDetails(id: string) {
   return useMutation({
     mutationFn: async (patch: { title: string; description: string; category: FeatureCategory }) => {
       const supabase = createClient();
-      const { error } = await supabase.from("feature_requests").update(patch).eq("id", id);
-      if (error) throw error;
+      requireChanged(await supabase.from("feature_requests").update(patch, { count: "exact" }).eq("id", id), "request");
     },
     onSuccess: () => invalidateFeatureQueries(queryClient),
   });
