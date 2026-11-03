@@ -8,6 +8,7 @@ import { nullableArg } from "@/lib/db/nullableArg";
 import { validateSupportRequest } from "@/lib/validation/support";
 import { emailTimestamp } from "@/lib/console/format";
 import { threadReference } from "@/lib/console/threadReference";
+import { threadReplyAddress } from "@/lib/mail/threadReplyAddress";
 
 // Web counterpart to the iOS app's submit-help-message edge function
 // (supabase/functions/submit-help-message) - same category list and same recipient
@@ -114,9 +115,11 @@ export async function POST(request: Request) {
   //
   // `submit_support_request_with_thread` files it exactly as `submit_support_request` does (it
   // calls it), and also says which console conversation it landed in, so the emails can quote a
-  // reference somebody in the console can find.
+  // reference somebody in the console can find, and its reply-to token, so a reply to the receipt
+  // lands in that conversation rather than starting a new one.
   let recorded = false;
   let threadId: string | null = null;
+  let threadToken: string | null = null;
   try {
     const { data, error } = await supabase.rpc("submit_support_request_with_thread", {
       p_category: category,
@@ -130,6 +133,9 @@ export async function POST(request: Request) {
     } else {
       recorded = true;
       threadId = data?.[0]?.thread_id ?? null;
+      // Optional on purpose: a database that has not had 20261121000300 yet returns no token, and
+      // the receipt then falls back to plain support@ rather than failing.
+      threadToken = data?.[0]?.thread_token ?? null;
     }
   } catch (err) {
     console.error("[support] could not record the request:", (err as Error).message);
@@ -148,6 +154,7 @@ export async function POST(request: Request) {
     sendReceipt: allowed === "allowed",
     recorded,
     threadId,
+    threadToken,
   });
 
   // Success means support has it: the row is in the console's queue, or the alert is in the
@@ -208,6 +215,10 @@ async function sendSupportEmails(input: {
   /// The console conversation the request was filed in, when it was. Its reference is the one both
   /// emails quote.
   threadId: string | null;
+  /// That conversation's reply-to token. Goes only into the receipt's Reply-To: whoever holds it can
+  /// post into the conversation, and the receipt is addressed to the person it is with. Never into
+  /// the alert, a body, or a log.
+  threadToken: string | null;
 }): Promise<{ alerted: boolean }> {
   // Never throws: the caller decides what a failure means from what did get through. Errors are
   // logged by message only, which never includes the visitor's address.
@@ -223,6 +234,13 @@ async function sendSupportEmails(input: {
   const ticketId = input.threadId ? threadReference(input.threadId) : generateTicketId();
   const receivedAt = formatDateTime(new Date());
   const escapedMessage = escapeHtml(input.message).replace(/\n/g, "<br>");
+  // With the conversation's own address, a reply is filed in it by the token, whatever the subject.
+  // Without it (nothing recorded, or no usable token) a reply to support@ is matched by subject and
+  // sender only, so keeping the reference in the subject is what holds the replies together.
+  const receiptReplyTo = threadReplyAddress(input.threadToken);
+  const replyHintHtml = receiptReplyTo
+    ? "It goes straight into this conversation."
+    : `Keep <strong style="color:#5b6b7a;">#${ticketId}</strong> in the subject so it lands on the same thread.`;
 
   const internalHtml = renderTemplate("support-internal-alert", {
     subject: `[${input.category}] Website support request - #${ticketId}`,
@@ -250,6 +268,7 @@ async function sendSupportEmails(input: {
     wait_tips_html: waitTipsHtml(input.category),
     help_center_url: `${SITE_URL}/faq`,
     support_email: SUPPORT_EMAIL,
+    reply_hint_html: replyHintHtml,
   });
 
   let alerted = false;
@@ -273,7 +292,7 @@ async function sendSupportEmails(input: {
       await transport.sendMail({
         from,
         to: input.email,
-        replyTo: SUPPORT_EMAIL,
+        replyTo: receiptReplyTo ?? SUPPORT_EMAIL,
         subject: extractSubject(receivedHtml),
         html: receivedHtml,
       });

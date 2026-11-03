@@ -76,7 +76,8 @@ conversation for the reasoning against building analytics nobody asked for), no 
 ## support-received.html — auto-reply to the user
 
 `{{first_name}}`, `{{response_time}}`, `{{ticket_id}}`, `{{received_at}}`,
-`{{message_body}}`, `{{wait_tips_html}}`, `{{help_center_url}}`, `{{support_email}}`
+`{{message_body}}`, `{{wait_tips_html}}`, `{{help_center_url}}`, `{{support_email}}`,
+`{{reply_hint_html}}`
 
 `{{ticket_id}}` is the console conversation's reference: the first eight characters of its
 `support_threads` id (`threadReference()` in `lib/console/threadReference.ts`). The console
@@ -87,6 +88,14 @@ the internal alert. `{{wait_tips_html}}` is a full HTML block built server-side 
 category (`waitTipsHtml()` in the route): concrete sync/tracking troubleshooting steps for
 Bug Report/Flight Tracking, a generic FAQ pointer for every other category — the original
 two hardcoded tips only made sense for sync issues specifically.
+
+`{{reply_hint_html}}` finishes the "Reply to this email" line, and says what a reply will
+actually do. When the request was recorded, the receipt's Reply-To is the conversation's own
+`support+t<token>@` address (`threadReplyAddress()` in `lib/mail/threadReplyAddress.ts`), which
+ingest-support-email files straight into that conversation whatever the subject says, so the line
+says so. When it was not recorded there is no conversation and no token: Reply-To is plain
+support@, a reply is matched by subject and sender, and the line asks them to keep the reference in
+the subject. The token itself never appears in the body, only in the Reply-To header.
 
 ## support-internal-alert.html — to you
 

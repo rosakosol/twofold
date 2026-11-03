@@ -15,7 +15,9 @@ const { SUPPORT_EMAIL } = await import("@/lib/mail/companyInfo");
 const VISITOR = "visitor@example.com";
 /** The console conversation the mock files every request in. Its reference is 4F1C09AB. */
 const THREAD_ID = "4f1c09ab-77de-4b2a-9e3c-0123456789ab";
-const RECORDED = { data: [{ request_id: "row-id", thread_id: THREAD_ID }], error: null };
+/** That conversation's reply-to token: what routes mail addressed `support+t<token>@` into it. */
+const THREAD_TOKEN = "a1b2c3d4e5";
+const RECORDED = { data: [{ request_id: "row-id", thread_id: THREAD_ID, thread_token: THREAD_TOKEN }], error: null };
 
 function submit(body: Record<string, unknown> = {}) {
   return POST(
@@ -42,6 +44,17 @@ function databaseUp() {
 
 function sentTo(address: string) {
   return sendMail.mock.calls.some(([mail]) => mail.to === address);
+}
+
+function mailTo(address: string) {
+  return sendMail.mock.calls.find(([mail]) => mail.to === address)?.[0];
+}
+
+/** The rpc mock, with the request row's result replaced. */
+function recordedAs(result: unknown) {
+  rpc.mockImplementation(async (fn: string) =>
+    fn === "consume_anon_rate_limit" ? { data: true, error: null } : result,
+  );
 }
 
 function subjectTo(address: string): string | undefined {
@@ -89,6 +102,50 @@ describe("POST /api/support", () => {
     expect(reference).toBeTruthy();
     expect(reference).not.toBe("4F1C09AB");
     expect(subjectTo(SUPPORT_EMAIL)).toContain("#" + reference);
+  });
+
+  it("sets the receipt's Reply-To to the conversation's own address, so a reply joins it", async () => {
+    // A reply to support@ was matched by subject and sender, and a web request has no subject, so
+    // it never joined the request's conversation. support+t<token>@ is resolved by the token.
+    sendMail.mockResolvedValue({});
+    await submit();
+    expect(mailTo(VISITOR)?.replyTo).toBe(`support+t${THREAD_TOKEN}@twofoldapp.com.au`);
+    expect(mailTo(VISITOR)?.html).toContain("straight into this conversation");
+    expect(mailTo(VISITOR)?.html).not.toContain("in the subject");
+  });
+
+  it("puts the token nowhere but the receipt's Reply-To", async () => {
+    // Whoever holds the token can post into the conversation, so it goes only to the requester.
+    sendMail.mockResolvedValue({});
+    await submit();
+    const alert = mailTo(SUPPORT_EMAIL);
+    expect(JSON.stringify(alert)).not.toContain(THREAD_TOKEN);
+    expect(alert?.replyTo).toBe(VISITOR);
+    const { replyTo, ...restOfReceipt } = mailTo(VISITOR);
+    expect(replyTo).toContain(THREAD_TOKEN);
+    expect(JSON.stringify(restOfReceipt)).not.toContain(THREAD_TOKEN);
+  });
+
+  it("falls back to plain support@ and the subject-line advice when the request couldn't be recorded", async () => {
+    recordedAs({ data: null, error: { message: "down" } });
+    sendMail.mockResolvedValue({});
+    await submit();
+    expect(mailTo(VISITOR)?.replyTo).toBe(SUPPORT_EMAIL);
+    expect(mailTo(VISITOR)?.html).toContain("in the subject");
+    expect(mailTo(VISITOR)?.html).not.toContain("straight into this conversation");
+  });
+
+  it.each([
+    ["no token (a database without the column yet)", { request_id: "row-id", thread_id: THREAD_ID }],
+    ["a token that isn't one", { request_id: "row-id", thread_id: THREAD_ID, thread_token: "x>\r\nBcc: a@b.c" }],
+  ])("falls back to plain support@ for %s", async (_label, row) => {
+    recordedAs({ data: [row], error: null });
+    sendMail.mockResolvedValue({});
+    await submit();
+    expect(mailTo(VISITOR)?.replyTo).toBe(SUPPORT_EMAIL);
+    expect(mailTo(VISITOR)?.html).toContain("in the subject");
+    // The reference is still the conversation's: only the routing is lost.
+    expect(subjectTo(VISITOR)).toBe("We got your message - #4F1C09AB");
   });
 
   it("doesn't ask the visitor to retry when only their receipt failed", async () => {

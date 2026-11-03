@@ -3581,6 +3581,7 @@ export type Database = {
         Returns: {
           request_id: string
           thread_id: string
+          thread_token: string
         }[]
       }
       subscriptions_to_reconcile: {
