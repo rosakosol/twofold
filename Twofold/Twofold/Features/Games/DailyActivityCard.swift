@@ -230,16 +230,14 @@ struct DailyActivityCard: View {
 
     private var countdownBlock: some View {
         VStack(alignment: .trailing, spacing: Theme.Spacing.xxs) {
-            TimelineView(.periodic(from: .now, by: 1)) { context in
-                Text(countdownLabel(from: context.date))
-                    .font(.caption2.weight(.medium))
-                    .foregroundStyle(Theme.textSecondary)
-                    .monospacedDigit()
-                    // A countdown that wraps ("Next in 05:1 / 4:22") is unreadable, and it has a
-                    // known maximum width, so it keeps its natural one rather than being squeezed.
-                    .lineLimit(1)
-                    .fixedSize(horizontal: true, vertical: false)
-            }
+            countdownText
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(Theme.textSecondary)
+                .monospacedDigit()
+                // A countdown that wraps ("Next in 05:1 / 4:22") is unreadable, and it has a
+                // known maximum width, so it keeps its natural one rather than being squeezed.
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
 
             // Sits under the countdown rather than in `streakSubline` (where it used to
             // live) because that line only ever renders once a streak is actually running
@@ -363,13 +361,28 @@ struct DailyActivityCard: View {
     /// timer counting down to a moment nothing happened at. For a couple the boundary depends on
     /// *both* partners' timezones (the later of the two midnights), which the client has no
     /// business reconstructing.
-    private func countdownLabel(from now: Date) -> String {
-        guard let nextBoundary = appModel.games.dailyStreakResetsAt else { return "" }
-        let remaining = max(0, Int(nextBoundary.timeIntervalSince(now)))
-        let hours = remaining / 3600
-        let minutes = (remaining % 3600) / 60
-        let seconds = remaining % 60
-        return String(format: "Next in %02d:%02d:%02d", hours, minutes, seconds)
+    ///
+    /// The system ticks the seconds, not this view. It used to be a `TimelineView` firing every
+    /// second, which re-ran this body sixty times a minute and meant the app was never idle while
+    /// the Games hub was on screen — a UI test waits for idle before every tap, and one screenshot
+    /// sweep spent 32 minutes here. A timer-formatted `Text` is redrawn by the system instead.
+    /// Hours always show, so it reads "Next in 0:45:12" rather than switching shape at the hour.
+    /// At the boundary it stops at 0:00:00 until the next streak fetch moves
+    /// `dailyStreakResetsAt` on, which rebuilds the range — the same as the old clamp to zero.
+    @ViewBuilder
+    private var countdownText: some View {
+        if let nextBoundary = appModel.games.dailyStreakResetsAt {
+            Text("Next in \(Text(.currentDate, format: .timer(countingDownIn: Self.countdownRange(now: .now, until: nextBoundary))))")
+        } else {
+            Text(verbatim: "")
+        }
+    }
+
+    /// From now to the boundary, or an empty range once it has passed — `Range` traps on a lower
+    /// bound above its upper one, and a boundary in the past is normal for the moment between the
+    /// reset and the next fetch.
+    static func countdownRange(now: Date, until boundary: Date) -> Range<Date> {
+        min(now, boundary)..<boundary
     }
 }
 
