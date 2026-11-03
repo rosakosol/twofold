@@ -737,6 +737,12 @@ html:has(.marketing-shell) {
   border-color: var(--sky-blue);
   box-shadow: 0 0 0 4px rgba(79, 169, 224, 0.14);
 }
+.support-field [aria-invalid="true"] {
+  border-color: var(--error);
+}
+.support-field .field-error {
+  margin-top: 6px;
+}
 .support-form .btn {
   align-self: flex-start;
 }

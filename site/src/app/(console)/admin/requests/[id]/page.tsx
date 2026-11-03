@@ -15,6 +15,7 @@ import { useUpdateFeatureDetails } from "@/lib/queries/useAdminMutations";
 import { ConsoleError } from "@/components/console/ConsoleUI";
 import { isNotFoundError } from "@/lib/db/readResult";
 import { describeDbError } from "@/lib/supabase/dbError";
+import { createFeatureRequestSchema } from "@/lib/validation/feature";
 import { CATEGORY_LABELS, CATEGORY_VALUES, type FeatureCategory } from "@/lib/utils/constants";
 
 export default function AdminEditFeaturePage({ params }: { params: Promise<{ id: string }> }) {
@@ -42,8 +43,15 @@ export default function AdminEditFeaturePage({ params }: { params: Promise<{ id:
       toast.error("Choose a category first.");
       return;
     }
+    // The same rules the public submit form applies. Skipped before, so an empty or one-character
+    // title went to the database and came back as a generic "Couldn't save changes."
+    const parsed = createFeatureRequestSchema.safeParse({ title, description, category });
+    if (!parsed.success) {
+      toast.error(parsed.error.issues[0]?.message ?? "Check the fields and try again.");
+      return;
+    }
     try {
-      await updateDetails.mutateAsync({ title, description, category });
+      await updateDetails.mutateAsync(parsed.data);
       toast.success("Saved");
     } catch (error) {
       toast.error(describeDbError(error, "Couldn't save changes."));
@@ -100,7 +108,13 @@ export default function AdminEditFeaturePage({ params }: { params: Promise<{ id:
 
         <div className="space-y-1.5">
           <Label htmlFor="description">Description</Label>
-          <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} rows={5} />
+          <Textarea
+            id="description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={5}
+            maxLength={4000}
+          />
         </div>
 
         <Button onClick={handleSave} disabled={updateDetails.isPending}>

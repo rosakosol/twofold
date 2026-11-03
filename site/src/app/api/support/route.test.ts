@@ -127,15 +127,15 @@ describe("POST /api/support", () => {
   });
 
   it.each([
-    ["a malformed email", { email: "not-an-email" }, "Enter a valid email address."],
-    ["an unknown category", { category: "Nope" }, "Choose a category."],
-    ["a blank message", { message: "   " }, "Enter a message."],
-    ["a 5001-character message", { message: "x".repeat(5001) }, "Message is too long."],
-    ["a 201-character name", { name: "x".repeat(201) }, "Name is too long."],
-  ])("rejects %s with a 400", async (_label, body, error) => {
+    ["a malformed email", { email: "not-an-email" }, "email", "Enter a valid email address."],
+    ["an unknown category", { category: "Nope" }, "category", "Choose a category."],
+    ["a blank message", { message: "   " }, "message", "Enter a message."],
+    ["a 5001-character message", { message: "x".repeat(5001) }, "message", "Message is too long."],
+    ["a 201-character name", { name: "x".repeat(201) }, "name", "Name is too long."],
+  ])("rejects %s with a 400 naming the field", async (_label, body, field, error) => {
     const res = await submit(body);
     expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ error });
+    expect(await res.json()).toEqual({ error, field });
     expect(sendMail).not.toHaveBeenCalled();
   });
 });

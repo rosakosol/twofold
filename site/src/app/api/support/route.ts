@@ -5,6 +5,7 @@ import { escapeHtml } from "@/lib/mail/escapeHtml";
 import { SUPPORT_EMAIL, SITE_URL } from "@/lib/mail/companyInfo";
 import { createServiceClient } from "@/lib/supabase/service";
 import { nullableArg } from "@/lib/db/nullableArg";
+import { validateSupportRequest } from "@/lib/validation/support";
 import { emailTimestamp } from "@/lib/console/format";
 
 // Web counterpart to the iOS app's submit-help-message edge function
@@ -19,8 +20,6 @@ import { emailTimestamp } from "@/lib/console/format";
 //   - support-internal-alert.html -> support@ (the actual ticket)
 //   - support-received.html -> the visitor (a receipt, so they know it landed)
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const MAX_NAME_LENGTH = 200;
 
 /// The caller's address as the platform reports it. `x-forwarded-for` is a list when there are
 /// proxies in front; the first entry is the client. Falls back to a constant rather than to
@@ -60,18 +59,6 @@ async function withinRateLimit(
   return "allowed";
 }
 
-const SUPPORT_CATEGORIES = [
-  "Account & Subscription",
-  "Bug Report",
-  "Flight Tracking",
-  "Trips & Memories",
-  "Game Issue",
-  "Feature Request",
-  "Feedback",
-  "Other",
-] as const;
-
-const MAX_MESSAGE_LENGTH = 5000;
 
 export async function POST(request: Request) {
   let body: { name?: string; email?: string; category?: string; message?: string; company?: string };
@@ -86,27 +73,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true });
   }
 
-  const name = (body.name ?? "").trim();
-  const email = (body.email ?? "").trim().toLowerCase();
-  const category = (body.category ?? "").trim();
-  const message = (body.message ?? "").trim();
-
-  if (!email || !EMAIL_RE.test(email) || email.length > 320) {
-    return NextResponse.json({ error: "Enter a valid email address." }, { status: 400 });
+  // The same rules the form checks before sending (lib/validation/support.ts). `field` lets the
+  // form mark the input at fault.
+  const validation = validateSupportRequest(body);
+  if (!validation.ok) {
+    return NextResponse.json({ error: validation.error, field: validation.field }, { status: 400 });
   }
-  if (!SUPPORT_CATEGORIES.includes(category as (typeof SUPPORT_CATEGORIES)[number])) {
-    return NextResponse.json({ error: "Choose a category." }, { status: 400 });
-  }
-  if (!message) {
-    return NextResponse.json({ error: "Enter a message." }, { status: 400 });
-  }
-  if (message.length > MAX_MESSAGE_LENGTH) {
-    return NextResponse.json({ error: "Message is too long." }, { status: 400 });
-  }
-  // `name` had no cap, unlike `message`. It reaches an email template.
-  if (name.length > MAX_NAME_LENGTH) {
-    return NextResponse.json({ error: "Name is too long." }, { status: 400 });
-  }
+  const { name, email, category, message } = validation.value;
 
   // Two buckets, because they fail differently. The email is trivially rotated — an attacker
   // picks a new recipient for each send, which is the whole point of a relay — so it is the IP
