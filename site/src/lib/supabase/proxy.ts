@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@/lib/db/types";
 
 /**
- * Refreshes the auth session on every request that passes through middleware.ts.
+ * Refreshes the auth session on every request that passes through src/proxy.ts.
  * This is what keeps a signed-in user's session alive across Server Component
  * navigations without needing a client-side refresh — the standard @supabase/ssr
  * Next.js App Router pattern.

@@ -44,7 +44,7 @@ Nothing here touches `Twofold/` (the iOS app). See **Database** for what is safe
 | `src/app/studio/` | embedded Sanity Studio (`next-sanity`), incl. the custom FAQ tool |
 | `src/app/api/{support,waitlist}/` | form handlers; send mail via `src/lib/mail/` |
 | `src/app/.well-known/…` | Apple App Site Association, for iOS Universal Links |
-| `middleware.ts` | Supabase session refresh, on five path prefixes only |
+| `src/proxy.ts` | Supabase session refresh, on five path prefixes only |
 
 There is no per-feature detail route on the board: a request is read and voted on from the
 list row itself. The console has one (`admin/requests/[id]`) because editing needs a form.
@@ -228,7 +228,7 @@ SDK calls `api.revenuecat.com` but sends telemetry to `e.revenue.cat`, which `*.
 does not match — and a blocked request there makes the SDK report "Purchase not started due to an
 error (error code: 0)", naming neither the domain nor the policy.
 
-`middleware.ts` refreshes the Supabase session on `/account`, `/admin`, `/feedback`, `/studio`
+`src/proxy.ts` (Next 16's name for middleware) refreshes the Supabase session on `/account`, `/admin`, `/feedback`, `/studio`
 and `/auth` only. It used to match everything but static assets, which meant a signed-in visitor
 paid a round trip to Sydney on every marketing page — pure latency on the pages people hit first.
 

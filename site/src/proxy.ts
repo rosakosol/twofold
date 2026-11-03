@@ -1,7 +1,10 @@
 import { type NextRequest } from "next/server";
-import { updateSession } from "@/lib/supabase/middleware";
+import { updateSession } from "@/lib/supabase/proxy";
 
-export async function middleware(request: NextRequest) {
+// Next 16 renamed the `middleware` convention to `proxy`, and with the app under src/app it belongs
+// in src/, beside `app` (node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/
+// proxy.md). It runs on the Node.js runtime, which @supabase/ssr is happy with.
+export async function proxy(request: NextRequest) {
   return updateSession(request);
 }
 
