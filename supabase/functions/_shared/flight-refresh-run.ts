@@ -13,6 +13,7 @@ import {
   syncLivePositions,
 } from "./flight-sync.ts";
 import { notifyArrivalReminder, notifyPreDeparture } from "./notify.ts";
+import { describePushTally, type PushTally } from "./apns.ts";
 import {
   ARRIVAL_REMINDER_1H_WINDOW_MS,
   ARRIVAL_REMINDER_30M_WINDOW_MS,
@@ -68,6 +69,20 @@ async function claimReminder(
 
 // A send that threw gives its claim back, so the next tick retries — same reasoning as
 // everything else in this loop being best-effort per flight.
+//
+// So does one that reached nobody. sendAPNs reports rather than throws, so before its result was
+// read, a reminder sent while Apple answered 503 was marked sent and never went out. "Nobody" is
+// the line on purpose: if one phone got it, a retry would tell that phone twice. And only for a
+// failure that can pass (429, 5xx, no response): a retired token or a rejected payload will fail
+// the same way next tick. The retry comes with the flight's next refresh, and this changes no
+// cadence: within ten minutes of departure that's the 1-minute tier, so a pre-departure reminder
+// is retried a minute later. An arrival reminder for a flight in cruise waits for the 12-minute
+// active tier, so a "Landing in 1 hour" retried after an outage can arrive up to 12 minutes late.
+// That's still better than never.
+function reachedNobodyForNow(tally: PushTally): boolean {
+  return tally.sent === 0 && tally.retryable > 0;
+}
+
 async function releaseReminder(
   serviceClient: SupabaseClient,
   flightId: string,
@@ -112,7 +127,11 @@ export async function maybeSendArrivalReminders(serviceClient: SupabaseClient, u
     if (!isDueForArrivalReminder(updated, now, windowMs, notified)) continue;
     if (!(await claimReminder(serviceClient, updated.id, flag, { [`${flag}_for`]: currentArrival }))) continue;
     try {
-      await notifyArrivalReminder(serviceClient, updated.id, window);
+      const tally = await notifyArrivalReminder(serviceClient, updated.id, window);
+      if (reachedNobodyForNow(tally)) {
+        console.warn(`[refresh-due-flights] ${window} arrival reminder for ${updated.id} reached nobody (${describePushTally(tally)}); retrying next tick`);
+        await releaseReminder(serviceClient, updated.id, flag, { [`${flag}_for`]: null });
+      }
     } catch (err) {
       console.error(`[refresh-due-flights] ${window} arrival reminder failed for ${updated.id}:`, (err as Error).message);
       await releaseReminder(serviceClient, updated.id, flag, { [`${flag}_for`]: null });
@@ -124,7 +143,11 @@ export async function maybeSendPreDepartureReminder(serviceClient: SupabaseClien
   if (!isDueForPreDepartureReminder(updated, now)) return;
   if (!(await claimReminder(serviceClient, updated.id, "pre_departure_notified", {}))) return;
   try {
-    await notifyPreDeparture(serviceClient, updated.id);
+    const tally = await notifyPreDeparture(serviceClient, updated.id);
+    if (reachedNobodyForNow(tally)) {
+      console.warn(`[refresh-due-flights] pre-departure reminder for ${updated.id} reached nobody (${describePushTally(tally)}); retrying next tick`);
+      await releaseReminder(serviceClient, updated.id, "pre_departure_notified", {});
+    }
   } catch (err) {
     console.error(`[refresh-due-flights] pre-departure reminder failed for ${updated.id}:`, (err as Error).message);
     await releaseReminder(serviceClient, updated.id, "pre_departure_notified", {});

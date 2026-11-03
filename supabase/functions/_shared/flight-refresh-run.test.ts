@@ -18,10 +18,12 @@ import {
   maybeSendPreDepartureReminder,
   runDueFlightRefresh,
 } from "./flight-refresh-run.ts";
+import { APNS_RETRY } from "./apns.ts";
 import {
   aeroRequests,
   installLocalStack,
   onAeroApi,
+  onApns,
   pushesTo,
   registerDevice,
   removeCouple,
@@ -183,6 +185,127 @@ Deno.test({
       assertEquals(pushesTo(partner).length, 1, "re-sent once for the new time");
     } finally {
       await removeCouple(client, couple);
+    }
+  },
+});
+
+// ---------------------------------------------------------------------------
+// A reminder nobody received
+// ---------------------------------------------------------------------------
+//
+// A claim was given back only when the send threw, and sendAPNs never throws: it reports. So a
+// reminder sent while Apple was answering 503 was marked sent and never went out. Now a reminder
+// that reached no phone for a reason that can pass is given back for the next tick. A retired
+// token is not such a reason: there's nobody left to retry for.
+
+Deno.test({
+  name: "a pre-departure reminder that reached no phone while Apple was down is retried next tick",
+  ignore,
+  ...quiet,
+  fn: async () => {
+    resetOutbound();
+    APNS_RETRY.delayMs = 0;
+    const client = serviceClient();
+    const couple = await seedCouple(client);
+    try {
+      const flight = await seedFlight(client, couple, {
+        scheduled_out: iso(8 * MINUTE),
+        scheduled_in: iso(10 * 60 * MINUTE),
+      });
+      const partner = await registerDevice(client, couple.partnerB);
+
+      onApns(() => new Response(JSON.stringify({ reason: "ServiceUnavailable" }), { status: 503 }));
+      await maybeSendPreDepartureReminder(client, flight, Date.now());
+      const { data: after } = await client.from("flights").select("*").eq("id", flight.id).single();
+      assertEquals(after?.pre_departure_notified, false, "the claim is given back");
+
+      onApns(() => new Response(null, { status: 200 }));
+      await maybeSendPreDepartureReminder(client, after as FlightRow, Date.now());
+      const { data: done } = await client.from("flights").select("pre_departure_notified").eq("id", flight.id).single();
+      assertEquals(done?.pre_departure_notified, true);
+      assertEquals(pushesTo(partner).length, 2 + 1, "two attempts while down, then the one that landed");
+    } finally {
+      APNS_RETRY.delayMs = 1000;
+      await removeCouple(client, couple);
+    }
+  },
+});
+
+Deno.test({
+  name: "an arrival reminder that reached no phone while Apple was down is retried next tick",
+  ignore,
+  ...quiet,
+  fn: async () => {
+    resetOutbound();
+    APNS_RETRY.delayMs = 0;
+    const client = serviceClient();
+    const couple = await seedCouple(client);
+    try {
+      const flight = await seedFlight(client, couple, {
+        status: "in_air",
+        scheduled_out: iso(-5 * 60 * MINUTE),
+        scheduled_in: iso(45 * MINUTE),
+        actual_out: iso(-5 * 60 * MINUTE),
+      });
+      await registerDevice(client, couple.partnerB);
+
+      onApns(() => new Response(null, { status: 500 }));
+      await maybeSendArrivalReminders(client, flight, Date.now());
+      const { data } = await client
+        .from("flights")
+        .select("arrival_1h_notified, arrival_1h_notified_for")
+        .eq("id", flight.id)
+        .single();
+      assertEquals(data?.arrival_1h_notified, false);
+      assertEquals(data?.arrival_1h_notified_for, null);
+    } finally {
+      APNS_RETRY.delayMs = 1000;
+      await removeCouple(client, couple);
+    }
+  },
+});
+
+Deno.test({
+  name: "a reminder to a phone Apple has retired stays sent, and only one phone failing doesn't resend it",
+  ignore,
+  ...quiet,
+  fn: async () => {
+    resetOutbound();
+    const client = serviceClient();
+    const couple = await seedCouple(client);
+    const other = await seedCouple(client);
+    try {
+      // Only phone retired: nothing to retry for.
+      const flight = await seedFlight(client, couple, {
+        scheduled_out: iso(8 * MINUTE),
+        scheduled_in: iso(10 * 60 * MINUTE),
+      });
+      const dead = await registerDevice(client, couple.partnerB);
+      onApns((token) =>
+        token === dead
+          ? new Response(JSON.stringify({ reason: "Unregistered" }), { status: 410 })
+          : new Response(null, { status: 200 })
+      );
+      await maybeSendPreDepartureReminder(client, flight, Date.now());
+      const { data } = await client.from("flights").select("pre_departure_notified").eq("id", flight.id).single();
+      assertEquals(data?.pre_departure_notified, true, "a retired token is not a reason to retry");
+
+      // Two phones, one of them down: the other was told, so resending would tell it twice.
+      APNS_RETRY.delayMs = 0;
+      const flight2 = await seedFlight(client, other, {
+        scheduled_out: iso(8 * MINUTE),
+        scheduled_in: iso(10 * 60 * MINUTE),
+      });
+      const down = await registerDevice(client, other.partnerB);
+      await registerDevice(client, other.partnerB);
+      onApns((token) => token === down ? new Response(null, { status: 503 }) : new Response(null, { status: 200 }));
+      await maybeSendPreDepartureReminder(client, flight2, Date.now());
+      const { data: data2 } = await client.from("flights").select("pre_departure_notified").eq("id", flight2.id).single();
+      assertEquals(data2?.pre_departure_notified, true, "somebody was told, so it is not resent");
+    } finally {
+      APNS_RETRY.delayMs = 1000;
+      await removeCouple(client, couple);
+      await removeCouple(client, other);
     }
   },
 });

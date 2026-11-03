@@ -22,7 +22,7 @@
 // push blast to every couple in the app on demand.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { sendAPNs } from "../_shared/apns.ts";
+import { describePushTally, newPushTally, pushToDevice } from "../_shared/apns.ts";
 import { isServiceRoleRequest } from "../_shared/auth.ts";
 
 interface Input {
@@ -95,6 +95,10 @@ Deno.serve(async (req) => {
   }
 
   let remindedCount = 0;
+  // `reminded` counts people; this counts their phones and what Apple did with each push. The
+  // ledger row below is still written when every push failed: the window is one cron slot wide,
+  // so the next run wouldn't pick this person up again anyway.
+  const pushes = newPushTally();
 
   for (const target of rows) {
     // Fires once, in the ~15-minute slot where "about `windowMinutes` left" first becomes true -
@@ -173,20 +177,17 @@ Deno.serve(async (req) => {
     }[kind];
 
     for (const token of tokens) {
-      try {
-        await sendAPNs(
-          token.apns_token,
-          token.environment,
-          title,
-          body,
-          // The whole point of this nudge is "go answer today's question", so tapping it should
-          // land there. No session id: this is scheduled from a cron before anyone has opened
-          // (and therefore created) the day's session, so the app resolves it on arrival.
-          { route: "daily_question" },
-        );
-      } catch (err) {
-        console.error("[send-streak-reminders] sendAPNs threw:", (err as Error).message);
-      }
+      await pushToDevice(
+        "send-streak-reminders",
+        pushes,
+        { ...token, profile_id: target.profile_id },
+        title,
+        body,
+        // The whole point of this nudge is "go answer today's question", so tapping it should
+        // land there. No session id: this is scheduled from a cron before anyone has opened
+        // (and therefore created) the day's session, so the app resolves it on arrival.
+        { route: "daily_question" },
+      );
     }
 
     // Per-profile, because two partners on different days would otherwise suppress each other if
@@ -203,6 +204,8 @@ Deno.serve(async (req) => {
     remindedCount++;
   }
 
-  console.log(`[send-streak-reminders] reminded ${remindedCount} of ${rows.length} target(s) (kind=${kind})`);
-  return Response.json({ reminded: remindedCount });
+  console.log(
+    `[send-streak-reminders] reminded ${remindedCount} of ${rows.length} target(s) (kind=${kind}); pushes: ${describePushTally(pushes)}`,
+  );
+  return Response.json({ reminded: remindedCount, pushes });
 });

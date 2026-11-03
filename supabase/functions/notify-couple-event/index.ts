@@ -10,7 +10,7 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { userSession } from "../_shared/auth.ts";
 import { enforceRateLimit } from "../_shared/rate-limit.ts";
-import { sendAPNs } from "../_shared/apns.ts";
+import { describePushTally, newPushTally, type PushTally, pushToDevice } from "../_shared/apns.ts";
 // The sentences themselves live next door so they can be tested without standing up this server.
 import { buildMessage, buildSelfMessage, type EventType } from "../_shared/couple-event-copy.ts";
 
@@ -105,6 +105,15 @@ const PREFERENCE_COLUMN: Partial<Record<EventType, PreferenceColumn>> = {
   birthday_wish: "partner_birthday_wish",
 };
 
+/// What happened to this event's pushes goes to the logs, not the response. The caller is the
+/// actor, and how many of their partner's phones accepted a push isn't theirs to read; they only
+/// ever needed `ok`.
+function logTally(eventType: EventType, target: "self" | "partner", tally: PushTally) {
+  const line = `[notify-couple-event] ${eventType} to ${target}: ${describePushTally(tally)}`;
+  if (tally.failed > 0) console.warn(line);
+  else console.log(line);
+}
+
 Deno.serve(async (req) => {
   if (req.method !== "POST") {
     return Response.json({ error: "Method not allowed" }, { status: 405 });
@@ -159,9 +168,11 @@ Deno.serve(async (req) => {
         : input.eventType === "drawing_saved"
         ? { route: "drawing_pad", eventType: input.eventType }
         : undefined;
+      const tally = newPushTally();
       for (const token of tokens) {
-        await sendAPNs(token.apns_token, token.environment, title, body, data);
+        await pushToDevice("notify-couple-event", tally, { ...token, profile_id: user.id }, title, body, data);
       }
+      logTally(input.eventType, "self", tally);
       return Response.json({ ok: true });
     }
 
@@ -221,9 +232,11 @@ Deno.serve(async (req) => {
       // canvas instead of the drawing you were just told about is the whole reason it exists.
       ? { route: "partner_drawing_pad", eventType: input.eventType }
       : undefined;
+    const tally = newPushTally();
     for (const token of tokens) {
-      await sendAPNs(token.apns_token, token.environment, title, body, data);
+      await pushToDevice("notify-couple-event", tally, { ...token, profile_id: partnerId }, title, body, data);
     }
+    logTally(input.eventType, "partner", tally);
   } catch (err) {
     console.error("[notify-couple-event] failed:", (err as Error).message);
   }

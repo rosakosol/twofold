@@ -12,7 +12,7 @@
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { userSession } from "../_shared/auth.ts";
-import { sendAPNs } from "../_shared/apns.ts";
+import { describePushTally, newPushTally, pushToDevice } from "../_shared/apns.ts";
 import { enforceRateLimit } from "../_shared/rate-limit.ts";
 
 /// The throttle this endpoint was missing entirely.
@@ -164,9 +164,22 @@ Deno.serve(async (req) => {
       .eq("profile_id", input.targetProfileId);
     if (!tokens || tokens.length === 0) return Response.json({ ok: true });
 
+    // Logged, not returned. The caller isn't connected to the target yet, and whether that person
+    // has phones that accept pushes is no business of theirs.
+    const tally = newPushTally();
     for (const token of tokens) {
-      await sendAPNs(token.apns_token, token.environment, title, body, { eventType: input.eventType });
+      await pushToDevice(
+        "notify-connection-request",
+        tally,
+        { ...token, profile_id: input.targetProfileId },
+        title,
+        body,
+        { eventType: input.eventType },
+      );
     }
+    const line = `[notify-connection-request] ${input.eventType}: ${describePushTally(tally)}`;
+    if (tally.failed > 0) console.warn(line);
+    else console.log(line);
   } catch (err) {
     console.error("[notify-connection-request] failed:", (err as Error).message);
   }

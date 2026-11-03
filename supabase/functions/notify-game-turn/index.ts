@@ -16,14 +16,15 @@
 // the service role is the smaller thing to get right.
 //
 // Everything downstream is shared: the same `buildMessage` copy, the same preference row, the same
-// `device_push_tokens` fan-out and the same `sendAPNs`.
+// `device_push_tokens` fan-out and the same `sendAPNs` (through `pushToDevice`, which counts what
+// Apple did with each push).
 //
 // The cooldown is NOT here. It lives in the trigger, as an atomic upsert, so that two moves
 // landing together cannot both decide they are allowed to send — a check in this function would be
 // a race across two invocations.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { sendAPNs } from "../_shared/apns.ts";
+import { describePushTally, newPushTally, pushToDevice } from "../_shared/apns.ts";
 import { isServiceRoleRequest } from "../_shared/auth.ts";
 import { buildMessage } from "../_shared/couple-event-copy.ts";
 
@@ -98,15 +99,26 @@ Deno.serve(async (req) => {
     // this is what opens the board rather than the games list.
     const data = { sessionId, gameType };
 
+    // `sent` used to be `tokens.length`, the phones it tried, so a push to a retired phone came back
+    // as a success. Now it's what Apple accepted, with the rest broken down. This answer goes to the
+    // database trigger's pg_net call, which keeps it in `net._http_response`, not to a user.
+    const tally = newPushTally();
     await Promise.all(
       tokens.map((token) =>
-        sendAPNs(token.apns_token, token.environment, title, body, data).catch((error) => {
-          console.error("[notify-game-turn] send failed", error);
-        })
+        pushToDevice("notify-game-turn", tally, { ...token, profile_id: recipientId }, title, body, data)
       ),
     );
+    if (tally.failed > 0) {
+      console.warn(`[notify-game-turn] session ${sessionId}: ${describePushTally(tally)}`);
+    }
 
-    return Response.json({ ok: true, sent: tokens.length });
+    return Response.json({
+      ok: true,
+      sent: tally.sent,
+      failed: tally.failed,
+      retired: tally.retired,
+      skipped: tally.skipped,
+    });
   } catch (error) {
     console.error("[notify-game-turn] failed", error);
     return Response.json({ ok: true, error: String(error) });

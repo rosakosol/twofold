@@ -13,7 +13,7 @@
 // reminded" state anywhere.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { sendAPNs } from "../_shared/apns.ts";
+import { describePushTally, newPushTally, pushToDevice } from "../_shared/apns.ts";
 import { isServiceRoleRequest } from "../_shared/auth.ts";
 
 type Stage = "day1" | "day3";
@@ -63,6 +63,8 @@ Deno.serve(async (req) => {
   }
 
   let remindedCount = 0;
+  // `reminded` counts profiles; this counts their phones and what Apple did with each push.
+  const pushes = newPushTally();
 
   for (const stage of ["day1", "day3"] as Stage[]) {
     const daysAgo = stage === "day1" ? 1 : 3;
@@ -101,21 +103,19 @@ Deno.serve(async (req) => {
 
     const { data: tokens } = await serviceClient
       .from("device_push_tokens")
-      .select("apns_token, environment")
+      .select("profile_id, apns_token, environment")
       .in("profile_id", allowedProfileIds);
     if (!tokens || tokens.length === 0) continue;
 
     const { title, body } = MESSAGES[stage];
     for (const token of tokens) {
-      try {
-        await sendAPNs(token.apns_token, token.environment, title, body, { route: "invite_partner" });
-      } catch (err) {
-        console.error("[send-partner-invite-reminders] sendAPNs threw:", (err as Error).message);
-      }
+      await pushToDevice("send-partner-invite-reminders", pushes, token, title, body, { route: "invite_partner" });
     }
     remindedCount += allowedProfileIds.length;
   }
 
-  console.log(`[send-partner-invite-reminders] reminded ${remindedCount} solo profile(s)`);
-  return Response.json({ reminded: remindedCount });
+  console.log(
+    `[send-partner-invite-reminders] reminded ${remindedCount} solo profile(s); pushes: ${describePushTally(pushes)}`,
+  );
+  return Response.json({ reminded: remindedCount, pushes });
 });

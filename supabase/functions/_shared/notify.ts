@@ -2,9 +2,13 @@
 // have opted into that event type. Called from flight-sync.ts after a sync detects a change —
 // never called directly from a client. Always best-effort from the caller's point of view: every
 // DB read/send here is wrapped so a notification problem never breaks a sync.
+//
+// Each sender returns a `PushTally` of what Apple did with its pushes. refresh-due-flights reads
+// the reminders' tallies to give back a claim when nobody was reached (see flight-refresh-run.ts);
+// notifyForEvent's callers only need the per-push failure lines `pushToDevice` already logs.
 
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
-import { sendAPNs } from "./apns.ts";
+import { newPushTally, type PushTally, pushToDevice } from "./apns.ts";
 import { formatDelay } from "./flight-status.ts";
 
 export interface FlightEvent {
@@ -102,16 +106,17 @@ export async function notifyForEvent(
   serviceClient: SupabaseClient,
   flightId: string,
   event: FlightEvent,
-): Promise<void> {
+): Promise<PushTally> {
+  const tally = newPushTally();
   const prefColumn = PREFERENCE_COLUMN[event.type];
-  if (!prefColumn) return; // not a push-worthy event type (e.g. the initial "scheduled" baseline)
+  if (!prefColumn) return tally; // not a push-worthy event type (e.g. the initial "scheduled" baseline)
 
   const { data: flight, error: flightErr } = await serviceClient
     .from("flights")
     .select("couple_id, shared, created_by, traveler_ids, flight_number_iata, airline_code")
     .eq("id", flightId)
     .single();
-  if (flightErr || !flight) return;
+  if (flightErr || !flight) return tally;
 
   const travelerIds: string[] = flight.traveler_ids ?? [];
   let travelerNames: string[] = [];
@@ -129,7 +134,7 @@ export async function notifyForEvent(
   // pushed a notification about a flight they can't even see in the app.
   let partnerIds: string[];
   if (flight.shared === false) {
-    if (!flight.created_by) return;
+    if (!flight.created_by) return tally;
     partnerIds = [flight.created_by as string];
   } else {
     const { data: couple, error: coupleErr } = await serviceClient
@@ -137,10 +142,10 @@ export async function notifyForEvent(
       .select("partner_a_id, partner_b_id")
       .eq("id", flight.couple_id)
       .single();
-    if (coupleErr || !couple) return;
+    if (coupleErr || !couple) return tally;
     partnerIds = [couple.partner_a_id, couple.partner_b_id].filter((id): id is string => Boolean(id));
   }
-  if (partnerIds.length === 0) return;
+  if (partnerIds.length === 0) return tally;
 
   const { data: prefRows } = await serviceClient
     .from("flight_notification_preferences")
@@ -155,7 +160,7 @@ export async function notifyForEvent(
 
   // No preference row yet defaults to "notify" (matches the table's own column defaults).
   const allowedPartnerIds = partnerIds.filter((id) => prefByProfile.get(id) ?? true);
-  if (allowedPartnerIds.length === 0) return;
+  if (allowedPartnerIds.length === 0) return tally;
 
   // `profile_id` comes back too, so each device can be told whose flight this is from where it
   // is standing — the traveller's phone and their partner's get different words for the same event.
@@ -163,7 +168,7 @@ export async function notifyForEvent(
     .from("device_push_tokens")
     .select("profile_id, apns_token, environment")
     .in("profile_id", allowedPartnerIds);
-  if (!tokens || tokens.length === 0) return;
+  if (!tokens || tokens.length === 0) return tally;
 
   for (const token of tokens) {
     const label = flightLabel({
@@ -173,12 +178,9 @@ export async function notifyForEvent(
       airlineCode: flight.airline_code ?? null,
     });
     const { title, body } = buildMessage(event, label);
-    try {
-      await sendAPNs(token.apns_token, token.environment, title, body, { flightId });
-    } catch (err) {
-      console.error("[notify] sendAPNs threw:", (err as Error).message);
-    }
+    await pushToDevice(`notify ${event.type} ${flightId}`, tally, token, title, body, { flightId });
   }
+  return tally;
 }
 
 // Time-based reminder, not a flight_status_events diff like notifyForEvent above — called from
@@ -189,14 +191,15 @@ export async function notifyForEvent(
 export async function notifyPreDeparture(
   serviceClient: SupabaseClient,
   flightId: string,
-): Promise<void> {
+): Promise<PushTally> {
+  const tally = newPushTally();
   const { data: flight, error: flightErr } = await serviceClient
     .from("flights")
     .select("couple_id, shared, created_by, traveler_ids, flight_number_iata, airline_code")
     .eq("id", flightId)
     .single();
   const travelerIds: string[] = flight?.traveler_ids ?? [];
-  if (flightErr || !flight || travelerIds.length === 0) return; // no known traveler — "wish them" wouldn't mean anything
+  if (flightErr || !flight || travelerIds.length === 0) return tally; // no known traveler — "wish them" wouldn't mean anything
 
   // Only meaningful when there's exactly one traveler — with both partners travelling, every
   // couple member is a traveler, `recipientIds` below ends up empty, and this reminder no-ops
@@ -212,19 +215,19 @@ export async function notifyPreDeparture(
   }
 
   // A private (shared: false) flight has no partner who can even see it — nothing to notify.
-  if (flight.shared === false) return;
+  if (flight.shared === false) return tally;
 
   const { data: couple, error: coupleErr } = await serviceClient
     .from("couples")
     .select("partner_a_id, partner_b_id")
     .eq("id", flight.couple_id)
     .single();
-  if (coupleErr || !couple) return;
+  if (coupleErr || !couple) return tally;
 
   const recipientIds = [couple.partner_a_id, couple.partner_b_id]
     .filter((id): id is string => Boolean(id))
     .filter((id) => !travelerIds.includes(id));
-  if (recipientIds.length === 0) return;
+  if (recipientIds.length === 0) return tally;
 
   const { data: prefRows } = await serviceClient
     .from("flight_notification_preferences")
@@ -237,13 +240,13 @@ export async function notifyPreDeparture(
     prefByProfile.set((row as any).profile_id, Boolean((row as any).departure));
   }
   const allowedIds = recipientIds.filter((id) => prefByProfile.get(id) ?? true);
-  if (allowedIds.length === 0) return;
+  if (allowedIds.length === 0) return tally;
 
   const { data: tokens } = await serviceClient
     .from("device_push_tokens")
     .select("apns_token, environment")
     .in("profile_id", allowedIds);
-  if (!tokens || tokens.length === 0) return;
+  if (!tokens || tokens.length === 0) return tally;
 
   // Recipients here are filtered to the partners who are *not* travelling (see `recipientIds`
   // above), so this is never addressed to the traveller.
@@ -259,12 +262,9 @@ export async function notifyPreDeparture(
     : `${label} departs in about 10 minutes. Wish them a safe flight! ✈️`;
 
   for (const token of tokens) {
-    try {
-      await sendAPNs(token.apns_token, token.environment, title, body, { flightId });
-    } catch (err) {
-      console.error("[notify] sendAPNs threw (pre-departure):", (err as Error).message);
-    }
+    await pushToDevice(`notify pre-departure ${flightId}`, tally, token, title, body, { flightId });
   }
+  return tally;
 }
 
 // Time-based reminder, same shape as notifyPreDeparture above but fired twice per flight — once
@@ -279,13 +279,14 @@ export async function notifyArrivalReminder(
   serviceClient: SupabaseClient,
   flightId: string,
   window: "1h" | "30m",
-): Promise<void> {
+): Promise<PushTally> {
+  const tally = newPushTally();
   const { data: flight, error: flightErr } = await serviceClient
     .from("flights")
     .select("couple_id, shared, created_by, traveler_ids, flight_number_iata, airline_code, arrival_delay_seconds")
     .eq("id", flightId)
     .single();
-  if (flightErr || !flight) return;
+  if (flightErr || !flight) return tally;
 
   const travelerIds: string[] = flight.traveler_ids ?? [];
   let travelerNames: string[] = [];
@@ -300,7 +301,7 @@ export async function notifyArrivalReminder(
   }
   let partnerIds: string[];
   if (flight.shared === false) {
-    if (!flight.created_by) return;
+    if (!flight.created_by) return tally;
     partnerIds = [flight.created_by as string];
   } else {
     const { data: couple, error: coupleErr } = await serviceClient
@@ -308,10 +309,10 @@ export async function notifyArrivalReminder(
       .select("partner_a_id, partner_b_id")
       .eq("id", flight.couple_id)
       .single();
-    if (coupleErr || !couple) return;
+    if (coupleErr || !couple) return tally;
     partnerIds = [couple.partner_a_id, couple.partner_b_id].filter((id): id is string => Boolean(id));
   }
-  if (partnerIds.length === 0) return;
+  if (partnerIds.length === 0) return tally;
 
   const { data: prefRows } = await serviceClient
     .from("flight_notification_preferences")
@@ -324,13 +325,13 @@ export async function notifyArrivalReminder(
     prefByProfile.set((row as any).profile_id, Boolean((row as any).landing));
   }
   const allowedPartnerIds = partnerIds.filter((id) => prefByProfile.get(id) ?? true);
-  if (allowedPartnerIds.length === 0) return;
+  if (allowedPartnerIds.length === 0) return tally;
 
   const { data: tokens } = await serviceClient
     .from("device_push_tokens")
     .select("profile_id, apns_token, environment")
     .in("profile_id", allowedPartnerIds);
-  if (!tokens || tokens.length === 0) return;
+  if (!tokens || tokens.length === 0) return tally;
 
   const arrivalDelaySeconds = (flight as { arrival_delay_seconds?: number | null }).arrival_delay_seconds ?? 0;
   const delaySuffix = arrivalDelaySeconds > 300 ? `, currently running ${formatDelay(arrivalDelaySeconds)} behind schedule` : "";
@@ -346,10 +347,7 @@ export async function notifyArrivalReminder(
       airlineCode: flight.airline_code ?? null,
     });
     const body = `${label} is expected to land in about ${windowLabel}${delaySuffix}.`;
-    try {
-      await sendAPNs(token.apns_token, token.environment, title, body, { flightId });
-    } catch (err) {
-      console.error(`[notify] sendAPNs threw (arrival reminder ${window}):`, (err as Error).message);
-    }
+    await pushToDevice(`notify arrival ${window} ${flightId}`, tally, token, title, body, { flightId });
   }
+  return tally;
 }

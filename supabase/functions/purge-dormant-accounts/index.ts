@@ -33,7 +33,7 @@
 // being silently marked as told.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { sendAPNs } from "../_shared/apns.ts";
+import { describePushTally, newPushTally, pushToDevice } from "../_shared/apns.ts";
 import { closeQuietly, dotStuff, fromAddress, singleLine, smtpClient } from "../_shared/mail.ts";
 import { isServiceRoleRequest } from "../_shared/auth.ts";
 
@@ -174,6 +174,7 @@ Deno.serve(async (req) => {
   // ---------------------------------------------------------------------------
   const warned: string[] = [];
   let warnFailures = 0;
+  const warnPushes = newPushTally();
 
   if (toWarn.length > 0) {
     let client;
@@ -214,6 +215,7 @@ Deno.serve(async (req) => {
 
     // Push is the courtesy copy — best effort, and never allowed to affect whether the account
     // counts as warned.
+    // Counted and reported, but still not part of the decision.
     for (const row of toWarn) {
       const { data: tokens } = await serviceClient
         .from("device_push_tokens")
@@ -221,18 +223,18 @@ Deno.serve(async (req) => {
         .eq("profile_id", row.profile_id);
 
       for (const token of tokens ?? []) {
-        try {
-          await sendAPNs(
-            token.apns_token,
-            token.environment,
-            row.stage === "warn_7" ? "Your account closes in 7 days" : "Your account closes in 30 days",
-            "Open Twofold to keep your memories.",
-            { route: "home" },
-          );
-        } catch (err) {
-          console.error(`dormancy: push failed for ${row.profile_id}`, err);
-        }
+        await pushToDevice(
+          "purge-dormant-accounts",
+          warnPushes,
+          { ...token, profile_id: row.profile_id },
+          row.stage === "warn_7" ? "Your account closes in 7 days" : "Your account closes in 30 days",
+          "Open Twofold to keep your memories.",
+          { route: "home" },
+        );
       }
+    }
+    if (warnPushes.attempted > 0) {
+      console.log(`dormancy: warning pushes ${describePushTally(warnPushes)}`);
     }
 
     if (warned.length > 0) {
@@ -286,6 +288,7 @@ Deno.serve(async (req) => {
   return Response.json({
     warned: warned.length,
     warnFailures,
+    warnPushes,
     closed,
     closeFailures,
     pendingClosures: capped ? toClose.length - closing.length : 0,

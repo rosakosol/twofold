@@ -2,7 +2,7 @@
 // responses each test queues, and requests to PostgREST (the dead-token delete) are recorded.
 
 import { assert, assertEquals } from "jsr:@std/assert@1";
-import { APNS_RETRY, sendAPNs, sendLiveActivityUpdate } from "./apns.ts";
+import { addPushTally, APNS_RETRY, newPushTally, pushToDevice, sendAPNs, sendLiveActivityUpdate } from "./apns.ts";
 
 const pair = await crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, ["sign", "verify"]);
 const pkcs8 = new Uint8Array(await crypto.subtle.exportKey("pkcs8", pair.privateKey));
@@ -157,3 +157,82 @@ Deno.test("unconfigured environments are skipped, not sent", () =>
     assertEquals(result.ok, false);
     assert(seen.length === 0);
   }));
+
+// ---------------------------------------------------------------------------
+// pushToDevice: what every fan-out does with each result
+// ---------------------------------------------------------------------------
+//
+// sendAPNs reports what Apple said and every caller used to drop it, so a run where nothing was
+// delivered logged and returned exactly what a run where everything was delivered did.
+
+function captureLogs(): { lines: string[]; restore: () => void } {
+  const lines: string[] = [];
+  const real = { error: console.error, warn: console.warn, log: console.log };
+  console.error = (...args: unknown[]) => lines.push(args.map(String).join(" "));
+  console.warn = (...args: unknown[]) => lines.push(args.map(String).join(" "));
+  console.log = () => {};
+  return { lines, restore: () => Object.assign(console, real) };
+}
+
+Deno.test("pushToDevice counts each outcome separately", () =>
+  run(async () => {
+    const out = captureLogs();
+    try {
+      apple.push(reply(200), reply(410, "Unregistered"), reply(503), reply(503), reply(400, "BadTopic"));
+      const tally = newPushTally();
+      const device = (apns_token: string) => ({ apns_token, environment: "sandbox" as const, profile_id: "p1" });
+      await pushToDevice("test-caller", tally, device("tok-a"), "Hi", "There");
+      await pushToDevice("test-caller", tally, device("tok-b"), "Hi", "There");
+      await pushToDevice("test-caller", tally, device("tok-c"), "Hi", "There");
+      await pushToDevice("test-caller", tally, device("tok-d"), "Hi", "There");
+      // No production secrets in this environment, so this one never leaves.
+      await pushToDevice("test-caller", tally, { apns_token: "tok-e", environment: "production" }, "Hi", "There");
+      assertEquals(tally, { attempted: 5, sent: 1, failed: 3, retired: 1, retryable: 1, skipped: 1 });
+    } finally {
+      out.restore();
+    }
+  }));
+
+Deno.test("pushToDevice logs a failure with the caller, the profile and Apple's answer", () =>
+  run(async () => {
+    const out = captureLogs();
+    try {
+      apple.push(reply(400, "BadTopic"));
+      await pushToDevice(
+        "send-streak-reminders",
+        newPushTally(),
+        { apns_token: "0123456789abcdef", environment: "sandbox", profile_id: "profile-42" },
+        "Hi",
+        "There",
+      );
+      const line = out.lines.find((l) => l.startsWith("[send-streak-reminders]"));
+      assert(line, `no line from the caller in ${JSON.stringify(out.lines)}`);
+      assert(line.includes("profile-42"), line);
+      assert(line.includes("400") && line.includes("BadTopic"), line);
+      assert(line.includes("…abcdef"), line);
+      assert(!line.includes("0123456789"), `the whole token was logged: ${line}`);
+    } finally {
+      out.restore();
+    }
+  }));
+
+Deno.test("a network failure that outlasts the retry is counted as retryable", () =>
+  run(async () => {
+    const out = captureLogs();
+    try {
+      apple.push(() => Promise.reject(new Error("reset")), () => Promise.reject(new Error("reset again")));
+      const tally = newPushTally();
+      const result = await pushToDevice("x", tally, { apns_token: "tok", environment: "sandbox" }, "Hi", "There");
+      assertEquals(result.ok, false);
+      assertEquals(tally, { attempted: 1, sent: 0, failed: 1, retired: 0, retryable: 1, skipped: 0 });
+    } finally {
+      out.restore();
+    }
+  }));
+
+Deno.test("addPushTally sums two tallies", () => {
+  const a = { attempted: 2, sent: 1, failed: 1, retired: 1, retryable: 0, skipped: 0 };
+  const b = { attempted: 3, sent: 2, failed: 1, retired: 0, retryable: 1, skipped: 0 };
+  addPushTally(a, b);
+  assertEquals(a, { attempted: 5, sent: 3, failed: 2, retired: 1, retryable: 1, skipped: 0 });
+});

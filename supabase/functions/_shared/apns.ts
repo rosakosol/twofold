@@ -285,6 +285,122 @@ export async function sendAPNs(
   );
 }
 
+// ---------------------------------------------------------------------------
+// Fan-out bookkeeping
+// ---------------------------------------------------------------------------
+//
+// Every caller of sendAPNs loops over a profile's `device_push_tokens` and, until this existed,
+// dropped the result on the floor. A run where Apple refused every push logged and returned the
+// same as one where every push landed, and notify-game-turn reported the phones it *tried* as
+// `sent`. Callers now push through `pushToDevice`, which logs each failure with enough context to
+// find the device and keeps a tally the caller puts in its logs and response.
+
+/// A `device_push_tokens` row, as every caller selects it. `profile_id` is optional because not
+/// every caller selects it; it's only used to say whose phone failed.
+export interface PushTarget {
+  apns_token: string;
+  environment: ApnsEnvironment;
+  profile_id?: string;
+}
+
+/// What a fan-out did. `failed` counts every push that was attempted and not delivered. Two
+/// subsets of it say what to do next: `retired` pushes went to tokens Apple has given up on (now
+/// deleted, nothing to retry), and `retryable` ones hit a 429, a 5xx or a network error that
+/// outlasted the sender's own retry, so a later attempt may well land. `skipped` sends never left,
+/// because this environment has no APNs secrets, and they're not failures.
+export interface PushTally {
+  attempted: number;
+  sent: number;
+  failed: number;
+  retired: number;
+  retryable: number;
+  skipped: number;
+}
+
+export function newPushTally(): PushTally {
+  return { attempted: 0, sent: 0, failed: 0, retired: 0, retryable: 0, skipped: 0 };
+}
+
+/// Folds `from` into `into`, for a run that keeps one tally per recipient and one overall.
+export function addPushTally(into: PushTally, from: PushTally): PushTally {
+  into.attempted += from.attempted;
+  into.sent += from.sent;
+  into.failed += from.failed;
+  into.retired += from.retired;
+  into.retryable += from.retryable;
+  into.skipped += from.skipped;
+  return into;
+}
+
+/// "2/3 sent, 1 failed (1 retired)", for a run's summary line.
+export function describePushTally(t: PushTally): string {
+  const parts = [`${t.sent}/${t.attempted} sent`];
+  if (t.failed > 0) {
+    const why = [t.retired > 0 ? `${t.retired} retired` : "", t.retryable > 0 ? `${t.retryable} retryable` : ""]
+      .filter(Boolean)
+      .join(", ");
+    parts.push(`${t.failed} failed${why ? ` (${why})` : ""}`);
+  }
+  if (t.skipped > 0) parts.push(`${t.skipped} skipped (APNs not configured)`);
+  return parts.join(", ");
+}
+
+function isRetryable(result: ApnsResult): boolean {
+  if (result.ok || result.tokenDead || result.skipped) return false;
+  return result.status === null || isTransient(result.status);
+}
+
+/// Enough of a token to tell two of one person's phones apart in a log, and no more: the whole
+/// token is what a push is addressed to.
+function tokenTail(token: string): string {
+  return `…${token.slice(-6)}`;
+}
+
+/// Sends one push through `sendAPNs`, records the outcome in `tally`, and logs a failure under
+/// `caller`'s own prefix with the profile, the token's tail and Apple's answer. Never throws: one
+/// bad push must not end the fan-out for everyone after it.
+export async function pushToDevice(
+  caller: string,
+  tally: PushTally,
+  target: PushTarget,
+  title: string,
+  body: string,
+  data?: Record<string, unknown>,
+): Promise<ApnsResult> {
+  let result: ApnsResult;
+  try {
+    result = await sendAPNs(target.apns_token, target.environment, title, body, data);
+  } catch (err) {
+    result = { ok: false, status: null, reason: (err as Error).message, tokenDead: false };
+  }
+
+  tally.attempted++;
+  if (result.ok) {
+    tally.sent++;
+    return result;
+  }
+  if (result.skipped) {
+    tally.skipped++;
+    return result;
+  }
+
+  tally.failed++;
+  if (result.tokenDead) tally.retired++;
+  if (isRetryable(result)) tally.retryable++;
+
+  const who = `${target.profile_id ? `profile ${target.profile_id}, ` : ""}device ${tokenTail(target.apns_token)}, ${target.environment}`;
+  const answer = `${result.status ?? "no response"}${result.reason ? ` ${result.reason}` : ""}`;
+  const outcome = result.tokenDead
+    ? "token retired"
+    : isRetryable(result)
+    ? "transient, a later attempt may land"
+    : "rejected";
+  const line = `[${caller}] push not delivered (${who}): ${answer} — ${outcome}`;
+  if (result.tokenDead) console.warn(line);
+  else console.error(line);
+  return result;
+}
+
 /// Seconds between the Unix epoch (1970-01-01) and the Cocoa reference date (2001-01-01) —
 /// Swift's default JSONDecoder decodes `Date` fields as seconds since the *Cocoa* reference
 /// date, not Unix epoch. Every Date field inside a Live Activity's `content-state` must be

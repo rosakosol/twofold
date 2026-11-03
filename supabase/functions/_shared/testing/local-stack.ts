@@ -35,10 +35,21 @@ export function onAeroApi(handler: AeroHandler): void {
   aeroHandler = handler;
 }
 
+/// Apple's answer to a push, by device token. Every push is a 200 unless a test says otherwise, so
+/// a test can make one phone's token dead or Apple briefly unavailable.
+type ApnsHandler = (token: string) => Response;
+const apnsOk: ApnsHandler = () => new Response(null, { status: 200 });
+let apnsHandler: ApnsHandler = apnsOk;
+
+export function onApns(handler: ApnsHandler): void {
+  apnsHandler = handler;
+}
+
 export function resetOutbound(): void {
   apnsRequests.length = 0;
   aeroRequests.length = 0;
   aeroHandler = () => new Response("not found", { status: 404 });
+  apnsHandler = apnsOk;
 }
 
 const realFetch = globalThis.fetch;
@@ -68,12 +79,13 @@ export async function installLocalStack(): Promise<void> {
     if (url.origin === new URL(LOCAL_URL).origin) return realFetch(input, init);
     if (url.hostname.endsWith("push.apple.com")) {
       const headers = new Headers(init?.headers);
+      const token = url.pathname.split("/").pop()!;
       apnsRequests.push({
-        token: url.pathname.split("/").pop()!,
+        token,
         pushType: headers.get("apns-push-type"),
         body: JSON.parse(String(init?.body ?? "{}")),
       });
-      return new Response(null, { status: 200 });
+      return apnsHandler(token);
     }
     if (url.hostname === "aeroapi.flightaware.com") {
       aeroRequests.push(url.pathname);

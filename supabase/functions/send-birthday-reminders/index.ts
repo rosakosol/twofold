@@ -20,7 +20,7 @@
 // push at every couple in the app.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { sendAPNs } from "../_shared/apns.ts";
+import { describePushTally, newPushTally, pushToDevice } from "../_shared/apns.ts";
 import { isServiceRoleRequest } from "../_shared/auth.ts";
 
 interface BirthdayReminderTarget {
@@ -75,6 +75,9 @@ Deno.serve(async (req) => {
   if (rows.length === 0) return Response.json({ reminded: 0 });
 
   let remindedCount = 0;
+  // `reminded` counts people; this counts their phones and what Apple did with each push. The
+  // ledger row is still written when every push failed, as the comment by it explains.
+  const pushes = newPushTally();
 
   for (const target of rows) {
     if (target.recipient_local_hour !== REMINDER_LOCAL_HOUR) continue;
@@ -119,9 +122,14 @@ Deno.serve(async (req) => {
         .eq("profile_id", target.recipient_id);
 
       for (const token of tokens ?? []) {
-        await sendAPNs(token.apns_token, token.environment, title, body, {
-          eventType: `birthday_${kind}`,
-        });
+        await pushToDevice(
+          "send-birthday-reminders",
+          pushes,
+          { ...token, profile_id: target.recipient_id },
+          title,
+          body,
+          { eventType: `birthday_${kind}` },
+        );
       }
       if ((tokens ?? []).length > 0) remindedCount++;
     }
@@ -145,5 +153,8 @@ Deno.serve(async (req) => {
     }
   }
 
-  return Response.json({ reminded: remindedCount });
+  console.log(
+    `[send-birthday-reminders] reminded ${remindedCount} of ${rows.length} target(s); pushes: ${describePushTally(pushes)}`,
+  );
+  return Response.json({ reminded: remindedCount, pushes });
 });
