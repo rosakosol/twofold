@@ -5,8 +5,9 @@
 //  The button styles of the redesign (docs/TWOFOLD_DESIGN.md, section 5). Every button is a capsule.
 //
 //    .buttonStyle(.twofoldPrimary)    the main action on a screen
-//    .buttonStyle(.twofoldSecondary)  the alternative beside it
+//    .buttonStyle(.twofoldSecondary)  the alternative beside it (`twofoldSecondaryCompact` in a row)
 //    .buttonStyle(.twofoldCoral)      streak repair and love moments only, never errors
+//    .buttonStyle(.twofoldDestructive) the one irreversible action on a screen (Delete my account)
 //    CircularNavButton                the 44pt round icon button over maps and sheets
 //
 //  The styles own the label's font, colour, height and background, so a call site passes plain
@@ -59,18 +60,21 @@ struct TwofoldPrimaryButtonStyle: ButtonStyle {
 
 /// Transparent capsule with a 1pt `controlLine` outline (3:1+) and `textPrimary` text.
 struct TwofoldSecondaryButtonStyle: ButtonStyle {
+    /// A 44pt capsule sized to its label, for a secondary action inside a row ("Unblock").
+    var isCompact = false
     @Environment(\.isEnabled) private var isEnabled
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.headline)
+            .font(isCompact ? .subheadline.weight(.semibold) : .headline)
             .multilineTextAlignment(.center)
             .padding(.vertical, 10)
+            .tint(isEnabled ? Theme.textPrimary : Theme.textSecondary)
             .foregroundStyle(isEnabled ? Theme.textPrimary : Theme.textSecondary)
-            .frame(maxWidth: .infinity, minHeight: 54)
-            .padding(.horizontal, Theme.Spacing.md)
-            .overlay { buttonShape().strokeBorder(Theme.controlLine, lineWidth: 1) }
-            .contentShape(buttonShape())
+            .frame(maxWidth: isCompact ? nil : .infinity, minHeight: isCompact ? 44 : 54)
+            .padding(.horizontal, isCompact ? 20 : Theme.Spacing.md)
+            .overlay { buttonShape(isCompact: isCompact).strokeBorder(Theme.controlLine, lineWidth: 1) }
+            .contentShape(buttonShape(isCompact: isCompact))
             // Never shorter than its label: squeezed for height, a wrapped label spills out of the capsule.
             .fixedSize(horizontal: false, vertical: true)
             .opacity(configuration.isPressed ? 0.7 : 1)
@@ -90,6 +94,28 @@ struct TwofoldCoralButtonStyle: ButtonStyle {
             .frame(maxWidth: .infinity, minHeight: 54)
             .padding(.horizontal, Theme.Spacing.md)
             .background(Theme.coralGradient, in: buttonShape())
+            .contentShape(buttonShape())
+            // Never shorter than its label: squeezed for height, a wrapped label spills out of the capsule.
+            .fixedSize(horizontal: false, vertical: true)
+            .opacity(configuration.isPressed ? 0.85 : 1)
+    }
+}
+
+/// A 54pt capsule on `errorFill` with white text (5.2:1), for an action that cannot be undone.
+/// Disabled, it gives up its colour the same way the primary button does.
+struct TwofoldDestructiveButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.headline)
+            .multilineTextAlignment(.center)
+            .padding(.vertical, 10)
+            .tint(isEnabled ? Theme.onFill : Theme.textSecondary)
+            .foregroundStyle(isEnabled ? Theme.onFill : Theme.textSecondary)
+            .frame(maxWidth: .infinity, minHeight: 54)
+            .padding(.horizontal, Theme.Spacing.md)
+            .background(isEnabled ? Theme.errorFill : Theme.segmentTrack, in: buttonShape())
             .contentShape(buttonShape())
             // Never shorter than its label: squeezed for height, a wrapped label spills out of the capsule.
             .fixedSize(horizontal: false, vertical: true)
@@ -134,10 +160,15 @@ extension ButtonStyle where Self == TwofoldPrimaryButtonStyle {
 
 extension ButtonStyle where Self == TwofoldSecondaryButtonStyle {
     static var twofoldSecondary: TwofoldSecondaryButtonStyle { TwofoldSecondaryButtonStyle() }
+    static var twofoldSecondaryCompact: TwofoldSecondaryButtonStyle { TwofoldSecondaryButtonStyle(isCompact: true) }
 }
 
 extension ButtonStyle where Self == TwofoldCoralButtonStyle {
     static var twofoldCoral: TwofoldCoralButtonStyle { TwofoldCoralButtonStyle() }
+}
+
+extension ButtonStyle where Self == TwofoldDestructiveButtonStyle {
+    static var twofoldDestructive: TwofoldDestructiveButtonStyle { TwofoldDestructiveButtonStyle() }
 }
 
 /// A 44pt circle on `raised` with a 1pt `line` border and an `accent` icon, for icon actions that
@@ -169,6 +200,7 @@ struct CircularNavButton: View {
         Button("Let's go") {}.buttonStyle(.twofoldPrimary).disabled(true)
         Button("See Premium") {}.buttonStyle(.twofoldSecondary)
         Button("Bring it back") {}.buttonStyle(.twofoldCoral)
+        Button("Delete my account") {}.buttonStyle(.twofoldDestructive)
         CircularNavButton(systemImage: "magnifyingglass", accessibilityLabel: "Search") {}
     }
     .padding()

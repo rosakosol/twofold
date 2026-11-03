@@ -61,17 +61,9 @@ struct PendingConnectionRequestsCard: View {
             Spacer(minLength: 0)
 
             // The same gradient capsule the full-screen accept uses, so it reads as the way into
-            // that decision rather than a lesser control. The label is `onPrimaryButton`, which
-            // clears AA on the gradient in both appearances.
-            Button { reviewing = request } label: {
-                Text("Review")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Theme.onPrimaryButton)
-                    .padding(.horizontal, Theme.Spacing.md)
-                    .padding(.vertical, 8)
-                    .background(Theme.primaryButtonGradient, in: Capsule())
-            }
-            .buttonStyle(.plain)
+            // that decision rather than a lesser control.
+            Button("Review") { reviewing = request }
+                .buttonStyle(.twofoldPrimaryCompact)
             .accessibilityLabel("Review \(request.requesterFirstName)'s request")
         }
     }

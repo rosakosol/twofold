@@ -160,8 +160,7 @@ struct NotificationPreferencesView: View {
                         Text("Turn on notifications")
                     }
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(Theme.accent)
+                .buttonStyle(.twofoldPrimary)
                 .disabled(isRequestingPermission)
             }
         case .denied:
@@ -174,8 +173,7 @@ struct NotificationPreferencesView: View {
                     guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
                     UIApplication.shared.open(url)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(Theme.accent)
+                .buttonStyle(.twofoldPrimary)
             }
         case .authorized, .provisional, .ephemeral:
             EmptyView()

@@ -194,14 +194,12 @@ struct FlightConfirmationView: View {
 
                     Button(action: confirm) {
                         HStack {
-                            if isSaving { ProgressView().tint(Theme.onPrimaryButton) }
+                            // The style tints the spinner to match the label.
+                            if isSaving { ProgressView() }
                             Text(isSaving ? "Saving…" : (isOutOfAllowance ? "Save without tracking" : "Add flight"))
                         }
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .foregroundStyle(Theme.onPrimaryButton)
-                        .background(Theme.primaryButtonGradient, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
                     }
+                    .buttonStyle(.twofoldPrimary)
                     // Not disabled when out of allowance any more — the flight can still be
                     // saved, just not tracked, and the label above says so.
                     .disabled(isSaving)

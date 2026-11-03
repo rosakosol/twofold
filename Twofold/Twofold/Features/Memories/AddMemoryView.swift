@@ -362,23 +362,18 @@ struct AddMemoryView: View {
                     .foregroundStyle(Theme.textSecondary)
             }
 
+            // The shared compact style: it tints the spinner and label for the gradient it sits on
+            // and greys the whole button out when disabled. The hand-rolled one put the dark-mode
+            // label (#0B0F16) on a dim grey fill, and a white spinner on the light-blue dark-mode
+            // gradient, so in dark mode neither could be read.
             Button(action: save) {
-                Group {
-                    if isSaving {
-                        ProgressView().tint(.white)
-                    } else {
-                        Text("Save")
-                    }
+                if isSaving {
+                    ProgressView()
+                } else {
+                    Text("Save")
                 }
-                .font(.headline)
-                .foregroundStyle(Theme.onPrimaryButton)
-                .padding(.horizontal, Theme.Spacing.lg)
-                .padding(.vertical, Theme.Spacing.sm)
             }
-            .background(
-                canSave ? AnyShapeStyle(Theme.primaryButtonGradient) : AnyShapeStyle(Theme.textSecondary.opacity(0.3)),
-                in: Capsule()
-            )
+            .buttonStyle(.twofoldPrimaryCompact)
             .disabled(!canSave)
         }
         .padding(Theme.Spacing.md)

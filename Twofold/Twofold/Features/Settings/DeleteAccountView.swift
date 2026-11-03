@@ -141,18 +141,13 @@ struct DeleteAccountView: View {
                 Button(role: .destructive) {
                     showingConfirm = true
                 } label: {
-                    HStack {
-                        if isDeleting {
-                            ProgressView().tint(.white)
-                        } else {
-                            Text("Delete my account")
-                        }
+                    if isDeleting {
+                        ProgressView()
+                    } else {
+                        Text("Delete my account")
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .foregroundStyle(.white)
-                    .background(Theme.errorFill, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
                 }
+                .buttonStyle(.twofoldDestructive)
                 .disabled(isDeleting)
             }
             .padding(Theme.Spacing.md)

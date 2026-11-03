@@ -62,7 +62,7 @@ struct PendingFlightShareReviewView: View {
             Button("Add manually instead") {
                 extracted = ExtractedFlightDetails()
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.twofoldPrimary)
         }
         .padding()
         .frame(maxWidth: .infinity, maxHeight: .infinity)

@@ -190,12 +190,12 @@ struct AccountView: View {
 
             Button(action: save) {
                 if isSaving {
-                    ProgressView().frame(maxWidth: .infinity)
+                    ProgressView()
                 } else {
-                    Text("Update password").fontWeight(.semibold).frame(maxWidth: .infinity)
+                    Text("Update password")
                 }
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.twofoldPrimary)
             .disabled(!canSave)
         }
     }

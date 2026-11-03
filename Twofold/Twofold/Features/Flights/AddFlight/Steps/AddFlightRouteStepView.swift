@@ -242,13 +242,9 @@ struct AddFlightRouteStepView: View {
             model.path.append(.date)
         } label: {
             Text(continueLabel)
-                .frame(maxWidth: .infinity)
-                .padding()
-                .foregroundStyle(Theme.onPrimaryButton)
-                .background(Theme.primaryButtonGradient, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
         }
+        .buttonStyle(.twofoldPrimary)
         .disabled(!canContinue)
-        .opacity(canContinue ? 1 : 0.5)
     }
 
     // MARK: - Actions
