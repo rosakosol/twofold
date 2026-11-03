@@ -12,14 +12,8 @@ import PostHog
 import SwiftUI
 
 struct WordSearchGameView: View {
-    @Environment(\.scenePhase) private var scenePhase
     @Environment(AppModel.self) private var appModel
-    @Environment(\.dismiss) private var dismiss
     @State private var store: WordSearchGameStore
-    @State private var confirmingAbandon = false
-    @State private var abandonFailed: String?
-    @State private var isSendingReminder = false
-    @State private var showingReminderSent = false
     /// Toggled when both results exist. Toggled rather than set, because `ConfettiBurstView`
     /// animates on any *change* of its trigger.
     @State private var confettiTrigger = false
@@ -52,67 +46,21 @@ struct WordSearchGameView: View {
         }
         .navigationTitle(GameType.wordSearch.displayName)
         .navigationBarTitleDisplayMode(.inline)
-        // Its own back button, not the system one.
-        //
-        // A notification opens a game through `RootView`'s `fullScreenCover`, which wraps it in a
-        // fresh `NavigationStack` — and at the root of a fresh stack there is nothing to pop, so
-        // the system back button is simply absent. That left every one of these screens with no
-        // way out at all: the only exit was force-quitting the app. `dismiss()` is right in both
-        // contexts, popping when pushed and closing the cover when it is the root, which is what
-        // the four deck games have always done.
-        .navigationBarBackButtonHidden(true)
-        .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                GameBackButton(action: { dismiss() })
-            }
-        }
-        .toolbar {
-            // Only while there are words left. Once the grid is cleared the thing you want is the
-            // comparison, and abandoning would throw away a result that is already submitted.
-            if store.phase == .ready, store.play?.isComplete == false {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Menu {
-                        Button(role: .destructive) {
-                            confirmingAbandon = true
-                        } label: {
-                            Label("Abandon this grid", systemImage: "trash")
-                        }
-                    } label: {
-                        Image(systemName: "ellipsis.circle")
-                    }
-                }
-            }
-        }
-        .confirmationDialog("Abandon this grid?", isPresented: $confirmingAbandon, titleVisibility: .visible) {
-            Button("Abandon", role: .destructive) { abandon() }
-            Button("Keep looking", role: .cancel) {}
-        } message: {
-            // Named plainly because the session is the couple's, not this player's:
-            // `start_word_search_session` resumes per couple and theme, so one grid is shared
-            // between them and ending it ends it for both.
-            Text(
-                appModel.partnerConnected
-                ? "This ends it for both of you — \(appModel.partner.name)'s progress on this grid goes too. You'll be able to start a new one straight away."
-                : "You'll be able to start a new grid straight away."
-            )
-        }
-        .alert("Couldn't abandon", isPresented: .constant(abandonFailed != nil)) {
-            Button("OK") { abandonFailed = nil }
-        } message: {
-            Text(abandonFailed ?? "")
-        }
-        .alert("Reminder sent", isPresented: $showingReminderSent) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text("\(appModel.partner.name) has been told their grid is waiting.")
-        }
-        .task(id: store.sessionID) {
-            await store.load()
-            store.startClock()
-        }
-        // Its own task: `subscribeRealtime()` loops until cancelled, so folding it into the one
-        // above would mean the grid waited on a stream that never ends.
-        .task(id: store.sessionID) { await store.subscribeRealtime() }
+        .puzzleScreenChrome(
+            store: store,
+            abandon: PuzzleAbandonCopy(
+                menuItem: "Abandon this grid",
+                title: "Abandon this grid?",
+                keepPlaying: "Keep looking",
+                // `start_word_search_session` resumes per couple and theme, so one grid is shared
+                // between them and ending it ends it for both.
+                message: appModel.partnerConnected
+                    ? "This ends it for both of you — \(appModel.partner.name)'s progress on this grid goes too. You'll be able to start a new one straight away."
+                    : "You'll be able to start a new grid straight away."
+            ),
+            reminderSentMessage: "\(appModel.partner.name) has been told their grid is waiting.",
+            share: .constant(nil)
+        )
         // Both results exist, so the comparison is on screen. `initial: true` covers arriving at a
         // grid already cleared on both sides — a first look at the result for whoever finished
         // first and walked away.
@@ -125,26 +73,6 @@ struct WordSearchGameView: View {
         // A small tap on every word found, not just at the end. Finding one is the thing this game
         // does, and eight of them with no feedback until the last is seven moments thrown away.
         .sensoryFeedback(.impact(weight: .light), trigger: store.play?.found.count ?? 0)
-        .onDisappear {
-            store.stopClock()
-            store.stopRealtime()
-        }
-        .onChange(of: scenePhase) { _, phase in
-            // The clock measures time at the grid, so backgrounding stops it.
-            if phase == .active { store.startClock() } else { store.stopClock() }
-            if phase == .active { Task { await store.retryPendingResult() } }
-        }
-        .onChange(of: NetworkMonitor.shared.isConnected) { _, isConnected in
-            // The result may have been waiting on exactly this. `GameResponseOutbox` sends it
-            // too, from `RootView`'s reconnect; whichever gets there first, the other finds
-            // nothing left to send.
-            if isConnected { Task { await store.retryPendingResult() } }
-        }
-        .safeAreaInset(edge: .top) {
-            if store.resultPending {
-                OfflineGameBanner(isConnected: NetworkMonitor.shared.isConnected, pendingCount: 1, isResult: true)
-            }
-        }
         .postHogScreenView("Games: Word Search")
     }
 
@@ -252,7 +180,11 @@ struct WordSearchGameView: View {
             // reads as raised against the page, which is the one colour it would disappear into
             // inside a `SectionCard`. Same placement the deck games use.
             if appModel.partnerConnected {
-                GameReminderButton(isSending: isSendingReminder, action: remindPartner)
+                GameReminderButton(isSending: store.link.isSendingReminder) {
+                    store.link.remindPartner(
+                        detail: store.theme.map { "\($0.displayName) Word Search" } ?? GameType.wordSearch.displayName
+                    )
+                }
             }
         }
     }
@@ -287,42 +219,6 @@ struct WordSearchGameView: View {
                 }
             }
             .frame(maxWidth: .infinity)
-        }
-    }
-
-    /// Ends the shared session and goes back to the theme list, where starting the same theme now
-    /// gets a genuinely new grid rather than this one again.
-    private func abandon() {
-        let id = store.sessionID
-        store.stopClock()
-        Task {
-            do {
-                try await BackendService.abandonGameSession(id: id)
-                // The device's own copy goes too, or the grid sits in the cache forever — harmless,
-                // but it is the abandoned puzzle's last trace and nothing will ask for it again.
-                if let me = BackendService.currentUserID {
-                    PuzzleProgressCache.wordSearch.remove(sessionID: id, responderID: me)
-                }
-                dismiss()
-            } catch {
-                abandonFailed = error.localizedDescription
-            }
-        }
-    }
-
-    /// The same `gameReminder` push the other games send — it is the identical situation, and a
-    /// second notification type saying the same thing is a second thing to keep in step.
-    private func remindPartner() {
-        isSendingReminder = true
-        Task {
-            await BackendService.notifyPartner(
-                event: .gameReminder,
-                detail: store.theme.map { "\($0.displayName) Word Search" } ?? GameType.wordSearch.displayName,
-                sessionID: store.sessionID,
-                gameType: .wordSearch
-            )
-            isSendingReminder = false
-            showingReminderSent = true
         }
     }
 }

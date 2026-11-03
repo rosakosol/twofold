@@ -31,11 +31,10 @@
 
 import Foundation
 import Observation
-import Supabase
 
 @MainActor
 @Observable
-final class SudokuGameStore {
+final class SudokuGameStore: PuzzleScreenStore {
     enum Phase: Equatable {
         case loading
         case ready
@@ -47,10 +46,10 @@ final class SudokuGameStore {
     }
 
     let sessionID: UUID
-    /// The solve on its way to the server. See `PuzzleResult`.
-    let result: PuzzleResult
+    /// The solve's way to the server and the partner. See `PuzzleResultLink`.
+    let link: PuzzleResultLink
     /// A finished solve the server does not have yet.
-    var resultPending: Bool { result.isPending }
+    var resultPending: Bool { link.isPending }
 
     private(set) var phase: Phase = .loading
     private(set) var generated: SudokuPuzzle?
@@ -75,13 +74,8 @@ final class SudokuGameStore {
     var isNotesMode = false
 
     private var undoStack: [SudokuPlayState] = []
-    private var responderID: UUID?
+    private var responderID: UUID? { link.responderID }
     private var clock: Task<Void, Never>?
-    private var hasSubmitted = false
-    /// The solve's one send while it is in flight, so "Play another" can wait for it — see
-    /// `startAnother(difficulty:using:)`.
-    private var submission: Task<Void, Never>?
-    private var channel: RealtimeChannelV2?
     private let backend: any PuzzleSessionBackend
 
     var difficulty: SudokuDifficulty? { generated?.difficulty }
@@ -101,7 +95,15 @@ final class SudokuGameStore {
     ) {
         self.sessionID = sessionID
         self.backend = backend
-        self.result = PuzzleResult(sessionID: sessionID, gameType: .sudoku, backend: backend, queue: queue)
+        self.link = PuzzleResultLink(sessionID: sessionID, gameType: .sudoku, backend: backend, queue: queue)
+        link.refreshPartner = { [weak self] in await self?.refreshPartner() }
+        link.partnerHasFinished = { [weak self] in self?.partnerResult != nil }
+    }
+
+    var canAbandon: Bool { phase == .ready && play?.isComplete == false }
+
+    func abandonSession() async throws {
+        try await abandon()
     }
 
     // MARK: - Loading
@@ -111,7 +113,7 @@ final class SudokuGameStore {
         do {
             let detail = try await backend.fetchGameSession(id: sessionID)
             let me = backend.currentUserID
-            responderID = me
+            link.begin(responderID: me)
             if detail.session.status.hasEnded {
                 end()
                 return
@@ -142,8 +144,7 @@ final class SudokuGameStore {
 
             let restored = SudokuPlayState.furtherAlong(fromServer, fromDevice)
             play = restored ?? SudokuPlayState(puzzle: generated.puzzle)
-            hasSubmitted = fromServer?.isComplete == true
-            if hasSubmitted, let me { result.noteDelivered(responderID: me) }
+            link.noteServerHasResult(fromServer?.isComplete == true)
             partnerResult = me.flatMap {
                 Self.partnerResult(in: detail, me: $0, puzzle: generated.puzzle)
             }
@@ -152,7 +153,7 @@ final class SudokuGameStore {
 
             // Solved here but never delivered. Sent again now, as well as on reconnect, on
             // foreground and by `GameResponseOutbox` — see `PuzzleResult`.
-            if play?.isComplete == true, !hasSubmitted {
+            if play?.isComplete == true, !link.hasSubmitted {
                 submitSolve()
             }
         } catch {
@@ -180,8 +181,8 @@ final class SudokuGameStore {
         phase = .ended
         if let me = responderID {
             SudokuProgressCache.remove(sessionID: sessionID, responderID: me)
-            result.discard(responderID: me)
         }
+        link.discard()
     }
 
     /// The session behind "Play another", at `difficulty`.
@@ -201,7 +202,7 @@ final class SudokuGameStore {
         difficulty: SudokuDifficulty,
         using actions: any SudokuSessionActions = LiveSudokuSessionActions()
     ) async throws -> BackendService.SudokuSessionStart {
-        await submission?.value
+        await link.waitForSend()
         return try await actions.start(difficulty: difficulty)
     }
 
@@ -313,78 +314,21 @@ final class SudokuGameStore {
 
     /// The one write to `game_responses` this game makes. See the note at the top of the file.
     ///
-    /// Queued before it is sent, so a send that fails is kept and tried again — see
-    /// `PuzzleResult`.
+    /// The difficulty is the whole of what names a sudoku — there is no deck title — and it lands
+    /// inside the partner's push, so a nil reads better as an omission than as an empty string.
     private func submitSolve() {
-        guard !hasSubmitted, let play, play.isComplete, let me = responderID else { return }
-        hasSubmitted = true
-        let encoded = play.encoded
-        let detail = notifyDetail
-        submission = Task {
-            let outcome = await result.send(encoded: encoded, isCorrect: true, notifyDetail: detail, responderID: me)
-            await handle(outcome)
-        }
+        guard let play, play.isComplete else { return }
+        link.send(encoded: play.encoded, isCorrect: true, notifyDetail: notifyDetail)
     }
 
     /// Tries the solve again if it is still waiting. The screen calls this on reconnecting and on
     /// returning to the foreground.
     func retryPendingResult() async {
-        guard phase == .ready, let me = responderID else { return }
-        await submission?.value
-        guard let outcome = await result.resendIfQueued(responderID: me) else {
-            // Nothing left to send — it may have gone from `GameResponseOutbox` meanwhile, so
-            // the partner's side is worth a fresh look.
-            await refreshPartner()
-            return
-        }
-        await handle(outcome)
-    }
-
-    private func handle(_ outcome: PuzzleResult.Outcome) async {
-        switch outcome {
-        case .sent:
-            // If they finished first, their response was invisible until this insert — RLS only
-            // reveals it once both sides have answered. Realtime would echo this same insert
-            // back and trigger the read anyway, but that leaves the comparison depending on a
-            // live socket to show a result both halves of which are already on the server.
-            await refreshPartner()
-            await notifyPartnerOfSolve()
-        case .pending:
-            // Kept on the device and in the queue. The screen says so while `resultPending`.
-            break
-        case .refused:
-            // Almost always because the session was ended meanwhile; this read is what shows it.
-            await refreshPartner()
-        }
+        guard phase == .ready else { return }
+        await link.retryPending(notifyDetail: notifyDetail)
     }
 
     private var notifyDetail: String? { difficulty.map { "\($0.displayName) Sudoku" } }
-
-    /// Tells the other side that a grid was just finished — the same two pushes the other four
-    /// games send from `GameSessionStore.performSubmit`, which this game does not go through.
-    ///
-    /// Without them a sudoku was a game you could only discover had been played by opening it. The
-    /// pitch is "solve it apart, compare when you're done", and both halves of that were left to
-    /// chance: the partner was never told a grid was waiting, and whoever solved first — having
-    /// seen "waiting for them" and put the phone down — was never told the comparison had arrived.
-    /// The Nudge button covered only the first, and only if the person who finished remembered.
-    ///
-    /// Which of the two goes out is decided by the `refreshPartner()` that ran just above. Their
-    /// result being visible at all means both responses are in, since RLS reveals a partner's row
-    /// only once both sides have written one.
-    ///
-    /// Sent unconditionally for a solo player too, exactly as the other games do: `couple_id` is
-    /// null, `notify-couple-event` finds no couple and returns without sending anything.
-    private func notifyPartnerOfSolve() async {
-        // The difficulty is the whole of what names a sudoku — there is no deck title — and it
-        // lands inside the push copy, so a nil reads better as an omission than as an empty string.
-        await backend.notifyPartner(
-            event: partnerResult == nil ? .gamePartnerFinished : .gameResultsReady,
-            detail: notifyDetail,
-            sessionID: sessionID,
-            gameType: .sudoku
-        )
-    }
 
     private func persistLocally() {
         guard let play, let responderID else { return }
@@ -392,25 +336,6 @@ final class SudokuGameStore {
     }
 
     // MARK: - The partner's side
-
-    /// Subscribes to the session and re-reads the partner's result on every change, so a solve that
-    /// lands while this screen is open becomes the comparison without needing the screen reopened.
-    ///
-    /// Call from a `.task` of its own — this loops until cancelled, so sharing `load()`'s task would
-    /// mean the board never rendered. Pair with `stopRealtime()`.
-    func subscribeRealtime() async {
-        let (channel, stream) = BackendService.subscribeToGameSession(id: sessionID)
-        self.channel = channel
-        for await _ in stream {
-            await refreshPartner()
-        }
-    }
-
-    func stopRealtime() {
-        guard let channel else { return }
-        Task { await BackendService.unsubscribe(channel) }
-        self.channel = nil
-    }
 
     /// Re-reads only the partner's half of the session.
     ///
@@ -428,9 +353,7 @@ final class SudokuGameStore {
             end()
             return
         }
-        if detail.responses.contains(where: { $0.responderID == me }) {
-            result.noteDelivered(responderID: me)
-        }
+        link.noteDelivered(in: detail)
         partnerResult = Self.partnerResult(in: detail, me: me, puzzle: generated.puzzle)
     }
 

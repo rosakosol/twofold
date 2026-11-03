@@ -14,9 +14,7 @@
 import SwiftUI
 
 struct SudokuGameView: View {
-    @Environment(\.scenePhase) private var scenePhase
     @Environment(AppModel.self) private var appModel
-    @Environment(\.dismiss) private var dismiss
     /// The puzzle on screen. `var`, not a fixed value built once from the initialiser, because
     /// "play another" swaps this screen's puzzle in place rather than pushing a second copy of the
     /// screen on top of the first — see `rematch()`.
@@ -25,11 +23,8 @@ struct SudokuGameView: View {
     /// one. The RPC has always reported this and nothing ever showed it, so tapping Hard silently
     /// returned a week-old grid with the clock already running.
     @State private var resumed: Bool
-    @State private var showingShare = false
-    @State private var confirmingAbandon = false
-    @State private var isSendingReminder = false
-    @State private var showingReminderSent = false
-    @State private var abandonFailed: String?
+    /// The comparison being shared, while the share sheet is up.
+    @State private var sharing: GameResultShareData?
     @State private var isStartingRematch = false
     @State private var rematchFailed: String?
     /// Toggled the moment both times exist. Drives the burst and the haptic together.
@@ -71,86 +66,34 @@ struct SudokuGameView: View {
         }
         .navigationTitle("Sudoku")
         .navigationBarTitleDisplayMode(.inline)
-        // Its own back button, not the system one.
-        //
-        // A notification opens a game through `RootView`'s `fullScreenCover`, which wraps it in a
-        // fresh `NavigationStack` — and at the root of a fresh stack there is nothing to pop, so
-        // the system back button is simply absent. That left every one of these screens with no
-        // way out at all: the only exit was force-quitting the app. `dismiss()` is right in both
-        // contexts, popping when pushed and closing the cover when it is the root, which is what
-        // the four deck games have always done.
-        .navigationBarBackButtonHidden(true)
-        .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                GameBackButton(action: { dismiss() })
-            }
-        }
         .toolbar {
             // Only once there are two times to show. A solve with nobody to compare against is
             // the "waiting for them" card, and a card of one time is not the thing this shares.
             if let shareData {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Share", systemImage: "square.and.arrow.up") {
-                        showingShare = true
+                        sharing = shareData
                     }
                     .labelStyle(.iconOnly)
                 }
             }
-            // Only while the puzzle is unsolved. Once it is finished the thing you want is the
-            // comparison, and abandoning would throw away a solve that is already submitted.
-            if store.phase == .ready, store.play?.isComplete == false {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Menu {
-                        Button(role: .destructive) {
-                            confirmingAbandon = true
-                        } label: {
-                            Label("Abandon this puzzle", systemImage: "trash")
-                        }
-                    } label: {
-                        Image(systemName: "ellipsis.circle")
-                    }
-                }
-            }
         }
-        .confirmationDialog(
-            "Abandon this puzzle?",
-            isPresented: $confirmingAbandon,
-            titleVisibility: .visible
-        ) {
-            Button("Abandon", role: .destructive) { abandon() }
-            Button("Keep playing", role: .cancel) {}
-        } message: {
-            // Named plainly because the session is the couple's, not this player's:
-            // `start_sudoku_session` resumes per couple, so one grid is shared between them and
-            // ending it ends it for both. Someone abandoning what they think is their own copy
-            // would otherwise wipe out a partner's half-finished solve with no warning.
-            Text(
-                "This ends it for both of you — \(appModel.partner.name)'s progress on this grid "
-                + "goes too. You'll be able to start a new "
-                + "\(store.difficulty?.displayName.lowercased() ?? "") puzzle straight away."
-            )
-        }
-        .alert("Couldn't abandon", isPresented: .constant(abandonFailed != nil)) {
-            Button("OK") { abandonFailed = nil }
-        } message: {
-            Text(abandonFailed ?? "")
-        }
-        .sheet(isPresented: $showingShare) {
-            if let shareData {
-                GameShareSheet(data: shareData)
-            }
-        }
-        // Keyed on the session rather than on the view's lifetime: "play another" replaces `store`
-        // in place, and a plain `.task` would leave both of these running against the puzzle that
-        // is no longer on screen — the old clock still ticking, the old realtime stream still
-        // listening. `.task(id:)` cancels and restarts them on the swap.
-        .task(id: store.sessionID) {
-            await store.load()
-            store.startClock()
-        }
-        // Its own task: `subscribeRealtime()` loops until cancelled, so folding it into the one
-        // above would mean the board waited on a stream that never ends.
-        .task(id: store.sessionID) { await store.subscribeRealtime() }
+        .puzzleScreenChrome(
+            store: store,
+            abandon: PuzzleAbandonCopy(
+                menuItem: "Abandon this puzzle",
+                title: "Abandon this puzzle?",
+                keepPlaying: "Keep playing",
+                // `start_sudoku_session` resumes per couple, so one grid is shared between them.
+                // Someone abandoning what they think is their own copy would otherwise wipe out a
+                // partner's half-finished solve with no warning.
+                message: "This ends it for both of you — \(appModel.partner.name)'s progress on this grid "
+                    + "goes too. You'll be able to start a new "
+                    + "\(store.difficulty?.displayName.lowercased() ?? "") puzzle straight away."
+            ),
+            reminderSentMessage: "\(appModel.partner.name) has been told their puzzle is waiting.",
+            share: $sharing
+        )
         // Both times exist, so the comparison is on screen. `initial: true` covers arriving at a
         // puzzle that was already finished on both sides — which is a first look at the result for
         // whoever solved first and walked away, and the burst is the point of opening it.
@@ -163,44 +106,6 @@ struct SudokuGameView: View {
             confettiTrigger.toggle()
         }
         .sensoryFeedback(.success, trigger: confettiTrigger)
-        .onDisappear {
-            store.stopClock()
-            store.stopRealtime()
-        }
-        .onChange(of: scenePhase) { _, phase in
-            // The clock measures time at the board, so backgrounding stops it. Without this a
-            // puzzle left open in a pocket would report an afternoon's solve.
-            if phase == .active { store.startClock() } else { store.stopClock() }
-            if phase == .active { Task { await store.retryPendingResult() } }
-        }
-        .onChange(of: NetworkMonitor.shared.isConnected) { _, isConnected in
-            // The result may have been waiting on exactly this. `GameResponseOutbox` sends it
-            // too, from `RootView`'s reconnect; whichever gets there first, the other finds
-            // nothing left to send.
-            if isConnected { Task { await store.retryPendingResult() } }
-        }
-        .safeAreaInset(edge: .top) {
-            if store.resultPending {
-                OfflineGameBanner(isConnected: NetworkMonitor.shared.isConnected, pendingCount: 1, isResult: true)
-            }
-        }
-    }
-
-    /// Ends the shared session and goes back to the picker, where starting the same difficulty now
-    /// gets a genuinely new grid instead of this one again.
-    ///
-    /// Back rather than straight into a replacement: the picker owns navigation, and a puzzle that
-    /// silently swapped itself for a different one under the same screen would be the same
-    /// surprise this is here to fix.
-    private func abandon() {
-        Task {
-            do {
-                try await store.abandon()
-                dismiss()
-            } catch {
-                abandonFailed = error.localizedDescription
-            }
-        }
     }
 
     // MARK: - Playing another
@@ -261,7 +166,7 @@ struct SudokuGameView: View {
                 // just solved has to survive this.
                 let started = try await store.startAnother(difficulty: difficulty)
                 store.stopClock()
-                store.stopRealtime()
+                store.link.stopRealtime()
                 resumed = started.resumed
                 store = SudokuGameStore(sessionID: started.sessionID)
             } catch {
@@ -503,16 +408,11 @@ struct SudokuGameView: View {
             // player to wait for a partner called "Partner", offered to remind them, and hid "Play
             // another", which is the only way on from a solo solve.
             if appModel.partnerConnected {
-                GameReminderButton(isSending: isSendingReminder, action: remindPartner)
+                GameReminderButton(isSending: store.link.isSendingReminder, action: remindPartner)
             }
         }
         // On the stack rather than the card, so the button below it is inset to match.
         .padding(.horizontal, Theme.Spacing.md)
-        .alert("Reminder sent", isPresented: $showingReminderSent) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text("\(appModel.partner.name) has been told their puzzle is waiting.")
-        }
     }
 
     private func solvedSummary(play: SudokuPlayState) -> some View {
@@ -565,19 +465,9 @@ struct SudokuGameView: View {
     /// than a sudoku-specific one — it is the identical situation, and a second notification type
     /// saying the same thing is a second thing to keep in step with the copy.
     private func remindPartner() {
-        isSendingReminder = true
-        Task {
-            await BackendService.notifyPartner(
-                event: .gameReminder,
-                // The difficulty is always set in practice, but it lands inside quotation marks
-                // in the push — `wants you to complete "Hard Sudoku"` — so a nil would read as a
-                // leading space inside them rather than as nothing.
-                detail: store.difficulty.map { "\($0.displayName) Sudoku" } ?? "Sudoku",
-                sessionID: store.sessionID,
-                gameType: .sudoku
-            )
-            isSendingReminder = false
-            showingReminderSent = true
-        }
+        // The difficulty is always set in practice, but it lands inside quotation marks in the
+        // push — `wants you to complete "Hard Sudoku"` — so a nil would read as a leading space
+        // inside them rather than as nothing.
+        store.link.remindPartner(detail: store.difficulty.map { "\($0.displayName) Sudoku" } ?? "Sudoku")
     }
 }

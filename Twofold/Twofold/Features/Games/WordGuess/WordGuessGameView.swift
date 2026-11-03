@@ -12,23 +12,17 @@ import PostHog
 import SwiftUI
 
 struct WordGuessGameView: View {
-    @Environment(\.scenePhase) private var scenePhase
-    @Environment(\.dismiss) private var dismiss
     @Environment(AppModel.self) private var appModel
     @State private var store: WordGuessGameStore
-    @State private var isSendingReminder = false
     /// Natural height of whatever `finishedSection` is showing — the waiting card or the full
     /// comparison. Measured so the finished board can be sized from what is left over rather than
     /// from the screen's width alone; see `content`.
     @State private var finishedSectionHeight: CGFloat = 0
-    @State private var showingReminderSent = false
     /// Toggled the moment both results exist. Toggled rather than set, because `ConfettiBurstView`
     /// animates on any *change* of its trigger.
     @State private var confettiTrigger = false
     @State private var celebratedSession: UUID?
     @State private var shareData: GameResultShareData?
-    @State private var confirmingAbandon = false
-    @State private var abandonFailed: String?
 
     init(sessionID: UUID) {
         _store = State(initialValue: WordGuessGameStore(sessionID: sessionID))
@@ -57,68 +51,24 @@ struct WordGuessGameView: View {
         }
         .navigationTitle(GameType.wordGuess.displayName)
         .navigationBarTitleDisplayMode(.inline)
-        // Its own back button, not the system one.
-        //
-        // A notification opens a game through `RootView`'s `fullScreenCover`, which wraps it in a
-        // fresh `NavigationStack` — and at the root of a fresh stack there is nothing to pop, so
-        // the system back button is simply absent. That left every one of these screens with no
-        // way out at all: the only exit was force-quitting the app. `dismiss()` is right in both
-        // contexts, popping when pushed and closing the cover when it is the root, which is what
-        // the four deck games have always done.
-        .navigationBarBackButtonHidden(true)
-        .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                GameBackButton(action: { dismiss() })
-            }
-        }
-        .toolbar {
-            // The same way out Sudoku and Word Search have, and only while there are guesses left
-            // — a finished board's result is already submitted. Without it a board neither of you
-            // was going to finish could only wait for the cron, which for some boards never came
-            // (GAME-4).
-            if store.phase == .ready, store.play?.isComplete == false {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Menu {
-                        Button(role: .destructive) {
-                            confirmingAbandon = true
-                        } label: {
-                            Label("Abandon this word", systemImage: "trash")
-                        }
-                    } label: {
-                        Image(systemName: "ellipsis.circle")
-                    }
-                    .accessibilityLabel("More")
-                }
-            }
-        }
-        .confirmationDialog("Abandon this word?", isPresented: $confirmingAbandon, titleVisibility: .visible) {
-            Button("Abandon", role: .destructive) { abandon() }
-            Button("Keep guessing", role: .cancel) {}
-        } message: {
-            // Named plainly because the board is the couple's: ending it ends it for both.
-            Text(
-                appModel.partnerConnected
-                ? "This ends it for both of you — \(appModel.partner.name)'s guesses on this word go too."
-                : "Your guesses on this word will be lost."
-            )
-        }
-        .alert("Couldn't abandon", isPresented: Binding(get: { abandonFailed != nil }, set: { if !$0 { abandonFailed = nil } })) {
-            Button("OK") { abandonFailed = nil }
-        } message: {
-            Text(abandonFailed ?? "")
-        }
-        .sheet(isPresented: Binding(get: { shareData != nil }, set: { if !$0 { shareData = nil } })) {
-            if let shareData {
-                GameShareSheet(data: shareData)
-            }
-        }
-        .task(id: store.sessionID) {
-            await store.load()
-            store.startClock()
-        }
-        // Its own task: `subscribeRealtime()` loops until cancelled, so folding it into the one
-        // above would mean the board waited on a stream that never ends.
-        .task(id: store.sessionID) { await store.subscribeRealtime() }
+        // The abandon menu is the same way out Sudoku and Word Search have, and only while there
+        // are guesses left — a finished board's result is already submitted. Without it a board
+        // neither of you was going to finish could only wait for the cron, which for some boards
+        // never came (GAME-4).
+        .puzzleScreenChrome(
+            store: store,
+            abandon: PuzzleAbandonCopy(
+                menuItem: "Abandon this word",
+                title: "Abandon this word?",
+                keepPlaying: "Keep guessing",
+                // Named plainly because the board is the couple's: ending it ends it for both.
+                message: appModel.partnerConnected
+                    ? "This ends it for both of you — \(appModel.partner.name)'s guesses on this word go too."
+                    : "Your guesses on this word will be lost."
+            ),
+            reminderSentMessage: "\(appModel.partner.name) has been told their word is waiting.",
+            share: $shareData
+        )
         // Both results exist, so the comparison is on screen. `initial: true` covers arriving at a
         // board that was already finished on both sides, which is a first look at the result for
         // whoever finished first and walked away.
@@ -138,31 +88,6 @@ struct WordGuessGameView: View {
         // backspace, which is exactly the set of taps that should be felt — and nothing else
         // touches it, so a partner's move arriving cannot buzz somebody's thumb.
         .sensoryFeedback(.impact(flexibility: .soft, intensity: 0.5), trigger: store.draft)
-        .onDisappear {
-            store.stopClock()
-            store.stopRealtime()
-        }
-        .onChange(of: scenePhase) { _, phase in
-            // The clock measures time at the board, so backgrounding stops it.
-            if phase == .active { store.startClock() } else { store.stopClock() }
-            if phase == .active { Task { await store.retryPendingResult() } }
-        }
-        .onChange(of: NetworkMonitor.shared.isConnected) { _, isConnected in
-            // The result may have been waiting on exactly this. `GameResponseOutbox` sends it
-            // too, from `RootView`'s reconnect; whichever gets there first, the other finds
-            // nothing left to send.
-            if isConnected { Task { await store.retryPendingResult() } }
-        }
-        .safeAreaInset(edge: .top) {
-            if store.resultPending {
-                OfflineGameBanner(isConnected: NetworkMonitor.shared.isConnected, pendingCount: 1, isResult: true)
-            }
-        }
-        .alert("Reminder sent", isPresented: $showingReminderSent) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text("\(appModel.partner.name) has been told their word is waiting.")
-        }
         .postHogScreenView("Games: Word Guess")
     }
 
@@ -430,7 +355,9 @@ struct WordGuessGameView: View {
             // reads as raised against the page, which is the one colour it would disappear into
             // inside a `SectionCard`. Same placement the deck games use.
             if appModel.partnerConnected {
-                GameReminderButton(isSending: isSendingReminder, action: remindPartner)
+                GameReminderButton(isSending: store.link.isSendingReminder) {
+                    store.link.remindPartner(detail: GameType.wordGuess.displayName)
+                }
             }
         }
     }
@@ -485,36 +412,6 @@ struct WordGuessGameView: View {
                 }
             }
             .frame(maxWidth: .infinity)
-        }
-    }
-
-    /// Ends the board for both of you and goes back to the entry screen, where Play starts today's
-    /// word — or says today's is done — rather than handing this one back.
-    private func abandon() {
-        Task {
-            do {
-                try await store.abandon()
-                dismiss()
-            } catch {
-                abandonFailed = error.localizedDescription
-            }
-        }
-    }
-
-    /// The same `gameReminder` push the other games send, rather than a Word Guess-specific one —
-    /// it is the identical situation, and a second notification type saying the same thing is a
-    /// second thing to keep in step with the copy.
-    private func remindPartner() {
-        isSendingReminder = true
-        Task {
-            await BackendService.notifyPartner(
-                event: .gameReminder,
-                detail: GameType.wordGuess.displayName,
-                sessionID: store.sessionID,
-                gameType: .wordGuess
-            )
-            isSendingReminder = false
-            showingReminderSent = true
         }
     }
 }
