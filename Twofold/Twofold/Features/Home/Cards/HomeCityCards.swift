@@ -123,7 +123,7 @@ struct DistanceCard: View {
                     .foregroundStyle(Theme.textSecondary)
             }
 
-            RelationshipGlobeView(couple: appModel.couple, partnerACity: myCity, partnerBCity: partnerCity, activeTrip: appModel.activeTrip)
+            RelationshipGlobeView(couple: appModel.session.couple, partnerACity: myCity, partnerBCity: partnerCity, activeTrip: appModel.travel.activeTrip)
                 .frame(height: 260)
                 // A preview, not a globe you turn here. Two reasons, and the first one predates
                 // this card being tappable at all: a live `Map` inside a `ScrollView` competes for

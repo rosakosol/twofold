@@ -407,7 +407,7 @@ struct SudokuGameView: View {
             // so it is true for somebody playing alone too. Reading it as "paired" told every solo
             // player to wait for a partner called "Partner", offered to remind them, and hid "Play
             // another", which is the only way on from a solo solve.
-            if appModel.partnerConnected {
+            if appModel.session.partnerConnected {
                 GameReminderButton(isSending: store.link.isSendingReminder, action: remindPartner)
             }
         }
@@ -433,7 +433,7 @@ struct SudokuGameView: View {
                 Text(
                     store.resultPending
                         ? "Your time is saved on this phone and will be sent as soon as it can be."
-                        : appModel.partnerConnected
+                        : appModel.session.partnerConnected
                         ? "Your time is saved. You'll see how it compares once \(appModel.partner.name) finishes theirs."
                         : "Your time is saved."
                 )
@@ -452,7 +452,7 @@ struct SudokuGameView: View {
                 // The line that used to sit here — "Don't want to wait? Abandon it from the menu
                 // above…" — pointed at a menu that isn't on screen once the puzzle is solved, so
                 // it named a way out nobody could take from where they were standing.
-                if !appModel.partnerConnected {
+                if !appModel.session.partnerConnected {
                     Divider().opacity(0.5)
                     rematchButton
                 }

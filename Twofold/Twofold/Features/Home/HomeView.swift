@@ -75,7 +75,7 @@ struct HomeView: View {
     }
 
     private var soonestTrip: Trip? {
-        appModel.upcomingTrips.first
+        appModel.travel.upcomingTrips.first
     }
 
     var body: some View {
@@ -92,8 +92,8 @@ struct HomeView: View {
                     // first flashed "No active subscription" at a paying subscriber on every
                     // launch. Same shape as the invite card in `PartnerStatusSection` below, and for the same reason: no
                     // card is better than the wrong one, and the gap is one round trip.
-                    if appModel.hasResolvedSubscription, !appModel.canAddContent {
-                        if let lapsedPartnerName = appModel.partnerSubscriptionLapsedPartnerName {
+                    if appModel.subscription.hasResolved, !appModel.subscription.canAddContent {
+                        if let lapsedPartnerName = appModel.prompts.partnerSubscriptionLapsedPartnerName {
                             // The specific reason, when there is one. Shown instead of the general
                             // card rather than as well as it — two cards saying "you have no
                             // subscription" one above the other is noise, and this one says more.
@@ -125,8 +125,8 @@ struct HomeView: View {
                             myWeather: myWeatherReading
                         )
                     }
-                    if !appModel.activeOrUpcomingFlights.isEmpty {
-                        HomeFlightCarousel(flights: appModel.activeOrUpcomingFlights, page: $flightCarouselPage)
+                    if !appModel.travel.activeOrUpcomingFlights.isEmpty {
+                        HomeFlightCarousel(flights: appModel.travel.activeOrUpcomingFlights, page: $flightCarouselPage)
                     } else if let soonestTrip {
                         NextReunionCard(trip: soonestTrip)
                     }
@@ -146,15 +146,15 @@ struct HomeView: View {
                                 }
                             )
                         }
-                    } else if appModel.hasLoadedCoupleState, appModel.needsOwnHomeCity {
+                    } else if appModel.session.hasLoadedCoupleState, appModel.needsOwnHomeCity {
                         HomeCityPromptCard(onTap: { showingLocationPermission = true })
-                    } else if appModel.hasLoadedCoupleState, appModel.needsPartnerHomeCity {
+                    } else if appModel.session.hasLoadedCoupleState, appModel.needsPartnerHomeCity {
                         PartnerHomeCityPendingCard()
                     }
                     // Nothing in the remaining case — a solo user who has set their own city. There
                     // is no distance to show and nobody to wait on, and `PartnerStatusSection` above
                     // already owns the "connect with someone" prompt.
-                    if appModel.partnerConnected {
+                    if appModel.session.partnerConnected {
                         DrawingPadCard()
                     }
                     RecommendedGamesSection(onSeeAllGames: onSeeAllGames)
@@ -183,7 +183,7 @@ struct HomeView: View {
                     // than the navigation bar's content area and gets clipped there.
                     AvatarPair(
                         me: appModel.currentUser,
-                        partner: appModel.partnerConnected ? appModel.partner : nil,
+                        partner: appModel.session.partnerConnected ? appModel.partner : nil,
                         size: 34
                     )
                 }
@@ -195,12 +195,12 @@ struct HomeView: View {
             .onAppear {
                 refreshPendingShares()
                 Task { await appModel.refreshCoupleStateIfNeeded() }
-                Task { await appModel.refreshTrips() }
-                Task { await appModel.refreshFlights() }
-                Task { await appModel.refreshMemories() }
+                Task { await appModel.travel.refreshTrips() }
+                Task { await appModel.travel.refreshFlights() }
+                Task { await appModel.travel.refreshMemories() }
                 Task { await refreshWeatherIfNeeded() }
                 if appModel.needsPartnerInvite {
-                    Task { await appModel.refreshPendingConnectionRequests() }
+                    Task { await appModel.session.refreshPendingConnectionRequests() }
                 }
             }
             .onChange(of: scenePhase) { _, newPhase in
@@ -216,32 +216,32 @@ struct HomeView: View {
                     // hitting Supabase's auth/session layer at once on every foreground — the
                     // real cause behind an occasional main-thread hang/watchdog kill traced back
                     // to `AuthClient.session` lock contention in a live crash report.
-                    Task { await appModel.refreshFlights() }
+                    Task { await appModel.travel.refreshFlights() }
                     Task { await refreshWeatherIfNeeded() }
                     if appModel.needsPartnerInvite {
-                        Task { await appModel.refreshPendingConnectionRequests() }
+                        Task { await appModel.session.refreshPendingConnectionRequests() }
                     }
                 }
             }
             .sheet(isPresented: $showingSnapshot) { SnapshotShareView() }
             .sheet(item: $distanceShareContext) { context in
-                DistanceShareView(couple: appModel.couple, myCity: context.myCity, partnerCity: context.partnerCity, distanceKm: context.distanceKm)
+                DistanceShareView(couple: appModel.session.couple, myCity: context.myCity, partnerCity: context.partnerCity, distanceKm: context.distanceKm)
             }
             // A cover rather than a sheet: a sheet keeps Home's cards visible behind a rounded
             // card of its own, and this is a globe you turn — the grabber and the inset edges
             // would both be things to catch a drag meant for the earth.
             .fullScreenCover(item: $globeFullScreenContext) { context in
                 RelationshipGlobeFullScreenView(
-                    couple: appModel.couple,
+                    couple: appModel.session.couple,
                     myCity: context.myCity,
                     partnerCity: context.partnerCity,
-                    activeTrip: appModel.activeTrip,
+                    activeTrip: appModel.travel.activeTrip,
                     distanceKm: context.distanceKm
                 )
             }
             .sheet(isPresented: $showingSettings) { SettingsView() }
             .sheet(isPresented: $showingLocationPermission) { NavigationStack { LocationPermissionView() } }
-            .addContentSheet(isPresented: $showingAddFlight, canAdd: appModel.canAddContent, feature: .flights) { AddFlightView() }
+            .addContentSheet(isPresented: $showingAddFlight, canAdd: appModel.subscription.canAddContent, feature: .flights) { AddFlightView() }
             .sheet(isPresented: $showingPaywall) {
                 NavigationStack { PaywallView() }
             }
@@ -252,11 +252,11 @@ struct HomeView: View {
                 ConnectionRequestReviewView(request: request)
             }
             .sheet(isPresented: $showingPendingOutgoingDetail) {
-                if let request = appModel.pendingOutgoingConnectionRequest {
+                if let request = appModel.session.pendingOutgoingConnectionRequest {
                     PendingConnectionApprovalView(request: request)
                 }
             }
-            .addContentSheet(isPresented: $showingAddTrip, canAdd: appModel.canAddContent, feature: .trips) {
+            .addContentSheet(isPresented: $showingAddTrip, canAdd: appModel.subscription.canAddContent, feature: .trips) {
                 NavigationStack {
                     AddTripDetailsView(mode: .standalone, partnerName: appModel.partner.name) { _ in
                         showingAddTrip = false
@@ -268,16 +268,16 @@ struct HomeView: View {
                     }
                 }
             }
-            .onChange(of: appModel.partnerDisconnectedMessage) { _, newValue in
+            .onChange(of: appModel.prompts.partnerDisconnectedMessage) { _, newValue in
                 guard let newValue else { return }
                 partnerDisconnectedAlert = newValue
-                appModel.partnerDisconnectedMessage = nil
+                appModel.prompts.partnerDisconnectedMessage = nil
             }
             // Reconnecting retires the notice. The message is copied into local state above and
             // the model's copy cleared immediately, so clearing the model on re-adopt cannot
             // dismiss an alert that has already been taken — leaving "your connection with X has
             // ended" sitting over a Home screen that was showing the new couple.
-            .onChange(of: appModel.partnerConnected) { _, isConnected in
+            .onChange(of: appModel.session.partnerConnected) { _, isConnected in
                 if isConnected { partnerDisconnectedAlert = nil }
             }
             .alert("Your connection has ended", isPresented: Binding(

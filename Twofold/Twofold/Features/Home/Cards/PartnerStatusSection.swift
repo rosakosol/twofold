@@ -17,11 +17,11 @@ struct PartnerStatusSection: View {
 
     @ViewBuilder
     var body: some View {
-        if let incomingRequest = appModel.pendingConnectionRequests.first {
+        if let incomingRequest = appModel.session.pendingConnectionRequests.first {
             pendingConnectionRequestCard(incomingRequest)
-        } else if let outgoingRequest = appModel.pendingOutgoingConnectionRequest {
+        } else if let outgoingRequest = appModel.session.pendingOutgoingConnectionRequest {
             pendingOutgoingInviteCard(outgoingRequest)
-        } else if appModel.needsPartnerInvite && appModel.hasResolvedOutgoingConnectionRequest {
+        } else if appModel.needsPartnerInvite && appModel.session.hasResolvedOutgoingConnectionRequest {
             // Waits to be told there is no pending request before offering to send one.
             //
             // `pendingOutgoingConnectionRequest` is nil both when there is no request and
@@ -38,7 +38,7 @@ struct PartnerStatusSection: View {
     /// copy convention (`Features/Paywall/SubscriptionStore.swift`), so this card promises
     /// exactly what the paywall itself already promises for the couple's current tier.
     private var partnerValuePropGameCount: String {
-        appModel.subscriptionTier == "premium" ? "2000+" : "500+"
+        appModel.subscription.isPremiumLocked ? "500+" : "2000+"
     }
 
     /// Someone has already redeemed this user's invite code and is waiting on a decision —

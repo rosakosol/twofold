@@ -54,7 +54,7 @@ struct FlightTrackingView: View {
 
     private var linkedTrip: Trip? {
         guard let tripID = flight.tripID else { return nil }
-        return appModel.trips.first { $0.id == tripID }
+        return appModel.travel.trips.first { $0.id == tripID }
     }
 
     /// The one rule every flight surface uses — the flight's own, then its trip's, then whoever
@@ -64,7 +64,7 @@ struct FlightTrackingView: View {
     }
 
     private var travelers: [Person] {
-        travelerIDs.compactMap { appModel.couple.partner($0) }
+        travelerIDs.compactMap { appModel.session.couple.partner($0) }
     }
 
     private var navigationTitleText: String {
@@ -184,7 +184,7 @@ struct FlightTrackingView: View {
     /// screen itself anymore; the nav title already names the current traveler(s).
     private func setTravelers(_ travelerIDs: [UUID]) {
         flight.travelerIDs = travelerIDs
-        Task { await appModel.setFlightTravelers(flight, travelerIDs: travelerIDs) }
+        Task { await appModel.travel.setFlightTravelers(flight, travelerIDs: travelerIDs) }
     }
 
     /// Adds or removes a single person from the traveler list — lets both partners be marked as
@@ -224,7 +224,7 @@ struct FlightTrackingView: View {
         }
         // Premium-gated (see FlightDelayAnalysisCard) — skip the AeroAPI history call entirely for
         // Plus/free accounts rather than paying for a fetch nobody can see the result of.
-        if !appModel.isPremiumLocked, let stats = try? await AeroFlightService.fetchDelayStats(flightID: flight.id) {
+        if !appModel.subscription.isPremiumLocked, let stats = try? await AeroFlightService.fetchDelayStats(flightID: flight.id) {
             delayStats = stats
         }
         if let prefs = try? await BackendService.fetchNotificationPreferences(flightID: flight.id) {

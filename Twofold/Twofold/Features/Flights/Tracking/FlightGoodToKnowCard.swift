@@ -25,7 +25,7 @@ struct FlightGoodToKnowCard: View {
     @ViewBuilder
     var body: some View {
         if hasAnyWeather || (flight.origin.timeZone != nil && flight.destination.timeZone != nil) {
-            if appModel.isPremiumLocked {
+            if appModel.subscription.isPremiumLocked {
                 FlightPremiumLockedCard(feature: .goodToKnow) { onLocked(.goodToKnow) }
             } else {
             SectionCard {

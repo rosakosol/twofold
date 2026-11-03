@@ -62,7 +62,7 @@ struct WordGuessGameView: View {
                 title: "Abandon this word?",
                 keepPlaying: "Keep guessing",
                 // Named plainly because the board is the couple's: ending it ends it for both.
-                message: appModel.partnerConnected
+                message: appModel.session.partnerConnected
                     ? "This ends it for both of you — \(appModel.partner.name)'s guesses on this word go too."
                     : "Your guesses on this word will be lost."
             ),
@@ -354,7 +354,7 @@ struct WordGuessGameView: View {
             // Outside the card: `GameReminderButton` is filled with `Theme.surface` so it
             // reads as raised against the page, which is the one colour it would disappear into
             // inside a `SectionCard`. Same placement the deck games use.
-            if appModel.partnerConnected {
+            if appModel.session.partnerConnected {
                 GameReminderButton(isSending: store.link.isSendingReminder) {
                     store.link.remindPartner(detail: GameType.wordGuess.displayName)
                 }
@@ -394,7 +394,7 @@ struct WordGuessGameView: View {
                         .foregroundStyle(Theme.textSecondary)
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
-                } else if appModel.partnerConnected {
+                } else if appModel.session.partnerConnected {
                     // Shorter than it was ("Your result is saved. You'll see how it compares
                     // once ... has played theirs."), which ran to three lines on a narrow phone
                     // and said twice over what the card already shows by existing.

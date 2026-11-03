@@ -16,7 +16,7 @@ struct FlightInfoCard: View {
     @ViewBuilder
     var body: some View {
         if flight.aircraftType != nil || flight.registration != nil {
-            if appModel.isPremiumLocked {
+            if appModel.subscription.isPremiumLocked {
                 FlightPremiumLockedCard(feature: .flightInfo) { onLocked(.flightInfo) }
             } else {
                 SectionCard {

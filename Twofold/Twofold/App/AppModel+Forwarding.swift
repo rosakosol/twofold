@@ -82,7 +82,6 @@ extension AppModel {
     }
     func markPartnerConnectedCelebrationShown() { prompts.markPartnerConnectedCelebrationShown() }
     func markPartnerSubscriptionLapseAcknowledged() { prompts.markPartnerSubscriptionLapseAcknowledged() }
-    func dismissSetupChecklist() { prompts.dismissSetupChecklist() }
     func noteReviewMilestone(_ milestone: ReviewMilestone) { prompts.noteReviewMilestone(milestone) }
 }
 
@@ -138,7 +137,6 @@ extension AppModel {
     func startOrResumeDailyQuestion() async { await games.startOrResumeDailyQuestion() }
     func refreshStreakRepairState() async { await games.refreshStreakRepairState() }
     func refreshDailyStreak() async { await games.refreshDailyStreak() }
-    func recordGameStateForOffline() { games.recordGameStateForOffline() }
     func loadGameDecksIfNeeded() async { await games.loadGameDecksIfNeeded() }
     func refreshGameDecks() async { await games.refreshGameDecks() }
     func refreshAdultContentStatus() async { await games.refreshAdultContentStatus() }

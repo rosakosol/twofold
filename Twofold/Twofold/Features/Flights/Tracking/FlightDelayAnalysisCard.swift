@@ -24,7 +24,7 @@ struct FlightDelayAnalysisCard: View {
 
     @ViewBuilder
     var body: some View {
-        if appModel.isPremiumLocked {
+        if appModel.subscription.isPremiumLocked {
             FlightPremiumLockedCard(feature: .delayAnalysis) { onLocked(.delayAnalysis) }
         } else if let delayStats {
             SectionCard {

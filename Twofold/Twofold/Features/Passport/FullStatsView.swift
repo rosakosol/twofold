@@ -50,9 +50,9 @@ struct FullStatsView: View {
     private var scopedFlights: [Flight] {
         let byPerson: [Flight]
         switch scope {
-        case .all: byPerson = appModel.flights
-        case .user: byPerson = appModel.flights.filter { $0.travelerIDs.contains(appModel.currentUser.id) }
-        case .partner: byPerson = appModel.flights.filter { $0.travelerIDs.contains(appModel.partner.id) }
+        case .all: byPerson = appModel.travel.flights
+        case .user: byPerson = appModel.travel.flights.filter { $0.travelerIDs.contains(appModel.currentUser.id) }
+        case .partner: byPerson = appModel.travel.flights.filter { $0.travelerIDs.contains(appModel.partner.id) }
         }
         guard case .year(let year) = period else { return byPerson }
         return byPerson.filter { Self.year(of: $0) == year }
@@ -73,11 +73,11 @@ struct FullStatsView: View {
     /// the currently-scoped ones, so switching between All and a partner doesn't make the year
     /// you're looking at disappear out from under you.
     private var availableYears: [Int] {
-        Array(Set(appModel.flights.filter(\.hasBeenFlown).compactMap(Self.year))).sorted(by: >)
+        Array(Set(appModel.travel.flights.filter(\.hasBeenFlown).compactMap(Self.year))).sorted(by: >)
     }
 
     private var stats: FlightStats {
-        FlightStats(flights: scopedFlights, couple: appModel.couple)
+        FlightStats(flights: scopedFlights, couple: appModel.session.couple)
     }
 
     var body: some View {
@@ -174,7 +174,7 @@ struct FullStatsView: View {
             Text("\(Text(MeasurementPreference.convertedValue(km: stats.totalDistanceKm), format: .number.precision(.fractionLength(0))).font(.system(size: 44, weight: .bold)).foregroundStyle(Theme.accent))\(Text(" \(MeasurementPreference.unitSuffix())").font(.title.weight(.bold)).foregroundStyle(Theme.success))")
 
             if scope == .all {
-                Text(appModel.couple.sharesHomeCity ? "together" : "for each other")
+                Text(appModel.session.couple.sharesHomeCity ? "together" : "for each other")
                     .font(.headline)
                     .foregroundStyle(Theme.textSecondary)
             }

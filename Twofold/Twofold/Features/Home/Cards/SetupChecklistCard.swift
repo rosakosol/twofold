@@ -23,7 +23,7 @@ struct SetupChecklistCard: View {
         // `hasLoadedCoupleState` first: `needsFirstTrip` is `trips.isEmpty` and `needsFirstFlight`
         // reads the same empty array, so before the fetch this card confidently told everyone to add
         // their first trip and flight — including couples with fifty of each.
-        if appModel.hasLoadedCoupleState, !appModel.setupChecklistDismissed, !checklistItems.isEmpty {
+        if appModel.session.hasLoadedCoupleState, !appModel.prompts.setupChecklistDismissed, !checklistItems.isEmpty {
             SectionCard {
                 // One child, not two. `SectionCard` spaces its children by `md` (16), which is
                 // right between a card's distinct parts — but the header here is not a distinct
@@ -36,7 +36,7 @@ struct SetupChecklistCard: View {
                             .font(.headline)
                         Spacer()
                         Button {
-                            appModel.dismissSetupChecklist()
+                            appModel.prompts.dismissSetupChecklist()
                         } label: {
                             Image(systemName: "xmark.circle.fill")
                                 .foregroundStyle(Theme.controlLine)
@@ -123,10 +123,10 @@ struct SetupChecklistCard: View {
     /// which uses the same conditions to decide whether the card appears at all.
     private var checklistItems: [ChecklistItem] {
         var items: [ChecklistItem] = []
-        if appModel.partnerConnected, appModel.needsFirstTrip {
+        if appModel.session.partnerConnected, appModel.needsFirstTrip {
             items.append(ChecklistItem(task: .trip, action: onAddTrip))
         }
-        if appModel.partnerConnected, appModel.needsFirstFlight {
+        if appModel.session.partnerConnected, appModel.needsFirstFlight {
             items.append(ChecklistItem(task: .flight, action: onAddFlight))
         }
         // Own city only. This row is an instruction to use this device's location permission, so

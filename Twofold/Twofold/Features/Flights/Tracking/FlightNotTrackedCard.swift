@@ -76,7 +76,7 @@ struct FlightNotTrackedCard: View {
             do {
                 let result = try await BackendService.enableFlightTracking(flightID: flight.id)
                 if result.enabled {
-                    await appModel.refreshFlights()
+                    await appModel.travel.refreshFlights()
                 } else {
                     enableTrackingError = BackendService.FlightTrackingRefusal.message(for: result.reason)
                 }

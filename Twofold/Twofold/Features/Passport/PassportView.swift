@@ -42,19 +42,19 @@ struct PassportView: View {
     /// that flight has a trip at all.
     private var flightStats: FlightStats {
         FlightStats(
-            flights: appModel.flights.filter { $0.travelerIDs.contains(appModel.currentUser.id) },
-            couple: appModel.couple
+            flights: appModel.travel.flights.filter { $0.travelerIDs.contains(appModel.currentUser.id) },
+            couple: appModel.session.couple
         )
     }
 
     private var relationshipStats: RelationshipMilestoneStats {
-        RelationshipMilestoneStats(couple: appModel.couple, trips: appModel.trips, memories: appModel.memories)
+        RelationshipMilestoneStats(couple: appModel.session.couple, trips: appModel.travel.trips, memories: appModel.travel.memories)
     }
 
     /// Couple-wide, like `relationshipStats` above — trips are a shared activity, not a
     /// per-person document the way the flight-specific passport card is.
     private var tripStats: TripStats {
-        TripStats(trips: appModel.trips)
+        TripStats(trips: appModel.travel.trips)
     }
 
     var body: some View {
@@ -65,7 +65,7 @@ struct PassportView: View {
 
                     switch section {
                     case .relationship:
-                        RelationshipStatsCard(couple: appModel.couple, stats: relationshipStats) {
+                        RelationshipStatsCard(couple: appModel.session.couple, stats: relationshipStats) {
                             showingSnapshot = true
                         }
                     case .trips:
@@ -97,7 +97,7 @@ struct PassportView: View {
                 }
             }
             .sheet(isPresented: $showingSnapshot) {
-                RelationshipStatsShareView(couple: appModel.couple, stats: relationshipStats)
+                RelationshipStatsShareView(couple: appModel.session.couple, stats: relationshipStats)
             }
             .sheet(isPresented: $showingTripShare) {
                 TripStatsShareView(stats: tripStats)

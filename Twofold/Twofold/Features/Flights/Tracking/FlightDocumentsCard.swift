@@ -256,7 +256,7 @@ struct FlightDocumentsCard: View {
         defer { isUploadingDocument = false }
         do {
             let document = try await BackendService.insertFlightDocument(
-                coupleID: appModel.couple.id, flightID: flight.id, tripID: nil,
+                coupleID: appModel.session.couple.id, flightID: flight.id, tripID: nil,
                 docType: docType, data: pending.data, contentType: pending.contentType,
                 fileExtension: pending.fileExtension, originalFilename: pending.originalFilename,
                 customLabel: customLabel

@@ -90,7 +90,7 @@ struct NextReunionCard: View {
     /// `appModel.partner.name` for the (common) case of a single unresolvable/placeholder id,
     /// same fallback the old single-`travelerID` code used.
     private func travelerNames(_ ids: [Person.ID]) -> String {
-        let names = ids.compactMap { appModel.couple.partner($0)?.name }
+        let names = ids.compactMap { appModel.session.couple.partner($0)?.name }
         guard !names.isEmpty else { return appModel.partner.name }
         return names.joined(separator: " & ")
     }
