@@ -1,4 +1,4 @@
-import { createClient } from "@sanity/client";
+import { createClient, type SanityClient } from "@sanity/client";
 import type { PortableTextBlock } from "@portabletext/react";
 import { PLANS, type PlanId } from "@/lib/marketing/config";
 
@@ -7,19 +7,46 @@ import { PLANS, type PlanId } from "@/lib/marketing/config";
 // server-side (RSC, with revalidation) fixes the old "flash of fallback copy, then CMS
 // content swaps in" UX for free, since the real content is already in the HTML on
 // first paint.
-export const sanityClient = createClient({
-  projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID,
-  dataset: process.env.NEXT_PUBLIC_SANITY_DATASET,
-  apiVersion: process.env.NEXT_PUBLIC_SANITY_API_VERSION ?? "2024-01-01",
-  useCdn: true,
-  // Revalidated on a timer rather than per-request — marketing copy changes rarely,
-  // and this keeps every page a fast cached fetch instead of hitting Sanity on every
-  // request. 60s matches a reasonable "edit in Studio, see it live within a minute"
-  // expectation without needing to wire up on-demand revalidation webhooks yet.
-  stega: false,
-});
+//
+// Created on first use rather than at import: `createClient` throws when the project id is not
+// set, and at import that took down every page that imports this module, fallbacks and all.
+let client: SanityClient | null = null;
+
+function sanityClient(): SanityClient {
+  client ??= createClient({
+    projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID,
+    dataset: process.env.NEXT_PUBLIC_SANITY_DATASET,
+    apiVersion: process.env.NEXT_PUBLIC_SANITY_API_VERSION ?? "2024-01-01",
+    useCdn: true,
+    // Revalidated on a timer rather than per-request — marketing copy changes rarely,
+    // and this keeps every page a fast cached fetch instead of hitting Sanity on every
+    // request. 60s matches a reasonable "edit in Studio, see it live within a minute"
+    // expectation without needing to wire up on-demand revalidation webhooks yet.
+    stega: false,
+  });
+  return client;
+}
 
 export const SANITY_REVALIDATE_SECONDS = 60;
+
+/**
+ * Every read goes through here, and never throws: like `getFaqEntries`, a Sanity outage or a
+ * missing env var gives the caller its fallback (null or []) rather than failing `next build` or
+ * returning a 500. Each page already renders its in-code copy for "no document"; before this, that
+ * only covered a document that was missing, not a Sanity that was unreachable.
+ *
+ * The trade-off: a revalidation that fails now renders the fallback for up to a minute, where a
+ * throw would have kept serving the last good page. The fallbacks say what they are ("Showing a
+ * summary"), and a build that fails because a CMS is down is the worse failure.
+ */
+async function fetchOrFallback<T>(what: string, fallback: T, run: (client: SanityClient) => Promise<T>): Promise<T> {
+  try {
+    return (await run(sanityClient())) ?? fallback;
+  } catch (error) {
+    console.warn(`Sanity: couldn't load ${what}, using the fallback.`, error instanceof Error ? error.message : error);
+    return fallback;
+  }
+}
 
 // The home page hero used to be the Studio's `hero` singleton (getHero). It now carries the
 // website spec's copy (docs/TWOFOLD_WEBSITE.md), in src/app/(marketing)/page.tsx.
@@ -39,10 +66,12 @@ export interface LegalPageDoc {
 }
 
 export async function getLegalPage(pageId: "privacy" | "terms"): Promise<LegalPageDoc | null> {
-  return sanityClient.fetch(
-    `*[_id == $id][0]{ title, lastUpdated, noticeText, body }`,
-    { id: `legalPage-${pageId}` },
-    { next: { revalidate: SANITY_REVALIDATE_SECONDS } }
+  return fetchOrFallback(`the ${pageId} page`, null, (sanity) =>
+    sanity.fetch<LegalPageDoc | null>(
+      `*[_id == $id][0]{ title, lastUpdated, noticeText, body }`,
+      { id: `legalPage-${pageId}` },
+      { next: { revalidate: SANITY_REVALIDATE_SECONDS } }
+    )
   );
 }
 
@@ -76,10 +105,12 @@ export interface ResolvedPlan {
 type PlanDocWithMeta = PlanDoc & { _id: string; _updatedAt?: string };
 
 export async function getPlans(): Promise<{ plus: PlanDocWithMeta | null; premium: PlanDocWithMeta | null }> {
-  const docs: PlanDocWithMeta[] = await sanityClient.fetch(
-    `*[_id in ["plan-plus", "plan-premium"]]{ _id, _updatedAt, name, tagline, featured, monthlyPriceLabel, yearlyPriceLabel, yearlyPerMonthLabel, ctaLabel, features }`,
-    {},
-    { next: { revalidate: SANITY_REVALIDATE_SECONDS } }
+  const docs = await fetchOrFallback<PlanDocWithMeta[]>("plans", [], (sanity) =>
+    sanity.fetch(
+      `*[_id in ["plan-plus", "plan-premium"]]{ _id, _updatedAt, name, tagline, featured, monthlyPriceLabel, yearlyPriceLabel, yearlyPerMonthLabel, ctaLabel, features }`,
+      {},
+      { next: { revalidate: SANITY_REVALIDATE_SECONDS } }
+    )
   );
   return {
     plus: docs.find((d) => d._id === "plan-plus") ?? null,
@@ -137,12 +168,12 @@ export interface QuizQuestionDoc {
 }
 
 export async function getQuizQuestions(): Promise<QuizQuestionDoc[]> {
-  return (
-    (await sanityClient.fetch(
+  return fetchOrFallback<QuizQuestionDoc[]>("quiz questions", [], (sanity) =>
+    sanity.fetch(
       `*[_type == "quizQuestion"] | order(order asc){ question, order, options }`,
       {},
       { next: { revalidate: SANITY_REVALIDATE_SECONDS } }
-    )) ?? []
+    )
   );
 }
 
@@ -153,10 +184,12 @@ export interface QuizResultDoc {
 }
 
 export async function getQuizResults(): Promise<{ plus: QuizResultDoc | null; premium: QuizResultDoc | null }> {
-  const docs: (QuizResultDoc & { _id: string })[] = await sanityClient.fetch(
-    `*[_id in ["quizResult-plus", "quizResult-premium"]]{ _id, title, description, ctaLabel }`,
-    {},
-    { next: { revalidate: SANITY_REVALIDATE_SECONDS } }
+  const docs = await fetchOrFallback<(QuizResultDoc & { _id: string })[]>("quiz results", [], (sanity) =>
+    sanity.fetch(
+      `*[_id in ["quizResult-plus", "quizResult-premium"]]{ _id, title, description, ctaLabel }`,
+      {},
+      { next: { revalidate: SANITY_REVALIDATE_SECONDS } }
+    )
   );
   return {
     plus: docs.find((d) => d._id === "quizResult-plus") ?? null,
