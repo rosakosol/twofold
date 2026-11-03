@@ -36,17 +36,16 @@ Card background uses the system grouped-background color (`.secondarySystemGroup
 
 ### Fonts
 
-No custom font files — both are Apple system fonts, selected via `design:`:
-
 | Role | Font | How it's invoked |
 |---|---|---|
-| Display / wordmark / headlines | **New York** (serif) | `.font(.system(textStyle, design: .serif))` |
-| Body / everything else | **San Francisco** (default) | `.font(.system(...))` with no `design:`, or semantic styles like `.headline`/`.body` |
+| Wordmark, memory notes, the Relationship Record | **Newsreader** (serif, bundled under `Resources/Fonts`, SIL Open Font License) | `.newsreaderFont(textStyle)` for text that grows with Dynamic Type; `.font(.newsreader(size:))` for an exported image or the PDF, which must not |
+| Body / everything else | **San Francisco** (default) | Semantic styles like `.headline`/`.body`, or `.scaledFont(size:relativeTo:)` for a size no style has |
 
-### Spacing & radius (for context, not colors/fonts but part of the same `Theme` enum)
+### Spacing, radius and shadow (from the same `Theme` enum; read `DesignSystem/Theme.swift` for the current values)
 
-- Spacing: `xs=4, sm=8, md=16, lg=24, xl=32`
-- Radius: `card=20, pill=999`
+- Spacing: `xxs=2, xs=4, xsm=6, sm=8, md=16, lg=24, xl=32`
+- Radius: `card=26, button=27, buttonCompact=22, tile=20, image=18, small=12, chip=10, xsmall=8, sheet=34, shareCard=32`. Buttons, chips and pills are capsules.
+- Shadow: `floating`, `preview`, `paper`, `marker`, `hairline`, through `.themedShadow(_:)`. Floating elements only; a flat card has none.
 
 ---
 
@@ -96,11 +95,11 @@ Everything else on the feedback board (`--secondary`, `--muted`, `--chart-*`, `-
 
 ### Fonts
 
-Both the marketing site and the feedback board use the same two Google Fonts, chosen as the closest match to the app's native New York / San Francisco pairing (so the site reads as the same product without relying on device-dependent system fonts):
+Both the marketing site and the feedback board use the same two Google Fonts, the same serif the app bundles and the closest match to its San Francisco (so the site reads as the same product without relying on device-dependent system fonts):
 
 | Role | Font | CSS variable |
 |---|---|---|
-| Display / headings / wordmark | **Newsreader** (serif) — closest Google Fonts match to New York: same transitional-serif classification, same optical-size axis | `--font-display` |
+| Display / headings / wordmark | **Newsreader** (serif) — the app's own serif | `--font-display` |
 | Body / everything else | **Inter** (sans-serif) — closest Google Fonts match to San Francisco | `--font-body` |
 
 - Marketing site: loaded as static `@font-face`/Google Fonts links, applied via `--font-display` / `--font-body` in `site/styles.css`.
