@@ -1,4 +1,5 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { dayMonth } from "@/lib/console/format";
 
 export interface UsageDay {
   day: string;
@@ -100,7 +101,6 @@ export function UsageTrend({ days }: { days: UsageDay[] }) {
 }
 
 function shortDate(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString("en-AU", { month: "short", day: "numeric" });
+  const formatted = dayMonth(value);
+  return formatted === "-" ? value : formatted;
 }

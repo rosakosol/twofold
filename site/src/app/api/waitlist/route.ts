@@ -4,6 +4,7 @@ import { createZohoTransport } from "@/lib/mail/zoho";
 import { renderTemplate, extractSubject } from "@/lib/mail/renderTemplate";
 import { escapeHtml } from "@/lib/mail/escapeHtml";
 import { listUnsubscribeHeaders, unsubscribeUrl } from "@/lib/mail/unsubscribe";
+import { emailTimestamp } from "@/lib/console/format";
 
 // Port of the old site/functions/api/waitlist.ts (Cloudflare Pages Function + D1) -
 // same validation/honeypot logic, writing to Supabase's waitlist_signups table instead
@@ -110,7 +111,7 @@ async function sendEmails(email: string, token: string): Promise<void> {
     const alertHtml = renderTemplate("waitlist-internal-alert", {
       subject: "New Twofold Android waitlist signup",
       preheader: `New signup: ${email}`,
-      signup_at: new Intl.DateTimeFormat("en-AU", { dateStyle: "medium", timeStyle: "short" }).format(new Date()),
+      signup_at: emailTimestamp(new Date()),
       user_email: escapeHtml(email),
     });
 

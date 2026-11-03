@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ShieldAlert } from "lucide-react";
+import { shortDate } from "@/lib/console/format";
 import { createClient } from "@/lib/supabase/client";
 
 interface ReportContext {
@@ -135,9 +136,9 @@ export function ReportedAccountPanel({ requestId }: { requestId: string }) {
   );
 }
 
+// The console's one date format (lib/console/format.ts), rather than the viewer's locale, which
+// differed between the server render and the browser.
 function formatDate(value: string | null): string {
-  if (!value) return "unknown";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "unknown";
-  return date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+  const formatted = shortDate(value);
+  return formatted === "-" ? "unknown" : formatted;
 }

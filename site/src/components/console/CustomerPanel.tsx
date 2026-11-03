@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ExternalLink, Loader2, UserRound } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cancellability, type AccountDetail } from "@/lib/console/accountDetail";
+import { shortDate } from "@/lib/console/format";
 import { cn } from "@/lib/utils";
 
 export interface OtherConversation {
@@ -256,9 +257,9 @@ function Conversations({ items, onSelect }: { items: OtherConversation[]; onSele
   );
 }
 
+// The console's one date format (lib/console/format.ts), rather than the viewer's locale, which
+// differed between the server render and the browser.
 function formatDate(value: string | null): string {
-  if (!value) return "—";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+  const formatted = shortDate(value);
+  return formatted === "-" ? "—" : formatted;
 }

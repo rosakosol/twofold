@@ -29,6 +29,7 @@ import { cn } from "@/lib/utils";
 import { ReportedAccountPanel } from "@/components/console/ReportedAccountPanel";
 import { SupportMacros } from "@/components/console/SupportMacros";
 import { CustomerPanel, type OtherConversation } from "@/components/console/CustomerPanel";
+import { dayMonth, shortDateTime } from "@/lib/console/format";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 
 export interface SupportRequest {
@@ -716,17 +717,18 @@ function preview(message: string): string {
   return message.replace(/\s+/g, " ").trim() || "(empty)";
 }
 
+// The console's formats (lib/console/format.ts), not the viewer's locale: this screen renders on
+// the server and again in the browser, and the account panel beside it uses the same ones.
 function formatDateTime(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+  const formatted = shortDateTime(value);
+  return formatted === "-" ? value : formatted;
 }
 
 /** Short enough for a list column. Absolute until mounted — see `now` in SupportQueue. */
 function shortTime(value: string, now: number | null): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
-  if (now === null) return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  if (now === null) return dayMonth(value);
 
   const minutes = Math.round((now - date.getTime()) / 60_000);
   if (minutes < 1) return "now";
@@ -735,7 +737,7 @@ function shortTime(value: string, now: number | null): string {
   if (hours < 24) return `${hours}h`;
   const days = Math.round(hours / 24);
   if (days < 7) return `${days}d`;
-  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  return dayMonth(value);
 }
 
 /* -------------------------------------------------------------------------- */

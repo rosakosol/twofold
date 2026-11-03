@@ -1,8 +1,11 @@
 import { PortableText } from "@portabletext/react";
+import { longDate } from "@/lib/console/format";
 import type { LegalPageDoc } from "@/lib/marketing/sanity";
 
+// The same "27 September 2026" the in-code fallback dates are written in; this was en-US, so the
+// page's date changed format depending on whether Sanity answered.
 function formatLastUpdated(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-US", { day: "numeric", month: "long", year: "numeric" });
+  return longDate(iso);
 }
 
 export function LegalPageLayout({

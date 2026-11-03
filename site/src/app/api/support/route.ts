@@ -5,6 +5,7 @@ import { escapeHtml } from "@/lib/mail/escapeHtml";
 import { SUPPORT_EMAIL, SITE_URL } from "@/lib/mail/companyInfo";
 import { createServiceClient } from "@/lib/supabase/service";
 import { nullableArg } from "@/lib/db/nullableArg";
+import { emailTimestamp } from "@/lib/console/format";
 
 // Web counterpart to the iOS app's submit-help-message edge function
 // (supabase/functions/submit-help-message) - same category list and same recipient
@@ -183,8 +184,9 @@ function generateTicketId(): string {
   return Math.random().toString(36).slice(2, 8).toUpperCase();
 }
 
+/** With its zone named: the receipt shows this to the visitor as "received at". */
 function formatDateTime(date: Date): string {
-  return new Intl.DateTimeFormat("en-AU", { dateStyle: "medium", timeStyle: "short" }).format(date);
+  return emailTimestamp(date);
 }
 
 /** Sync/tracking issues get the two concrete troubleshooting steps; everything else (Feature

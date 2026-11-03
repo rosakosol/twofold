@@ -14,6 +14,7 @@ import { StatusPill } from "@/components/site/StatusPill";
 import { createClient } from "@/lib/supabase/client";
 import type { AccountSearchResult, ReportedAccount } from "@/lib/console/accountDetail";
 import { accountKeys, fetchAccountsUpTo } from "@/lib/console/accountQueries";
+import { shortDate } from "@/lib/console/format";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 
 const PAGE_SIZE = 20;
@@ -53,10 +54,6 @@ function matches(row: AccountSearchResult, filter: Filter, reported: Map<string,
 function shortId(id: string) {
   const plain = id.replace(/-/g, "");
   return `${plain.slice(0, 6)}…${plain.slice(-4)}`;
-}
-
-function joined(iso: string) {
-  return new Date(iso).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric", timeZone: "Australia/Melbourne" });
 }
 
 interface ListRow extends AccountSearchResult {
@@ -285,7 +282,7 @@ function Users() {
                     </Link>
                   </td>
                   <td className={row.first_name ? undefined : "muted"}>{row.first_name || "None"}</td>
-                  <td className="num muted">{joined(row.created_at)}</td>
+                  <td className="num muted">{shortDate(row.created_at)}</td>
                   <td>
                     {row.deleted_at ? (
                       <StatusPill tone="error">Deleted</StatusPill>

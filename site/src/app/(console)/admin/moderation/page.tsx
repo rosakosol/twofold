@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ConsoleEmpty, ConsolePageHead, StatTiles } from "@/components/console/ConsoleUI";
 import { StatusPill } from "@/components/site/StatusPill";
 import type { ReportedAccount } from "@/lib/console/accountDetail";
+import { longDate } from "@/lib/console/format";
 import { dataOrThrow, listOrThrow } from "@/lib/console/readResult";
 
 export const metadata: Metadata = { title: "Moderation" };
@@ -105,7 +106,7 @@ export default async function ModerationPage() {
                       </span>
                       <span className="block truncate muted">
                         {row.first_name || "No name"}, {row.reporter_count} {row.reporter_count === 1 ? "person" : "people"}, most
-                        recent {row.last_reported_at ? formatDay(row.last_reported_at) : "unknown"}
+                        recent {row.last_reported_at ? longDate(row.last_reported_at) : "unknown"}
                         {row.open_report_count > 0 ? `, ${row.open_report_count} open` : ""}
                       </span>
                     </span>
@@ -138,7 +139,7 @@ export default async function ModerationPage() {
                       <span className="console-row-link block truncate">{row.email ?? "No email"}</span>
                       <span className="block truncate muted">
                         {row.first_name || "No name"}, most recent{" "}
-                        {formatDay(row.most_recent)}
+                        {longDate(row.most_recent)}
                       </span>
                     </span>
                     <StatusPill tone={row.blocked_by_count >= 3 ? "error" : "warning"}>Blocked by {row.blocked_by_count}</StatusPill>
@@ -171,6 +172,3 @@ export default async function ModerationPage() {
   );
 }
 
-function formatDay(iso: string) {
-  return new Date(iso).toLocaleDateString("en-AU", { day: "numeric", month: "long", year: "numeric" });
-}

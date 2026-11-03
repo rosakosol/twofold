@@ -1,5 +1,5 @@
 /**
- * Dates on the account page, in one short form.
+ * Dates for the console and the site's emails, in one locale and one zone.
  *
  * A fixed locale and zone rather than the viewer's, as on the Users list: half of these render on
  * the server and half in the browser, and a page where "Oct 12, 2026" sits beside "12/10/2026" is
@@ -33,6 +33,34 @@ export function shortDateTime(value: string | null | undefined): string {
     hour: "numeric",
     minute: "2-digit",
     timeZone: TIME_ZONE,
+  });
+}
+
+/** "12 October 2026", or "-" for nothing. */
+export function longDate(value: string | null | undefined): string {
+  const date = parse(value);
+  if (!date) return "-";
+  return date.toLocaleDateString(LOCALE, { day: "numeric", month: "long", year: "numeric", timeZone: TIME_ZONE });
+}
+
+/** "12 Oct", for a column or a chart axis where the year is obvious. "-" for nothing. */
+export function dayMonth(value: string | null | undefined): string {
+  const date = parse(value);
+  if (!date) return "-";
+  return date.toLocaleDateString(LOCALE, { day: "numeric", month: "short", timeZone: TIME_ZONE });
+}
+
+/** "12 Oct 2026, 3:04 pm AEDT": a moment in an email, with its zone named. Emails were formatted
+ *  in the server's zone, UTC on Vercel, with no label, and read as the recipient's local time. */
+export function emailTimestamp(date: Date): string {
+  return date.toLocaleString(LOCALE, {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: TIME_ZONE,
+    timeZoneName: "short",
   });
 }
 
