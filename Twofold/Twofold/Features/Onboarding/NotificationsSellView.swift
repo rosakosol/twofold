@@ -223,9 +223,6 @@ struct NotificationsSellView: View {
 
     // MARK: - Notification Permission
 
-    /// Deliberately does not touch `notificationsGranted`. Nothing was asked and nothing was
-    /// refused; leaving it at its default keeps "not granted" meaning the same thing it does when
-    /// the system prompt is genuinely declined.
     private func skip() {
         onboarding.path.append(.liveActivitySell)
     }
@@ -234,19 +231,10 @@ struct NotificationsSellView: View {
         isRequesting = true
 
         Task {
-            let granted = (
-                try? await UNUserNotificationCenter
-                    .current()
-                    .requestAuthorization(
-                        options: [
-                            .alert,
-                            .sound,
-                            .badge,
-                        ]
-                    )
-            ) ?? false
-
-            onboarding.notificationsGranted = granted
+            // The answer itself is not needed here: either way the flow moves on.
+            _ = try? await UNUserNotificationCenter
+                .current()
+                .requestAuthorization(options: [.alert, .sound, .badge])
 
             isRequesting = false
             onboarding.path.append(.liveActivitySell)

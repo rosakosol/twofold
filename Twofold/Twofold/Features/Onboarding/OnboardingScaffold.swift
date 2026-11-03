@@ -10,16 +10,11 @@ import SwiftUI
 
 struct OnboardingScaffold<Content: View>: View {
     let title: String
-    /// An optional small animated image shown next to the title — e.g. the paywall's brand mark.
-    /// `nil` (the default) renders nothing extra, so every existing onboarding screen using this
-    /// scaffold is unaffected.
-    var titleAccessoryImageName: String?
     /// Overrides just the title's font — defaults to the large rounded-bold title every existing
     /// onboarding screen already renders it at.
     var titleFont: Font = .system(.title, weight: .bold)
     /// A small mark shown *inline* after the title, at roughly the text's own height — for a
-    /// logo that reads as part of the sentence rather than a graphic sitting above it. Distinct
-    /// from `titleAccessoryImageName`, which stacks above and is sized independently.
+    /// logo that reads as part of the sentence rather than a graphic sitting above it.
     var inlineTitleAccessoryImageName: String?
     var subtitle: String?
     /// Overrides just the subtitle's font — defaults to `.body`, the size every existing
@@ -84,9 +79,6 @@ struct OnboardingScaffold<Content: View>: View {
                 VStack(alignment: centered ? .center : .leading, spacing: Theme.Spacing.lg) {
                     VStack(alignment: titleAlignment, spacing: Theme.Spacing.sm) {
                         VStack(spacing: Theme.Spacing.xs) {
-                            if let titleAccessoryImageName {
-                                PulsingTitleAccessory(imageName: titleAccessoryImageName)
-                            }
                             if let inlineTitleAccessoryImageName {
                                 // Baseline-aligned so the mark sits on the text's own line rather
                                 // than floating against the block's top.
@@ -182,10 +174,6 @@ struct OnboardingScaffold<Content: View>: View {
     }
 }
 
-/// A small image next to a title with a gentle continuous "breathing" pulse — used for the
-/// brand mark next to a screen's headline (the paywall's globe/heart, for instance). Owns its
-/// own animation state rather than relying on the caller to start one, so `titleAccessoryImageName`
-/// stays a plain image-name string on `OnboardingScaffold`.
 /// The brand mark beating like a heart, inline with a title.
 ///
 /// A real heartbeat rather than a sine pulse: two quick beats and then a rest, which is what makes
@@ -217,24 +205,6 @@ private struct BeatingTitleMark: View {
     }
 }
 
-private struct PulsingTitleAccessory: View {
-    let imageName: String
-    @State private var isPulsing = false
-
-    var body: some View {
-        Image(imageName)
-            .resizable()
-            .scaledToFit()
-            .frame(width: 28, height: 28)
-            .scaleEffect(isPulsing ? 1.12 : 0.94)
-            .onAppear {
-                withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true)) {
-                    isPulsing = true
-                }
-            }
-    }
-}
-
 /// A large, premium tappable card — icon/emoji + title + optional subtitle — used by the
 /// situation and goals screens. Supports both single-select (`isSelected` highlight only)
 /// and multi-select (same visual, just toggled by the caller) via the same component.
@@ -244,8 +214,6 @@ struct OnboardingCard: View {
     var subtitle: String? = nil
     let isSelected: Bool
     let action: () -> Void
-
-    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         Button(action: action) {
@@ -270,9 +238,9 @@ struct OnboardingCard: View {
                     .foregroundStyle(isSelected ? Theme.accent : Theme.controlLine)
             }
             .padding(Theme.Spacing.md)
-            .background { cardSurface(isSelected: isSelected, colorScheme: colorScheme) }
+            .background { Theme.surface }
             .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
-            .overlay { cardBorder(isSelected: isSelected, colorScheme: colorScheme) }
+            .overlay { cardBorder(isSelected: isSelected) }
         }
         .buttonStyle(.plain)
     }
@@ -283,8 +251,6 @@ struct OnboardingOptionRow: View {
     let title: String
     let isSelected: Bool
     let action: () -> Void
-
-    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         Button(action: action) {
@@ -298,9 +264,9 @@ struct OnboardingOptionRow: View {
                     .foregroundStyle(isSelected ? Theme.accent : Theme.controlLine)
             }
             .padding(Theme.Spacing.md)
-            .background { cardSurface(isSelected: isSelected, colorScheme: colorScheme) }
+            .background { Theme.surface }
             .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.tile, style: .continuous))
-            .overlay { cardBorder(isSelected: isSelected, colorScheme: colorScheme, cornerRadius: Theme.Radius.tile) }
+            .overlay { cardBorder(isSelected: isSelected, cornerRadius: Theme.Radius.tile) }
         }
         .buttonStyle(.plain)
     }
@@ -310,12 +276,7 @@ struct OnboardingOptionRow: View {
 /// a 1pt `line` border, and a 2pt `accent` border once selected, because blue is the colour of a
 /// selected state. Shared by `OnboardingCard` and `OnboardingOptionRow`.
 @ViewBuilder
-private func cardSurface(isSelected: Bool, colorScheme: ColorScheme) -> some View {
-    Theme.surface
-}
-
-@ViewBuilder
-private func cardBorder(isSelected: Bool, colorScheme: ColorScheme, cornerRadius: CGFloat = Theme.Radius.card) -> some View {
+private func cardBorder(isSelected: Bool, cornerRadius: CGFloat = Theme.Radius.card) -> some View {
     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
         .strokeBorder(isSelected ? Theme.accent : Theme.line, lineWidth: isSelected ? 2 : 1)
 }

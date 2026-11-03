@@ -16,10 +16,6 @@ struct PurchaseSuccessView: View {
     /// Continue runs once. It used to finish onboarding again on every tap.
     @State private var isFinishing = false
 
-    // PartnerNameView requires a non-empty name before you can advance, so by the time any
-    // later onboarding screen runs, this is always the real name — no fallback needed.
-    private var partnerName: String { onboarding.partnerName }
-
     var body: some View {
         OnboardingScaffold(
             title: "You're all set",

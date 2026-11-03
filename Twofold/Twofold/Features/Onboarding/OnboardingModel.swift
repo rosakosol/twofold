@@ -158,10 +158,6 @@ final class OnboardingModel {
     /// that really started, a paid purchase, or a restore. `nil` until then.
     var subscriptionOutcome: SubscriptionOutcome?
 
-    /// Set once the user has responded to the system notification prompt (either way) —
-    /// lets the app avoid ever re-prompting.
-    var notificationsGranted: Bool?
-
     /// Cache backing `illustrativeOriginCity`, picked once and reused so the notifications
     /// and Live Activity sell screens show the same made-up departure city as each other.
     private var cachedIllustrativeOriginCity: Place?
@@ -225,7 +221,6 @@ final class OnboardingModel {
         selfPhotoData = nil
         partnerPhotoData = nil
 
-        notificationsGranted = nil
         subscriptionOutcome = nil
 
         cachedIllustrativeOriginCity = nil
