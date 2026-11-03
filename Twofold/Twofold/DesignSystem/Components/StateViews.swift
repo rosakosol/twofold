@@ -43,21 +43,33 @@ extension EmptyStateView where Actions == EmptyView {
 /// runs; without one, just the explanation.
 struct ErrorStateView: View {
     var title: LocalizedStringKey?
-    /// Usually worded from an error at run time, so shown as it is.
-    let message: String
+    private let message: Text
     var retry: (() async -> Void)?
 
     @State private var isRetrying = false
 
-    init(title: LocalizedStringKey? = nil, message: String, retry: (() async -> Void)? = nil) {
+    /// A message written here, looked up in the String Catalog like any other literal.
+    init(title: LocalizedStringKey? = nil, message: LocalizedStringKey, retry: (() async -> Void)? = nil) {
         self.title = title
-        self.message = message
+        self.message = Text(message)
+        self.retry = retry
+    }
+
+    /// A message already worded at run time — from an error, through `message(for:)` or
+    /// `BackendFailure` — which has been localized where it was made, so it is shown as it is.
+    ///
+    /// Its own label, not an overload of `message:`. With both taking a string, a literal picks
+    /// the `String` one, and the literal then skips the catalog: "Check your connection and try
+    /// again." reached every language in English.
+    init(title: LocalizedStringKey? = nil, verbatim message: String, retry: (() async -> Void)? = nil) {
+        self.title = title
+        self.message = Text(verbatim: message)
         self.retry = retry
     }
 
     /// The same, worded from the error itself (see `ErrorStateView.message(for:)`).
     init(title: LocalizedStringKey? = nil, error: Error, retry: (() async -> Void)? = nil) {
-        self.init(title: title, message: Self.message(for: error), retry: retry)
+        self.init(title: title, verbatim: Self.message(for: error), retry: retry)
     }
 
     var body: some View {
@@ -65,7 +77,7 @@ struct ErrorStateView: View {
             systemImage: "exclamationmark.triangle.fill",
             iconColor: Theme.error,
             title: title.map { Text($0) },
-            message: Text(message)
+            message: message
         ) {
             if let retry {
                 Button {

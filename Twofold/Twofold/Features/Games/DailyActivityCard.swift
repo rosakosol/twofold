@@ -327,7 +327,7 @@ struct DailyActivityCard: View {
         } else if let sessionID = appModel.games.todaysDailySessionID {
             DeepConversationsGameView(sessionID: sessionID)
         } else if let error = appModel.games.dailyQuestionError {
-            ErrorStateView(message: error) {
+            ErrorStateView(verbatim: error) {
                 await appModel.games.startOrResumeDailyQuestion()
             }
         } else {

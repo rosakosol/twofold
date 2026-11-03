@@ -56,7 +56,7 @@ struct WhosMoreLikelyGameView: View {
             if store.isLoading {
                 ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if let errorMessage = store.errorMessage {
-                ErrorStateView(message: errorMessage) {
+                ErrorStateView(verbatim: errorMessage) {
                     await store.load(sessionID: sessionID, deckTitle: title)
                 }
             } else if let session = store.session, session.status == .abandoned {

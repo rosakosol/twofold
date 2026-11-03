@@ -49,7 +49,7 @@ struct SudokuGameView: View {
             case .loading:
                 ProgressView()
             case .failed(let message):
-                ErrorStateView(message: message) { await store.load() }
+                ErrorStateView(verbatim: message) { await store.load() }
             case .ready:
                 board
             case .ended:

@@ -62,7 +62,7 @@ struct ArchivedDataView: View {
             if isLoading {
                 ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if let loadError {
-                ErrorStateView(title: "Couldn't load your archive", message: loadError) {
+                ErrorStateView(title: "Couldn't load your archive", verbatim: loadError) {
                     await load()
                 }
             } else if visibleCouples.isEmpty && hiddenCount == 0 {
