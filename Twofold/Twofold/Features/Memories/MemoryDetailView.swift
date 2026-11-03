@@ -259,15 +259,12 @@ struct MemoryDetailView: View {
             if memory.photos.count > 1 {
                 TabView(selection: $visiblePhotoIndex) {
                     ForEach(Array(memory.photos.enumerated()), id: \.element.id) { index, photo in
-                        AsyncImage(url: photo.url) { phase in
-                            if let image = phase.image {
-                                image.resizable().scaledToFill()
-                            } else {
-                                Theme.surface
-                            }
-                        }
-                        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
-                        .tag(index)
+                        // `MemoryPhotoView`, as the single-photo case below already was (HOME-20).
+                        // `AsyncImage` skipped the memory and disk caches and the off-main decode:
+                        // the URL is signed, so every page refetched, decoded full size on the
+                        // main thread, and showed grey offline or once the signature expired.
+                        MemoryPhotoView(photo: photo, seed: memory.photoSeed, cornerRadius: 4)
+                            .tag(index)
                     }
                 }
                 .tabViewStyle(.page)
