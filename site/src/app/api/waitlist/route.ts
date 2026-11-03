@@ -46,7 +46,10 @@ export async function POST(request: Request) {
 
   // The same limiter the support form uses: this sends mail to an address a visitor typed, so
   // without it the form is a way to send our email to anybody (see 20261110000500). Per caller
-  // and per address. A limiter outage lets the signup through rather than losing it.
+  // and per address. A limiter outage lets the signup through rather than losing it, but drops the
+  // confirmation to the typed address, as /api/support drops its receipt: with no limiter that
+  // mail is the relay the limiter exists to close. The internal alert still goes.
+  let limiterAvailable = true;
   for (const [bucket, subject, limit] of [
     ["waitlist-ip", callerIP(request), 5],
     ["waitlist-email", email, 2],
@@ -59,6 +62,7 @@ export async function POST(request: Request) {
     });
     if (limitError) {
       console.error(`[waitlist] rate limit unavailable (${bucket}):`, limitError.message);
+      limiterAvailable = false;
       break;
     }
     if (allowed === false) {
@@ -77,7 +81,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "You're already on the list." }, { status: 409 });
   }
 
-  await sendEmails(email, result.token);
+  await sendEmails(email, result.token, { confirm: limiterAvailable });
 
   return NextResponse.json({ ok: true });
 }
@@ -88,7 +92,7 @@ function callerIP(request: Request): string {
   return request.headers.get("x-real-ip")?.trim() || "unknown";
 }
 
-async function sendEmails(email: string, token: string): Promise<void> {
+async function sendEmails(email: string, token: string, { confirm }: { confirm: boolean }): Promise<void> {
   const notifyEmail = process.env.WAITLIST_NOTIFY_EMAIL ?? "support@twofoldapp.com.au";
 
   let mailer: ReturnType<typeof createZohoTransport>;
@@ -110,7 +114,9 @@ async function sendEmails(email: string, token: string): Promise<void> {
 
     const alertHtml = renderTemplate("waitlist-internal-alert", {
       subject: "New Twofold Android waitlist signup",
-      preheader: `New signup: ${email}`,
+      // Escaped like the other tokens: renderTemplate substitutes verbatim, this lands in markup,
+      // and the email patterns here and in the database both allow < > and ".
+      preheader: escapeHtml(`New signup: ${email}`),
       signup_at: emailTimestamp(new Date()),
       user_email: escapeHtml(email),
     });
@@ -119,13 +125,15 @@ async function sendEmails(email: string, token: string): Promise<void> {
       // An announcement rather than a receipt: nobody filed a ticket, they signed up to hear from
       // us, so this is the one piece of mail the site sends where support@ as the From reads
       // wrong. `sender` supplies Reply-To: support@ with it, so a reply still reaches the queue.
-      transport.sendMail({
-        ...sender("announcement"),
-        to: email,
-        subject: extractSubject(confirmationHtml).replace(/&#8217;/g, "\u2019"),
-        html: confirmationHtml,
-        headers: listUnsubscribeHeaders(token, "android_waitlist"),
-      }),
+      confirm
+        ? transport.sendMail({
+            ...sender("announcement"),
+            to: email,
+            subject: extractSubject(confirmationHtml).replace(/&#8217;/g, "\u2019"),
+            html: confirmationHtml,
+            headers: listUnsubscribeHeaders(token, "android_waitlist"),
+          })
+        : Promise.resolve(null),
       // Internal, to us. Stays transactional - there is nobody outside to read the From.
       transport.sendMail({
         from,
