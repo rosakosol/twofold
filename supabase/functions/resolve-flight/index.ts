@@ -403,6 +403,27 @@ Deno.serve(async (req) => {
     );
   }
 
+  // A search is only ever for adding, and add-flight refuses a couple with no subscription — so
+  // searching for one was AeroAPI money spent on results that could never be used, and a lapsed
+  // couple met the refusal only at the final tap. Same check, same 503 on a failed read, and the
+  // same body as add-flight's, so the app has one code to read for one meaning. Before the rate
+  // limit for the reason the couple check is: a refused caller should not spend a budget either.
+  const { data: subscribed, error: subscribedErr } = await userClient
+    .rpc("couple_is_subscribed", { p_couple_id: couple.id });
+  if (subscribedErr) {
+    console.error("[resolve-flight] subscription check failed:", subscribedErr.message);
+    return Response.json({ error: "Couldn't check your subscription. Please try again." }, { status: 503 });
+  }
+  if (subscribed !== true) {
+    return Response.json(
+      {
+        error: "Tracking a new flight needs an active subscription. Everything you've already saved stays where it is.",
+        code: "subscription_required",
+      },
+      { status: 403 },
+    );
+  }
+
   // Every search below is one or more billed AeroAPI requests, and until now this was the only
   // money-spending endpoint in the project without a cap — `parse-flight-email` and
   // `submit-help-message` both use this limiter, and this one bills more per call than either.
