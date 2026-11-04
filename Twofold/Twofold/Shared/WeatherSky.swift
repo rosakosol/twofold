@@ -55,6 +55,14 @@ enum WeatherSky: Equatable {
         return LinearGradient(colors: [Color(hex: stops.0), Color(hex: stops.1)], startPoint: .top, endPoint: .bottom)
     }
 
+    /// The sky while the first reading is still on its way: a muted slate that belongs to no
+    /// weather, so it can't be mistaken for one and the real sky can crossfade in over it. White
+    /// clears 4.5:1 here too — about 6:1 at the lighter, daytime foot.
+    static func loadingGradient(isDay: Bool) -> LinearGradient {
+        let stops: (UInt32, UInt32) = isDay ? (0x3B5270, 0x4C6382) : (0x161D2C, 0x283247)
+        return LinearGradient(colors: [Color(hex: stops.0), Color(hex: stops.1)], startPoint: .top, endPoint: .bottom)
+    }
+
     /// Whether it is day where the partner is: WeatherKit's own reading of the sun when there is one
     /// recent enough to trust, the hour otherwise. A reading from yesterday afternoon says nothing
     /// about tonight.

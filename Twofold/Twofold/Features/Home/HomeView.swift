@@ -50,6 +50,9 @@ struct HomeView: View {
     @State private var weatherFetchedForCityID: UUID?
     @State private var myWeatherReading: CurrentWeatherReading?
     @State private var myWeatherFetchedForCityID: UUID?
+    /// The partner's city whose first fetch has come back, either way. Until it has, a card with no
+    /// reading is still loading rather than a city with no weather — see `isLoadingWeather`.
+    @State private var weatherSettledForCityID: UUID?
     @State private var flightCarouselPage: Flight.ID?
     @State private var partnerDisconnectedAlert: String?
 
@@ -127,6 +130,7 @@ struct HomeView: View {
             .refreshable { await pullToRefresh() }
             .onAppear {
                 refreshPendingShares()
+                seedWeatherFromCache()
                 Task { await appModel.refreshCoupleStateIfNeeded() }
                 Task { await appModel.travel.refreshTrips() }
                 Task { await appModel.travel.refreshFlights() }
@@ -197,6 +201,17 @@ struct HomeView: View {
                         CloseToolbarItem("Cancel") { showingAddTrip = false }
                     }
                 }
+            }
+            // A city that arrives after Home is already up — a first sign-in, or a partner who sets
+            // theirs while this is open — used to wait for the next foreground before its weather
+            // was fetched at all, leaving the card in its no-weather state until then.
+            .onChange(of: appModel.partner.homeCity?.id) {
+                seedWeatherFromCache()
+                Task { await refreshWeatherIfNeeded() }
+            }
+            .onChange(of: appModel.currentUser.homeCity?.id) {
+                seedWeatherFromCache()
+                Task { await refreshWeatherIfNeeded() }
             }
             .onChange(of: appModel.prompts.partnerDisconnectedMessage) { _, newValue in
                 guard let newValue else { return }
@@ -299,7 +314,8 @@ struct HomeView: View {
                 sameCity: sameCity,
                 cityName: appModel.partner.homeCity?.displayCity,
                 weather: weatherReading,
-                myWeather: myWeatherReading
+                myWeather: myWeatherReading,
+                isLoadingWeather: isLoadingWeather
             )
         }
     }
@@ -357,6 +373,35 @@ struct HomeView: View {
         pendingShares = PendingShareStore.all()
     }
 
+    /// No reading for the partner's city yet, and its first fetch is still out. The card shows a
+    /// neutral loading sky then, not the clear one it draws for a city with no weather — that one
+    /// looks like a real reading, and was replaced a few seconds into every launch by the actual
+    /// sky.
+    private var isLoadingWeather: Bool {
+        guard let city = appModel.partner.homeCity else { return false }
+        return weatherReading == nil && weatherSettledForCityID != city.id
+    }
+
+    /// Opens the card on the last reading for each city when it is young enough to stand for now
+    /// (see `WeatherReadingCache`). Fills only an empty slot, or one left over from another city:
+    /// the live reading, once it lands, always wins. Not marked fetched, so the live fetch still
+    /// runs behind it.
+    ///
+    /// Without animation: this lands on Home's first frames, where it should look as if the card
+    /// was drawn with the reading, not crossfade into it from the loading sky.
+    private func seedWeatherFromCache() {
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            if let city = appModel.partner.homeCity, weatherFetchedForCityID != city.id {
+                weatherReading = WeatherReadingCache.reading(for: city)
+            }
+            if let city = appModel.currentUser.homeCity, myWeatherFetchedForCityID != city.id {
+                myWeatherReading = WeatherReadingCache.reading(for: city)
+            }
+        }
+    }
+
     /// Only re-fetches when the relevant city actually changes — WeatherKit calls aren't free,
     /// and the time card only needs a fresh reading roughly hourly, not on every foreground. A
     /// failed fetch does NOT mark the city as fetched, so a transient/auth error gets retried on
@@ -374,18 +419,26 @@ struct HomeView: View {
     private func refreshPartnerWeatherIfNeeded(force: Bool = false) async {
         guard let city = appModel.partner.homeCity else { return }
         guard force || weatherFetchedForCityID != city.id else { return }
-        if let reading = await TwofoldWeatherService.currentWeather(for: city) {
+        let reading = await TwofoldWeatherService.currentWeather(for: city)
+        // The city may have changed while this was out; a reading for the old one is not this one's.
+        guard appModel.partner.homeCity?.id == city.id else { return }
+        if let reading {
             weatherReading = reading
             weatherFetchedForCityID = city.id
+            WeatherReadingCache.record(reading, for: city)
         }
+        weatherSettledForCityID = city.id
     }
 
     private func refreshMyWeatherIfNeeded(force: Bool = false) async {
         guard let city = appModel.currentUser.homeCity else { return }
         guard force || myWeatherFetchedForCityID != city.id else { return }
-        if let reading = await TwofoldWeatherService.currentWeather(for: city) {
+        let reading = await TwofoldWeatherService.currentWeather(for: city)
+        guard appModel.currentUser.homeCity?.id == city.id else { return }
+        if let reading {
             myWeatherReading = reading
             myWeatherFetchedForCityID = city.id
+            WeatherReadingCache.record(reading, for: city)
         }
     }
 

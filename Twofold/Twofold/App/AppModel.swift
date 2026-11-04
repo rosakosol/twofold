@@ -840,6 +840,8 @@ final class AppModel {
         // Written by the share extension, read by `HomeView` with no user id in the record. Holds
         // the text of a shared booking email, including anything scraped from a boarding pass.
         PendingShareStore.clear()
+        // The weather at both home cities, which says where the two of them live.
+        WeatherReadingCache.clear()
         clearAccountScopedDefaults()
         MemoryPhotoDiskCache.clear()
         RemoteImageDiskCache.clear()

@@ -24,8 +24,14 @@ struct TimeZoneCard: View {
     /// same-city case (where `weather` already covers both, so a second reading would just be
     /// the exact same number repeated) or before it's fetched.
     var myWeather: CurrentWeatherReading?
+    /// No reading yet and the first one still on its way. The card then draws a neutral sky and a
+    /// redacted reading in the weather's place, rather than the clear sky it uses for a city with no
+    /// weather — which reads as a real forecast, and then changed to the actual one a few seconds
+    /// into every launch.
+    var isLoadingWeather: Bool = false
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// The time is the card's headline, drawn large and light the way Weather draws a temperature.
     @ScaledMetric(relativeTo: .largeTitle) private var timeSize: CGFloat = 34
 
@@ -52,6 +58,7 @@ struct TimeZoneCard: View {
         let isDay = WeatherSky.isDay(in: timeZone, at: date, daylight: weather?.isDaylight)
         let sky = WeatherSky(symbolName: weather?.symbolName)
         let condition = weather.flatMap { WeatherSky.conditionName(symbolName: $0.symbolName, isDay: isDay) }
+        let showsLoading = isLoadingWeather && weather == nil
 
         return VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
             rowLayout {
@@ -80,14 +87,33 @@ struct TimeZoneCard: View {
                         Text(weather.temperatureLabel)
                             .font(.title.weight(.light))
                     }
+                    .transition(.opacity)
+                } else if showsLoading {
+                    // The reading's own shapes, redacted, so the row is the size it will be once the
+                    // weather lands and nothing beside it moves when it does.
+                    VStack(alignment: dynamicTypeSize.isAccessibilitySize ? .leading : .trailing, spacing: Theme.Spacing.xs) {
+                        WeatherSymbol(name: "cloud.fill", size: 26)
+                        Text(verbatim: "00°")
+                            .font(.title.weight(.light))
+                    }
+                    .redacted(reason: .placeholder)
+                    .accessibilityHidden(true)
+                    .transition(.opacity)
                 }
             }
 
-            if condition != nil || (!sameCity && comparisonTimeZone != nil) {
+            if condition != nil || showsLoading || (!sameCity && comparisonTimeZone != nil) {
                 rowLayout {
                     if let condition {
                         Text(condition)
                             .font(.subheadline.weight(.medium))
+                            .transition(.opacity)
+                    } else if showsLoading {
+                        Text(verbatim: "Partly cloudy")
+                            .font(.subheadline.weight(.medium))
+                            .redacted(reason: .placeholder)
+                            .accessibilityHidden(true)
+                            .transition(.opacity)
                     }
                     if !dynamicTypeSize.isAccessibilitySize {
                         Spacer(minLength: 0)
@@ -100,18 +126,43 @@ struct TimeZoneCard: View {
                 }
             }
 
-            // Apple requires its mark wherever WeatherKit data is shown.
+            // Apple requires its mark wherever WeatherKit data is shown. Its room is held while the
+            // reading loads, so the card doesn't grow a line when it arrives.
             if weather != nil || myWeather != nil {
                 WeatherAttributionView(tint: .white)
                     .frame(maxWidth: .infinity, alignment: .trailing)
+            } else if showsLoading {
+                WeatherAttributionView(tint: .white)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .hidden()
+                    .accessibilityHidden(true)
             }
         }
         // White throughout, as in Weather: every sky clears 4.5:1 under it (see WeatherSky).
         .foregroundStyle(Theme.onFill)
         .padding(Theme.Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(sky.gradient(isDay: isDay), in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+        .background { skyBackground(showsLoading ? nil : sky, isDay: isDay) }
+        // One soft change when the reading lands — the sky crossfades and the reading fades in —
+        // instead of the card snapping from one sky to another. A crossfade rather than anything
+        // that moves, so it stays under Reduce Motion, just shorter.
+        .animation(.easeInOut(duration: reduceMotion ? 0.2 : 0.45), value: weather)
+        .animation(.easeInOut(duration: reduceMotion ? 0.2 : 0.45), value: showsLoading)
         .accessibilityElement(children: .combine)
+    }
+
+    /// The loading sky underneath, and the reading's sky over it once there is one. Keyed by sky and
+    /// time of day, so a change between two real skies crossfades too rather than cutting.
+    private func skyBackground(_ sky: WeatherSky?, isDay: Bool) -> some View {
+        let shape = RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
+        return ZStack {
+            shape.fill(WeatherSky.loadingGradient(isDay: isDay))
+            if let sky {
+                shape.fill(sky.gradient(isDay: isDay))
+                    .id("\(sky)-\(isDay)")
+                    .transition(.opacity)
+            }
+        }
     }
 }
 
@@ -124,6 +175,7 @@ struct TimeZoneCard: View {
             myWeather: CurrentWeatherReading(symbolName: "sun.max.fill", temperatureC: 29)
         )
         TimeZoneCard(person: MockData.dara, timeZone: TimeZone(identifier: "Asia/Singapore")!, comparisonTimeZone: TimeZone(identifier: "Australia/Melbourne"))
+        TimeZoneCard(person: MockData.dara, timeZone: TimeZone(identifier: "Asia/Singapore")!, comparisonTimeZone: TimeZone(identifier: "Australia/Melbourne"), isLoadingWeather: true)
         TimeZoneCard(person: MockData.rosa, timeZone: TimeZone(identifier: "Australia/Melbourne")!, sameCity: true, cityName: "Melbourne", weather: CurrentWeatherReading(symbolName: "cloud.sun.fill", temperatureC: 18, isDaylight: true))
     }
     .padding()

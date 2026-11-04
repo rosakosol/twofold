@@ -144,6 +144,19 @@ extension PendingMemoryDiskTests {
             PendingGameResponseStore.clear()
         }
 
+        /// The weather at both home cities is keyed by where they are, so it says where the couple
+        /// lives. The next account to sign in must not open its Home card on it.
+        @Test("the last weather readings do not survive sign-out")
+        func weatherReadingsAreCleared() {
+            let rome = Place(city: "Rome", country: "Italy", latitude: 41.9028, longitude: 12.4964)
+            WeatherReadingCache.record(CurrentWeatherReading(symbolName: "sun.max", temperatureC: 21), for: rome)
+            #expect(WeatherReadingCache.reading(for: rome, snapshot: nil) != nil, "precondition: a reading was cached")
+
+            AppModel.clearPersistedAccountState()
+
+            #expect(WeatherReadingCache.reading(for: rome, snapshot: nil) == nil)
+        }
+
         /// A device preference, not an account one. Asserted so that a future sweep of "clear
         /// everything on sign-out" does not quietly take the app lock off with it.
         @Test("the app lock preference is not an account-scoped default")
