@@ -160,6 +160,10 @@ struct MemoryPhotoView: View {
         // `PendingMemoryStore`, so there's nothing to cache a second copy of.
         let isUploaded = photo.path != "pending"
 
+        #if DEBUG
+        if let latency = DemoMode.latency { try? await Task.sleep(for: latency) }
+        #endif
+
         if isUploaded, let data = MemoryPhotoDiskCache.read(path: photo.path), let image = await decoded(data, thumbnailPixelSize: thumbnailPixelSize) {
             ImageMemoryCache.memoryPhotos.store(image, for: key)
             return image

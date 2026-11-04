@@ -56,7 +56,10 @@ enum TwofoldWeatherService {
     /// throwing — weather is a nice-to-have on the time card, never worth surfacing an error for.
     static func currentWeather(for place: Place) async -> CurrentWeatherReading? {
         #if DEBUG
-        if DemoMode.isOn { return DemoData.weather(for: place) }
+        if DemoMode.isOn {
+            if let latency = DemoMode.latency { try? await Task.sleep(for: latency) }
+            return DemoData.weather(for: place)
+        }
         #endif
         let location = CLLocation(latitude: place.latitude, longitude: place.longitude)
         do {
