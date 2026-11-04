@@ -48,6 +48,11 @@ struct AnniversaryDateView: View {
         return picked.month == today.month && picked.day == today.day
     }
 
+    /// Memory screens now come before the notification/Live Activity sell screens.
+    private func advance() {
+        onboarding.path.append(sameCity ? .memoriesSell : .personalizedInsight)
+    }
+
     var body: some View {
         OnboardingScaffold(
             title: "When did your story begin? 💕",
@@ -73,9 +78,18 @@ struct AnniversaryDateView: View {
                 if isAnniversaryToday {
                     onboarding.path.append(.happyAnniversary)
                 } else {
-                    // Memory screens now come before the notification/Live Activity sell screens.
-                    onboarding.path.append(sameCity ? .memoriesSell : .personalizedInsight)
+                    advance()
                 }
+            },
+            // Not everyone knows the date, or wants to settle it while signing up, and with only
+            // Continue the way past this screen was to give one — the picker's default a year ago,
+            // for anyone who just tapped through. Skipped, nothing is written: Stats asks for it
+            // instead of counting from a made-up day, and it can be added any time from Stats or
+            // Settings › About your partner.
+            secondaryTitle: "Skip for now",
+            secondaryAction: {
+                onboarding.anniversaryDate = nil
+                advance()
             }
         )
         .onAppear {

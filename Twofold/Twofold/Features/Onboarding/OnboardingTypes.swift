@@ -262,13 +262,15 @@ enum TripTraveler: String, CaseIterable, Identifiable {
 #if DEBUG
 extension OnboardingStep {
     /// Maps `-onboardingStep <case>` to a step. Only the screens a UI test drives are listed: the
-    /// account screens for `LegalConsentUITests` and the first memory for
-    /// `OnboardingFirstMemoryUITests`. Not a second, drifting copy of the flow.
+    /// account screens for `LegalConsentUITests`, the first memory for
+    /// `OnboardingFirstMemoryUITests` and the anniversary for `OnboardingAnniversaryUITests`. Not a
+    /// second, drifting copy of the flow.
     init?(debugArgument: String) {
         switch debugArgument {
         case "saveAccount": self = .saveAccount
         case "createAccount": self = .createAccount
         case "firstMemory": self = .firstMemory
+        case "anniversaryDate": self = .anniversaryDate
         default: return nil
         }
     }
