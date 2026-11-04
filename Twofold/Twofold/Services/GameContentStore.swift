@@ -23,21 +23,27 @@
 //  The cache wins whenever it exists, because it is by definition never older than the seed. It is
 //  written whole or not at all — a partial deck list would silently hide decks.
 //
+//  `nonisolated`, like `MemoryPhotoDiskCache`: file I/O and JSON, with its one piece of shared state
+//  behind `lock`. The daily refresh decodes and writes about half a megabyte from a detached task,
+//  and under the project's default MainActor isolation that work went back to the main thread
+//  regardless (CORE-31). Only the two readers that build app models — `GameDeck` and the round
+//  types, which are main-actor types — stay on the main actor.
+//
 
 import Foundation
 
-enum GameContentStore {
+nonisolated enum GameContentStore {
 
     // MARK: - What a decoded seed or cache holds
 
     /// Mirrors the export script's output, which is PostgREST's own column naming.
-    private struct Payload: Codable {
+    private nonisolated struct Payload: Codable {
         var version: Int
         var decks: [DeckRow]
         var content: [String: [ContentRow]]
     }
 
-    private struct DeckRow: Codable {
+    private nonisolated struct DeckRow: Codable {
         var id: UUID
         var topic: String
         var gameType: String
@@ -60,7 +66,7 @@ enum GameContentStore {
     /// One row from any of the four content tables. They're decoded into a single shape rather
     /// than four, because which columns are present is decided by the game type of the deck the
     /// row belongs to, and the app only ever asks for a deck's rows knowing that type already.
-    private struct ContentRow: Codable {
+    private nonisolated struct ContentRow: Codable {
         var id: UUID
         var deckID: UUID
         var category: String?
@@ -158,6 +164,7 @@ enum GameContentStore {
 
     /// Every active deck, in the order the Games hub shows them — the same order and filter
     /// `fetchGameDecks()` applies, so the offline list is not a different list.
+    @MainActor
     static func decks() -> [GameDeck] {
         guard let payload = payload() else { return [] }
         return payload.decks.compactMap { row in
@@ -183,6 +190,7 @@ enum GameContentStore {
     /// have chosen — that RPC's `array_agg` has no `order by`, so there is no order to match. The
     /// set is the same, which is what reconciliation relies on: answers are replayed by content id,
     /// never by round number.
+    @MainActor
     static func content(forDeck deckID: UUID, gameType: GameType) -> [GameRoundContent] {
         guard let payload = payload(), let rows = payload.content[gameType.rawValue] else { return [] }
         return rows
@@ -191,6 +199,7 @@ enum GameContentStore {
             .compactMap { row in content(from: row, gameType: gameType) }
     }
 
+    @MainActor
     private static func content(from row: ContentRow, gameType: GameType) -> GameRoundContent? {
         let category = row.category ?? ""
         let tier = row.tier ?? "plus"

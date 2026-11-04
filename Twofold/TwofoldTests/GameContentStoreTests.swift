@@ -16,6 +16,7 @@ import Foundation
 @testable import Twofold
 
 @Suite(.serialized)
+@MainActor
 struct GameContentStoreTests {
 
     /// Every test below is about the *bundled seed*, but `GameContentStore` prefers a downloaded

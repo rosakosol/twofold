@@ -98,7 +98,7 @@ enum DataProtectionMigration {
     ///
     /// Called after the write rather than when the URL is built, because `setResourceValues`
     /// needs the file to exist.
-    static func excludeFromBackup(_ url: URL) {
+    nonisolated static func excludeFromBackup(_ url: URL) {
         var url = url
         var values = URLResourceValues()
         values.isExcludedFromBackup = true

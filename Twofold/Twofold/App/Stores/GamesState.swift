@@ -330,8 +330,12 @@ final class GamesState: AccountScopedStore {
     /// weeks. The first run after an install has no cached copy at all and fetches immediately —
     /// until then the app is running on the bundled seed, which is only as current as the last
     /// release.
-    private static func refreshGameContentIfStale() async {
-        guard NetworkMonitor.shared.isConnected else { return }
+    ///
+    /// `nonisolated`, so the detached task that runs it really is off the main actor: the fetch
+    /// hops to the main actor and back, and the half-megabyte decode and write in
+    /// `GameContentStore.store` stay off it (CORE-31).
+    private nonisolated static func refreshGameContentIfStale() async {
+        guard await MainActor.run(body: { NetworkMonitor.shared.isConnected }) else { return }
         if let age = GameContentStore.cacheAge, age < 24 * 60 * 60 { return }
         guard let payload = try? await BackendService.fetchGameContentPayload() else { return }
         GameContentStore.store(payload: payload)

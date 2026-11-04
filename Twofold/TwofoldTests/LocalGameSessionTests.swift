@@ -19,6 +19,7 @@ import Foundation
 @testable import Twofold
 
 @Suite(.serialized)
+@MainActor
 struct LocalGameSessionTests {
 
     /// Sessions here are built from `GameContentStore`, which prefers a downloaded cache over the
