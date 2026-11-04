@@ -4,7 +4,8 @@
 //
 // Dedup guard: if the row was refreshed less than 60 seconds ago, this returns the current row
 // as-is without calling AeroAPI again — the thing that stops both partners opening the screen at
-// the same moment from doubling API calls.
+// the same moment from doubling API calls. Taken as a conditional update of last_refreshed_at, so
+// it holds for callers that arrive together too (see the claim below).
 //
 // Requires an `Authorization: Bearer <user access token>` header (the caller's Supabase auth
 // session).
@@ -95,8 +96,28 @@ Deno.serve(async (req) => {
     return Response.json({ flight: current ?? flightRow });
   }
 
-  const lastRefreshedAt = flightRow.last_refreshed_at ? new Date(flightRow.last_refreshed_at).getTime() : 0;
-  if (Date.now() - lastRefreshedAt < DEDUP_WINDOW_MS) {
+  // The dedup is a claim, not a read. It used to read last_refreshed_at above and call AeroAPI if
+  // it was old, so every caller holding the same stale read passed it — five refreshes arriving
+  // together made five lookups. Stamping the row only where the stamp is still old is one
+  // statement Postgres serialises per row: the first caller's update matches and takes the
+  // refresh, and every caller after it finds a fresh stamp and matches nothing.
+  //
+  // The claimed row, with its new stamp, is what goes on to `refreshOneFlight`, because syncFlight
+  // writes only if the stamp is still the one it was handed (DB-6). A failed claim is read as not
+  // claimed: the cost of being wrong that way is one skipped refresh, not one extra lookup.
+  const nowIso = new Date().toISOString();
+  const staleBefore = new Date(Date.now() - DEDUP_WINDOW_MS).toISOString();
+  const { data: claimedRows, error: claimErr } = await serviceClient
+    .from("flights")
+    .update({ last_refreshed_at: nowIso })
+    .eq("id", input.flightId)
+    .eq("tracking_enabled", true)
+    .or(`last_refreshed_at.is.null,last_refreshed_at.lt.${staleBefore}`)
+    .select("*");
+  if (claimErr) console.error("[refresh-flight] failed to claim the refresh:", claimErr.message);
+  const claimed = (claimedRows?.[0] ?? null) as FlightRow | null;
+
+  if (!claimed) {
     // Still worth reconciling even without a fresh AeroAPI call — someone pulling to refresh on
     // a flight the provider has gone silent on should see it self-heal immediately rather than
     // waiting for the next 5-minute cron tick.
@@ -110,7 +131,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const updated = await refreshOneFlight(serviceClient, flightRow, "refresh-flight");
+    const updated = await refreshOneFlight(serviceClient, claimed, "refresh-flight");
     if (updated) {
       try {
         await reconcileOverdueArrival(serviceClient, updated, Date.now());

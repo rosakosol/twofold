@@ -41,6 +41,33 @@ const quiet = { sanitizeOps: false, sanitizeResources: false };
 const flightLookups = () => aeroRequests.filter((p) => /\/flights\/[^/]+$/.test(p)).length;
 
 Deno.test({
+  name: "five refreshes of one flight at once make one AeroAPI lookup",
+  ignore,
+  ...quiet,
+  fn: async () => {
+    resetOutbound();
+    onAeroApi((url) => url.pathname.includes("/flights/") ? Response.json({ flights: [] }) : new Response(null, { status: 404 }));
+    const client = serviceClient();
+    const couple = await seedCouple(client);
+    try {
+      const flight = await seedFlight(client, couple, {
+        scheduled_out: iso(5 * HOUR),
+        scheduled_in: iso(15 * HOUR),
+        last_refreshed_at: iso(-30 * MINUTE),
+      });
+      const handler = await loadHandler("refresh-flight");
+      const bearer = await bearerFor(client, couple.partnerA);
+      const responses = await Promise.all(Array.from({ length: 5 }, () => handler(postJson({ flightId: flight.id }, bearer))));
+      for (const r of responses) await r.body?.cancel();
+      assertEquals(responses.map((r) => r.status), [200, 200, 200, 200, 200]);
+      assertEquals(flightLookups(), 1, "every caller that read a stale stamp made its own lookup");
+    } finally {
+      await removeCouple(client, couple);
+    }
+  },
+});
+
+Deno.test({
   name: "a lookup AeroAPI answers with no flight still counts as a refresh",
   ignore,
   ...quiet,
