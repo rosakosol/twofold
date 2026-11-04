@@ -177,4 +177,19 @@ struct AccountScopedLeakTests {
         #expect(games.gameDecksUnavailable == false)
         #expect(games.isDailyQuestionOpenRequested == false)
     }
+
+    /// CORE-26. The live entitlement updates RootView listens to fed the store's tier straight into
+    /// `applyRefresh` with no anonymous check, unlike both other places the device's answer is read.
+    /// An anonymous RevenueCat customer is whoever used this install before anyone signed in, so
+    /// their subscription briefly became the signed-in couple's.
+    @Test("an anonymous store customer's tier is not this account's")
+    func anonymousCustomerDoesNotCount() {
+        #expect(SubscriptionState.deviceEntitlement(storeTier: .premium, customerIsAnonymous: true) == nil)
+    }
+
+    @Test("a signed-in store customer's tier is this account's")
+    func signedInCustomerCounts() {
+        #expect(SubscriptionState.deviceEntitlement(storeTier: .plus, customerIsAnonymous: false) == .plus)
+        #expect(SubscriptionState.deviceEntitlement(storeTier: nil, customerIsAnonymous: false) == nil)
+    }
 }

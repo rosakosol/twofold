@@ -189,7 +189,11 @@ struct RootView: View {
                 if let snapshot = try? await BackendService.fetchSubscriptionSnapshot() {
                     appModel.subscription.tier = snapshot.tier
                     appModel.subscription.applyRefresh(
-                        snapshot, deviceEntitled: tier != nil, partnerConnected: appModel.session.partnerConnected
+                        snapshot,
+                        deviceEntitled: SubscriptionState.deviceEntitlement(
+                            storeTier: tier, customerIsAnonymous: SubscriptionState.storeCustomerIsAnonymous
+                        ) != nil,
+                        partnerConnected: appModel.session.partnerConnected
                     )
                 }
                 await WidgetSnapshotWriter.refresh(appModel: appModel)

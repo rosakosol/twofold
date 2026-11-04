@@ -196,6 +196,24 @@ final class SubscriptionState: AccountScopedStore {
         return SubscriptionTier.active(in: info)
     }
 
+    /// The tier a store answer gives this account: what the store reported, unless its customer is
+    /// anonymous — somebody else, for the reason `deviceHoldsEntitlement` gives.
+    ///
+    /// For an answer that arrives rather than one asked for: the live entitlement updates RootView
+    /// listens to. That loop passed the store's tier on unchecked, the one place the device's
+    /// answer was read without the anonymous check (CORE-26).
+    static func deviceEntitlement(storeTier: SubscriptionTier?, customerIsAnonymous: Bool) -> SubscriptionTier? {
+        customerIsAnonymous ? nil : storeTier
+    }
+
+    /// Whether this device's store customer is nobody in particular as far as the signed-in account
+    /// goes: anonymous, or no store configured at all. Never in an end-to-end run, whose store
+    /// answer stands for the account's own (see `deviceTier()`).
+    static var storeCustomerIsAnonymous: Bool {
+        if E2ELaunch.isOn { return false }
+        return !Purchases.isConfigured || Purchases.shared.isAnonymous
+    }
+
     /// What `isActive` should become, given what the backend just said.
     ///
     /// `profiles.subscription_active` is written by the RevenueCat webhook and lags a purchase by
