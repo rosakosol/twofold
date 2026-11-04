@@ -114,5 +114,23 @@
    <ArchiveAction
       buildConfiguration = "Release"
       revealArchiveInOrganizer = "YES">
+      <PostActions>
+         <ExecutionAction
+            ActionType = "Xcode.IDEStandardExecutionActionsCore.ExecutionActionType.ShellScriptAction">
+            <ActionContent
+               title = "Bump the build number for the next archive"
+               scriptText = "# The archive just made keeps its number; the next one gets the next.&#10;cd &quot;${PROJECT_DIR}&quot; &amp;&amp; xcrun agvtool next-version -all &gt; /dev/null&#10;">
+               <EnvironmentBuildable>
+                  <BuildableReference
+                     BuildableIdentifier = "primary"
+                     BlueprintIdentifier = "DB8C95002FFC501C00E0E71E"
+                     BuildableName = "Twofold.app"
+                     BlueprintName = "Twofold"
+                     ReferencedContainer = "container:Twofold.xcodeproj">
+                  </BuildableReference>
+               </EnvironmentBuildable>
+            </ActionContent>
+         </ExecutionAction>
+      </PostActions>
    </ArchiveAction>
 </Scheme>
