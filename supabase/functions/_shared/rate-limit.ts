@@ -27,20 +27,33 @@ export interface RateLimit {
 /// Returning the Response rather than throwing keeps the call site a single `if` and means the
 /// wording, the status and the `Retry-After` header are decided in one place across every caller.
 ///
-/// Fails OPEN — a database error here returns null and the request proceeds. Deliberate: this
-/// limiter guards against a user in a loop, not against an attacker who can also take the database
-/// down, and failing closed would turn any transient Postgres blip into a total outage of the
-/// feature. The error is logged so a limiter that has silently stopped limiting is visible in the
-/// function logs rather than only in the next invoice.
+/// Fails OPEN by default — a database error here returns null and the request proceeds.
+/// Deliberate: this limiter guards against a user in a loop, not against an attacker who can also
+/// take the database down, and failing closed would turn any transient Postgres blip into a total
+/// outage of the feature. The error is logged so a limiter that has silently stopped limiting is
+/// visible in the function logs rather than only in the next invoice.
+///
+/// `failClosed` turns that around, for the endpoints that spend AeroAPI money on every admitted
+/// call (add-flight, resolve-flight, refresh-flight). There the trade runs the other way: a minute
+/// of refused searches costs nobody anything, and a limiter that has stopped answering is the one
+/// moment a client in a loop would run up a bill unseen. Each of those endpoints reads the database
+/// before it gets here anyway, so a database that cannot answer this has usually refused already.
 export async function enforceRateLimit(
   client: SupabaseClient,
   { bucket, limit, window }: RateLimit,
+  { failClosed = false }: { failClosed?: boolean } = {},
 ): Promise<Response | null> {
   const { data, error } = await client
     .rpc("consume_rate_limit", { p_bucket: bucket, p_limit: limit, p_window: window })
     .single();
 
   if (error) {
+    if (failClosed) {
+      console.error(`[rate-limit] ${bucket}: check failed, refusing request:`, error.message);
+      // 503 rather than 429: nothing about this caller was over a limit, and Retry-After on a 429
+      // would tell them a time this function does not know.
+      return Response.json({ error: "Something went wrong on our side. Please try again." }, { status: 503 });
+    }
     console.error(`[rate-limit] ${bucket}: check failed, allowing request:`, error.message);
     return null;
   }

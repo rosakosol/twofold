@@ -437,7 +437,7 @@ Deno.serve(async (req) => {
   // several searches, and a couple planning a trip together might take a dozen — while still
   // bounding what one account in a loop can cost. Placed after the couple check so an unpaired
   // caller, who can never search at all, does not consume anyone's budget.
-  const limited = await enforceRateLimit(userClient, RATE_LIMIT);
+  const limited = await enforceRateLimit(userClient, RATE_LIMIT, { failClosed: true });
   if (limited) return limited;
 
   try {

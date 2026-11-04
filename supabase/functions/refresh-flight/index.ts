@@ -105,7 +105,7 @@ Deno.serve(async (req) => {
   // 60 an hour is far past what the app asks — once per open of the tracking screen — and placed
   // here, after the checks that answer without AeroAPI, so a refresh that could never reach it
   // spends no budget.
-  const limited = await enforceRateLimit(userClient, RATE_LIMIT);
+  const limited = await enforceRateLimit(userClient, RATE_LIMIT, { failClosed: true });
   if (limited) return limited;
 
   // The dedup is a claim, not a read. It used to read last_refreshed_at above and call AeroAPI if

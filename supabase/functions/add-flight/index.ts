@@ -229,7 +229,7 @@ Deno.serve(async (req) => {
 
   // After the couple check, like `resolve-flight`: an unpaired caller is refused above and never
   // reaches AeroAPI, so they should not consume a budget either.
-  const limited = await enforceRateLimit(userClient, RATE_LIMIT);
+  const limited = await enforceRateLimit(userClient, RATE_LIMIT, { failClosed: true });
   if (limited) return limited;
 
   // Only allow tagging travelers who are actually members of this couple — never trust an
