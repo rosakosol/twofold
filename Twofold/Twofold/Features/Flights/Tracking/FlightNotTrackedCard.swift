@@ -19,6 +19,9 @@ struct FlightNotTrackedCard: View {
 
     @State private var isEnablingTracking = false
     @State private var enableTrackingError: String?
+    @State private var showingPaywall = false
+    /// A purchase completed in the paywall this card opened, so its closing tries again.
+    @State private var subscribedInPaywall = false
 
     /// See `FlightTrackingHeader.isPastTracking`.
     private var isPastTracking: Bool {
@@ -48,7 +51,7 @@ struct FlightNotTrackedCard: View {
                         Text(enableTrackingError).font(.caption).foregroundStyle(Theme.error)
                     }
 
-                    Button(action: enableTracking) {
+                    Button { enableTracking() } label: {
                         HStack {
                             if isEnablingTracking { ProgressView().controlSize(.small) }
                             Text(isEnablingTracking ? "Turning on…" : "Turn on live tracking")
@@ -59,7 +62,18 @@ struct FlightNotTrackedCard: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .sheet(isPresented: $showingPaywall, onDismiss: paywallClosed) {
+                NavigationStack {
+                    PaywallView(onSubscribed: { _ in subscribedInPaywall = true })
+                }
+            }
         }
+    }
+
+    private func paywallClosed() {
+        guard subscribedInPaywall else { return }
+        subscribedInPaywall = false
+        enableTracking(afterPurchase: true)
     }
 
     /// Spends a slot, or explains why it could not.
@@ -68,7 +82,10 @@ struct FlightNotTrackedCard: View {
     /// the subscription check — so a `false` here is a real answer rather than an error, and says
     /// the one thing the person can act on. Which sentence that is depends on which refusal it was:
     /// the allowance one told a lapsed couple to wait for the 1st, which never helps them.
-    private func enableTracking() {
+    ///
+    /// A lapsed subscription is answered with the paywall rather than a sentence, unless the paywall
+    /// has just sold one (`afterPurchase`) and the server has not heard yet.
+    private func enableTracking(afterPurchase: Bool = false) {
         isEnablingTracking = true
         enableTrackingError = nil
         Task {
@@ -77,6 +94,12 @@ struct FlightNotTrackedCard: View {
                 let result = try await BackendService.enableFlightTracking(flightID: flight.id)
                 if result.enabled {
                     await appModel.travel.refreshFlights()
+                } else if BackendService.FlightTrackingRefusal.opensPaywall(result.reason) {
+                    if afterPurchase {
+                        enableTrackingError = AeroFlightError.subscriptionStillActivating
+                    } else {
+                        showingPaywall = true
+                    }
                 } else {
                     enableTrackingError = BackendService.FlightTrackingRefusal.message(for: result.reason)
                 }

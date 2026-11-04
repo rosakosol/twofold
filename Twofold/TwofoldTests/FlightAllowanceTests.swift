@@ -15,6 +15,10 @@
 //  live refusal carrying a code is now `premium_required`, from `flight-delay-stats`, and the same
 //  two properties are asserted about it.
 //
+//  Since then the rule has widened: no sentence an edge function writes reaches a traveller at all.
+//  A plan refusal (`subscription_required` from `add-flight` and `resolve-flight`, and
+//  `premium_required`) opens the paywall, and every other failure reads in the app's own words.
+//
 
 import Testing
 import Foundation
@@ -85,6 +89,38 @@ struct FlightAllowanceTests {
             Issue.record("got \(error) — the subscription refusal fell through to the server's own text")
         }
         #expect(error.errorDescription != "Tracking a new flight needs an active subscription. Everything you've already saved stays where it is.")
+    }
+
+    /// What the search and confirm screens branch on: a plan to sell means the paywall, on that
+    /// plan, and nothing else does.
+    @Test("the plan refusals open the paywall on the plan they need, and nothing else does")
+    func paywallTierPerRefusal() {
+        #expect(AeroFlightService.failure(status: 403, body: Self.subscriptionBody).paywallTier == .plus)
+        #expect(AeroFlightService.failure(status: 403, body: Self.premiumBody).paywallTier == .premium)
+        #expect(AeroFlightService.failure(status: 403, body: Self.notPairedBody).paywallTier == nil)
+        #expect(AeroFlightService.failure(status: 404, body: Data(#"{"error":"Flight not found"}"#.utf8)).paywallTier == nil)
+        #expect(AeroFlightError.notAuthenticated.paywallTier == nil)
+        #expect(AeroFlightError.decodingFailed.paywallTier == nil)
+    }
+
+    /// A 401 from the function itself, as opposed to no session on the device. Both mean the same
+    /// thing to the person, and "Not authenticated" is not how the app says it.
+    @Test("a 401 body reads as signed out")
+    func unauthorisedIsSignedOut() {
+        let error = AeroFlightService.failure(status: 401, body: Data(#"{"error":"Not authenticated"}"#.utf8))
+        guard case .notAuthenticated = error else {
+            Issue.record("got \(error)")
+            return
+        }
+    }
+
+    /// Whatever a screen is handed, the sentence is the app's. Errors that are not flight errors
+    /// at all fall back to the screen's own words rather than their `localizedDescription`.
+    @Test("a non-flight error falls back to the screen's own words")
+    func messageFallsBack() {
+        struct Other: LocalizedError { var errorDescription: String? { "URLSession said something" } }
+        #expect(AeroFlightError.message(for: Other(), fallback: "Try again.") == "Try again.")
+        #expect(AeroFlightError.message(for: AeroFlightError.notPaired, fallback: "Try again.").contains("partner"))
     }
 
     /// Nothing the edge functions write reaches a traveller. Their sentences are written for
@@ -183,6 +219,16 @@ struct FlightTrackingRefusalTests {
         #expect(message.contains("subscription"))
         #expect(!message.contains("1st"), "a lapsed couple was told to wait for a reset: \(message)")
         #expect(!message.contains("_"), "a machine-readable code reached the screen: \(message)")
+    }
+
+    /// The card answers this one with the paywall, as search and add do; nothing else does.
+    @Test("only the lapsed-subscription refusal opens the paywall")
+    func onlySubscriptionRefusalOpensPaywall() {
+        #expect(BackendService.FlightTrackingRefusal.opensPaywall("subscription_required"))
+        for reason in ["limit_reached", "flight_over", "something_new", ""] {
+            #expect(!BackendService.FlightTrackingRefusal.opensPaywall(reason), "\(reason) opened the paywall")
+        }
+        #expect(!BackendService.FlightTrackingRefusal.opensPaywall(nil))
     }
 
     @Test("the allowance refusal still names the reset")

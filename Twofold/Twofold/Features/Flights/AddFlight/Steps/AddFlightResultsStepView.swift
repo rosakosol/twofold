@@ -23,6 +23,12 @@ struct AddFlightResultsStepView: View {
     /// Flipped once airport timezones have been looked up, purely to redraw the time chips with
     /// the resolved zone. See `AirportTimeZoneResolver` for why they need looking up at all.
     @State private var resolvedTimeZones = false
+    /// The plan the server said this search needs (`AeroFlightError.paywallTier`). Set, the screen
+    /// shows the paywall rather than an error, and the locked state behind it once it closes.
+    @State private var refusedForPlan: SubscriptionTier?
+    @State private var showingPaywall = false
+    /// A purchase completed in the paywall this screen opened, so its closing searches again.
+    @State private var subscribedInPaywall = false
 
     /// Flight-number mode is never filtered — the caller already told us exactly which flight
     /// they're after, so hiding a codeshare-linked or differently-operated result there could
@@ -52,6 +58,8 @@ struct AddFlightResultsStepView: View {
 
                 if model.isSearching {
                     ProgressView().frame(maxWidth: .infinity).padding(Theme.Spacing.xl)
+                } else if refusedForPlan != nil {
+                    refusedState
                 } else if let searchError = model.searchError {
                     errorState(searchError)
                 } else if filteredCandidates.isEmpty {
@@ -69,6 +77,11 @@ struct AddFlightResultsStepView: View {
         .sheet(item: $candidateToConfirm) { candidate in
             if case .confirmAndTrack(let onDone) = completion {
                 FlightConfirmationView(candidate: candidate, initialTripID: model.initialTripID, onDone: onDone)
+            }
+        }
+        .sheet(isPresented: $showingPaywall, onDismiss: paywallClosed) {
+            NavigationStack {
+                PaywallView(onSubscribed: { _ in subscribedInPaywall = true }, initialTier: refusedForPlan ?? .plus)
             }
         }
         .task(id: model.candidates.map(\.id)) {
@@ -133,6 +146,23 @@ struct AddFlightResultsStepView: View {
                 .font(.caption)
                 .foregroundStyle(Theme.textSecondary)
                 .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(Theme.Spacing.lg)
+    }
+
+    /// Where the screen rests after the paywall closes without a purchase: what stopped the search,
+    /// and the way back to the plans. Not an error — nothing failed.
+    private var refusedState: some View {
+        VStack(spacing: Theme.Spacing.sm) {
+            Image(systemName: "lock.circle.fill").font(.title).foregroundStyle(Theme.accent)
+            Text("Tracking flights needs an active subscription")
+                .font(.subheadline.weight(.medium))
+                .multilineTextAlignment(.center)
+            Button { showingPaywall = true } label: {
+                Text("See plans")
+            }
+            .buttonStyle(.twofoldPrimary)
         }
         .frame(maxWidth: .infinity)
         .padding(Theme.Spacing.lg)
@@ -293,9 +323,20 @@ struct AddFlightResultsStepView: View {
         }
     }
 
-    private func performSearch() async {
+    /// After a purchase, search again: that is what the person was doing when the paywall opened.
+    private func paywallClosed() {
+        guard subscribedInPaywall else { return }
+        Task { await performSearch(afterPurchase: true) }
+    }
+
+    /// `afterPurchase`: the search straight after a purchase in the paywall this screen opened. If
+    /// the server still refuses, its webhook has not caught up, and saying so is better than a
+    /// second paywall for somebody who has just paid.
+    private func performSearch(afterPurchase: Bool = false) async {
         model.isSearching = true
         model.searchError = nil
+        refusedForPlan = nil
+        subscribedInPaywall = false
         do {
             switch model.mode {
             case .flightNumber:
@@ -312,8 +353,15 @@ struct AddFlightResultsStepView: View {
                 }
                 model.candidates = try await AeroFlightService.searchByRoute(originIata: origin, destinationIata: destination, date: model.date)
             }
+        } catch let error as AeroFlightError where error.paywallTier != nil {
+            if afterPurchase {
+                model.searchError = AeroFlightError.subscriptionStillActivating
+            } else {
+                refusedForPlan = error.paywallTier
+                showingPaywall = true
+            }
         } catch {
-            model.searchError = (error as? AeroFlightError)?.errorDescription ?? "Something went wrong. Try again."
+            model.searchError = AeroFlightError.message(for: error, fallback: "Something went wrong. Try again.")
         }
         model.isSearching = false
     }

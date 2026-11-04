@@ -26,6 +26,11 @@ struct FlightConfirmationView: View {
     @State private var notifyMe = true
     @State private var isSaving = false
     @State private var errorMessage: String?
+    /// The plan the server said this add needs (`AeroFlightError.paywallTier`), opening the paywall.
+    @State private var paywallTier: SubscriptionTier = .plus
+    @State private var showingPaywall = false
+    /// A purchase completed in that paywall, so its closing adds the flight again.
+    @State private var subscribedInPaywall = false
     /// Nil until the lookup returns, and left nil if it fails — an allowance we could not read is
     /// not an allowance of zero, and the server refuses on its own anyway. Every use below treats
     /// nil as "don't get in the way".
@@ -192,7 +197,7 @@ struct FlightConfirmationView: View {
                         Text(errorMessage).font(.caption).foregroundStyle(Theme.error)
                     }
 
-                    Button(action: confirm) {
+                    Button { confirm() } label: {
                         HStack {
                             // The style tints the spinner to match the label.
                             if isSaving { ProgressView() }
@@ -211,13 +216,27 @@ struct FlightConfirmationView: View {
                 CloseToolbarItem("Cancel") { dismiss() }
             }
         }
+        .sheet(isPresented: $showingPaywall, onDismiss: paywallClosed) {
+            NavigationStack {
+                PaywallView(onSubscribed: { _ in subscribedInPaywall = true }, initialTier: paywallTier)
+            }
+        }
         .task {
             allowance = try? await BackendService.flightAllowance(coupleID: appModel.session.couple.id)
         }
         .postHogScreenView("Flights: Flight Confirmation")
     }
 
-    private func confirm() {
+    /// After a purchase, add the flight as it was being added when the paywall opened. Closed
+    /// without one, the screen is left as it was, with nothing to apologise for.
+    private func paywallClosed() {
+        guard subscribedInPaywall else { return }
+        subscribedInPaywall = false
+        confirm(afterPurchase: true)
+    }
+
+    /// `afterPurchase`: see `AddFlightResultsStepView.performSearch(afterPurchase:)`.
+    private func confirm(afterPurchase: Bool = false) {
         isSaving = true
         errorMessage = nil
         Task {
@@ -225,8 +244,16 @@ struct FlightConfirmationView: View {
                 try await AeroFlightService.addFlight(candidate: candidate, tripID: linkedTripID, travelerIDs: travelerIDs, shared: shareWithPartner, notifyMe: notifyMe)
                 await appModel.travel.refreshFlights()
                 onDone()
+            } catch let error as AeroFlightError where error.paywallTier != nil {
+                if afterPurchase {
+                    errorMessage = AeroFlightError.subscriptionStillActivating
+                } else if let tier = error.paywallTier {
+                    paywallTier = tier
+                    showingPaywall = true
+                }
+                isSaving = false
             } catch {
-                errorMessage = (error as? AeroFlightError)?.errorDescription ?? "Couldn't save that flight. Try again."
+                errorMessage = AeroFlightError.message(for: error, fallback: "Couldn't save that flight. Try again.")
                 isSaving = false
             }
         }

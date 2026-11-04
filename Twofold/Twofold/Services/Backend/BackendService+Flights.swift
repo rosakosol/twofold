@@ -66,6 +66,13 @@ extension BackendService {
             }
         }
 
+        /// Whether a screen answers this refusal with the paywall rather than `message`: a lapsed
+        /// couple's way back to tracking is the subscription, as it is for `add-flight`'s
+        /// refusal (see `AeroFlightError.paywallTier`).
+        static func opensPaywall(_ reason: String?) -> Bool {
+            reason.flatMap(Self.init(rawValue:)) == .subscriptionRequired
+        }
+
         static func message(for reason: String?) -> String {
             guard let reason, let refusal = Self(rawValue: reason) else {
                 return Self.limitReached.message

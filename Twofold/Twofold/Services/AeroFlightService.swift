@@ -177,6 +177,16 @@ enum AeroFlightError: LocalizedError {
     /// pairing. Every entry point should gate ahead of this; this is what catches the ones that
     /// don't.
     case notPaired
+    /// `add-flight` and `resolve-flight` refusing a couple with no active subscription. The app's
+    /// own gate (`AddContentGate`) stops a couple it knows is free before either is called, so
+    /// this is the server knowing better: a subscription that lapsed since the app last looked, or
+    /// a device whose store is ahead of the webhook. The screens answer it with the paywall — see
+    /// `paywallTier`.
+    case subscriptionRequired
+    /// Any other failure. `message` is the server's own sentence, kept for the log and never
+    /// shown: the edge functions write theirs for whoever reads the logs ("'date' must be
+    /// YYYY-MM-DD", "Flight lookup failed: AeroAPI 500 …"), so `errorDescription` says what the
+    /// status means in the app's words instead.
     case requestFailed(status: Int, message: String?)
     case decodingFailed
 
@@ -185,10 +195,40 @@ enum AeroFlightError: LocalizedError {
         case .notAuthenticated: "You need to be signed in to search for flights."
         case .premiumRequired: "That's included with Twofold Premium."
         case .notPaired: "Flight tracking starts once you and your partner are connected."
-        case .requestFailed(_, let message): message ?? "Couldn't reach the flight lookup service. Try again in a moment."
+        case .subscriptionRequired: "Tracking a new flight needs an active subscription."
+        case .requestFailed(let status, _):
+            switch status {
+            case 404: "We couldn't find that flight. Check the flight number and date, then try again."
+            case 429: "That's a lot of searches in a row. Give it a few minutes, then try again."
+            case 400..<500: "Something went wrong with that flight. Try again."
+            default: "Couldn't reach the flight lookup service. Try again in a moment."
+            }
         case .decodingFailed: "Got an unexpected response looking up that flight."
         }
     }
+
+    /// The plan to open the paywall on when this refusal is the server saying the couple's plan
+    /// does not include it, or nil when it is any other failure. A screen answers a non-nil one
+    /// with the paywall, not with `errorDescription`: the way on from "you need a subscription" is
+    /// the subscription, and a sentence saying so is a dead end.
+    var paywallTier: SubscriptionTier? {
+        switch self {
+        case .subscriptionRequired: .plus
+        case .premiumRequired: .premium
+        default: nil
+        }
+    }
+
+    /// What a screen says about any error a flight call threw — never the server's own words.
+    static func message(for error: Error, fallback: String) -> String {
+        (error as? AeroFlightError)?.errorDescription ?? fallback
+    }
+
+    /// Said when the server still refuses straight after a purchase on this device: the webhook
+    /// that tells it has not arrived yet. Opening the paywall again for somebody who has just paid
+    /// would read as the purchase not having worked.
+    static let subscriptionStillActivating =
+        "Your subscription is still being set up. Give it a moment, then try again."
 }
 
 enum AeroFlightService {
@@ -244,7 +284,12 @@ enum AeroFlightService {
             return .premiumRequired
         case "not_paired":
             return .notPaired
+        case "subscription_required":
+            return .subscriptionRequired
         default:
+            if status == 401 { return .notAuthenticated }
+            // The server's sentence goes to the log rather than the screen. See `requestFailed`.
+            print("[aero-flight] \(status): \(failure?.error ?? "no message")")
             return .requestFailed(status: status, message: failure?.error)
         }
     }
