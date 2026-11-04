@@ -1,6 +1,6 @@
 // The shape a pending (schedule-only) candidate must have before add-flight will look at it.
 //
-// Split out of index.ts for the reason allowance.ts is: that module calls `Deno.serve` at import.
+// Split out of index.ts so it can be tested: that module calls `Deno.serve` at import time.
 //
 // A pending candidate is the one input add-flight takes flight fields from, and before this only
 // `flightNumberIata` and `scheduledOut` had to be present — any value of either. What that cost:
