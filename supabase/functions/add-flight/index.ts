@@ -243,6 +243,23 @@ Deno.serve(async (req) => {
     return Response.json({ error: "'travelerIds' must all be members of this couple" }, { status: 400 });
   }
 
+  // Same rule for the trip: the insert below runs as service_role, so no policy stands between
+  // `tripId` and the row, and the foreign key only proves the trip exists. The table refuses
+  // another couple's trip too (20261123000200); asked here first so it is a 400 before the AeroAPI
+  // lookups rather than a 500 after them. Lowercased for the same reason the traveler ids are.
+  const tripId = input.tripId ? String(input.tripId).toLowerCase() : null;
+  if (tripId) {
+    const { data: trip, error: tripErr } = await userClient
+      .from("trips")
+      .select("id")
+      .eq("id", tripId)
+      .eq("couple_id", couple.id)
+      .maybeSingle();
+    if (tripErr || !trip) {
+      return Response.json({ error: "'tripId' must be one of this couple's trips" }, { status: 400 });
+    }
+  }
+
   const serviceClient = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
@@ -407,7 +424,7 @@ Deno.serve(async (req) => {
       // poll, which would wipe this within a minute or two.
       marketing_flight_number: normalizeMarketingIdent(input.marketingIdent),
       couple_id: couple.id,
-      trip_id: input.tripId ?? null,
+      trip_id: tripId,
       traveler_ids: travelerIds,
       shared: input.shared ?? true,
       created_by: user.id,

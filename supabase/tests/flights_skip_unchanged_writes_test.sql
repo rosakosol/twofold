@@ -59,7 +59,8 @@ select is(
 select is(
   (select array_agg(tgname::text order by tgname::text) from pg_trigger
    where tgrelid = 'public.flights'::regclass and not tgisinternal and tgtype & 16 = 16),
-  array['trg_flights_a_skip_unchanged', 'trg_flights_guard_server_columns', 'trg_flights_touch'],
+  array['trg_flights_a_skip_unchanged', 'trg_flights_guard_server_columns', 'trg_flights_touch',
+        'trg_flights_trip_is_the_couples_own'],
   'the skip runs before the other update triggers'
 );
 
