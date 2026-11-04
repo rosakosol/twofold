@@ -17,7 +17,7 @@ import { fetchRouteFallback } from "./adsbdb.ts";
 import { lookupAirlineName } from "./airlines.ts";
 import { deriveFlightStatus, formatDelay, type FlightStatus } from "./flight-status.ts";
 import { notifyForEvent } from "./notify.ts";
-import { PENDING_GIVE_UP_AFTER_DEPARTURE_MS } from "./flight-schedule.ts";
+import { MAX_PLAUSIBLE_FLIGHT_MS, PENDING_GIVE_UP_AFTER_DEPARTURE_MS } from "./flight-schedule.ts";
 import { sendLiveActivityUpdate, toCocoaTimestamp } from "./apns.ts";
 
 // Mirrors supabase/migrations/20260712000000_flight_tracking.sql's `flights` table exactly.
@@ -1147,6 +1147,16 @@ function bestKnownArrivalMs(flight: FlightRow): number | null {
   return arrival ? new Date(arrival).getTime() : null;
 }
 
+// Stands in for the arrival of a flight AeroAPI gave no arrival time for at all: its best-known
+// departure plus longer than any scheduled flight (MAX_PLAUSIBLE_FLIGHT_MS, the bound
+// isFlightInProgress already uses for the same gap). Without it `reconcileOverdueArrival` returned
+// early for such a flight, so it was never forced arrived, never archived, and polled for good.
+function inferredArrivalMs(flight: FlightRow): number | null {
+  const departure = flight.actual_out ?? flight.estimated_out ?? flight.scheduled_out;
+  const ms = departure ? new Date(departure).getTime() : Number.NaN;
+  return Number.isNaN(ms) ? null : ms + MAX_PLAUSIBLE_FLIGHT_MS;
+}
+
 // Called for every actively-tracked, non-terminal flight on every refresh-due-flights tick
 // (independent of isDue()'s own AeroAPI-refresh cadence, and also from refresh-flight's
 // user-triggered path) — a flight the provider has gone silent on still needs to be reconciled
@@ -1155,10 +1165,14 @@ function bestKnownArrivalMs(flight: FlightRow): number | null {
 //      actual_on: force status to "arrived" locally, and notify same as a normal landing would.
 //   2. Past ARCHIVE_AFTER_ARRIVAL_MS since arrival (confirmed or just forced above): disable
 //      tracking_enabled, same threshold `syncFlight` already uses for a confirmed actual_in.
+// With no arrival time at all, both count from `inferredArrivalMs` instead, and the first is done
+// quietly: an "arrived" push a day after takeoff, at a time nobody knew, tells nobody anything.
 export async function reconcileOverdueArrival(serviceClient: SupabaseClient, flight: FlightRow, now: number): Promise<void> {
   if (!flight.tracking_enabled || flight.status === "cancelled" || flight.status === "diverted") return;
-  const arrivalMs = bestKnownArrivalMs(flight);
+  const knownArrivalMs = bestKnownArrivalMs(flight);
+  const arrivalMs = knownArrivalMs ?? inferredArrivalMs(flight);
   if (arrivalMs === null) return;
+  const announce = knownArrivalMs !== null;
 
   let currentStatus = flight.status;
   const wasTerminal = currentStatus === "arrived" || currentStatus === "landed";
@@ -1184,7 +1198,9 @@ export async function reconcileOverdueArrival(serviceClient: SupabaseClient, fli
     // Someone else moved this flight on since it was read; the next tick decides from a fresh read.
     if (!forced || forced.length === 0) return;
     currentStatus = "arrived";
+  }
 
+  if (currentStatus === "arrived" && !wasTerminal && announce) {
     const arrivalIso = flight.estimated_in ?? flight.scheduled_in;
     const { error: insertErr } = await serviceClient.from("flight_status_events").insert({
       flight_id: flight.id,

@@ -88,3 +88,55 @@ Deno.test({
     }
   },
 });
+
+Deno.test({
+  name: "a flight with no arrival time at all is archived a day after it left",
+  ignore,
+  ...quiet,
+  fn: async () => {
+    resetOutbound();
+    const client = serviceClient();
+    const couple = await seedCouple(client);
+    try {
+      const row = await seedFlight(client, couple, {
+        status: "in_air",
+        scheduled_out: iso(-27 * HOUR),
+        actual_out: iso(-27 * HOUR),
+        scheduled_in: null,
+        estimated_in: null,
+      });
+      await reconcileOverdueArrival(client, row, Date.now());
+      const { data } = await client.from("flights").select("status, tracking_enabled").eq("id", row.id).single();
+      assertEquals(data?.tracking_enabled, false, "never archives, so polled forever");
+      assertEquals(data?.status, "arrived");
+    } finally {
+      await removeCouple(client, couple);
+    }
+  },
+});
+
+Deno.test({
+  name: "a flight with no arrival time that left a few hours ago is left alone",
+  ignore,
+  ...quiet,
+  fn: async () => {
+    resetOutbound();
+    const client = serviceClient();
+    const couple = await seedCouple(client);
+    try {
+      const row = await seedFlight(client, couple, {
+        status: "in_air",
+        scheduled_out: iso(-5 * HOUR),
+        actual_out: iso(-5 * HOUR),
+        scheduled_in: null,
+        estimated_in: null,
+      });
+      await reconcileOverdueArrival(client, row, Date.now());
+      const { data } = await client.from("flights").select("status, tracking_enabled").eq("id", row.id).single();
+      assertEquals(data?.tracking_enabled, true);
+      assertEquals(data?.status, "in_air");
+    } finally {
+      await removeCouple(client, couple);
+    }
+  },
+});
