@@ -81,6 +81,9 @@ nonisolated struct WidgetSnapshot: Codable {
         /// Whether the sun is up there, from WeatherKit. Optional: older snapshots and failed
         /// reads fall back to the hour.
         var isDaylight: Bool?
+        /// When this reading came from WeatherKit. Optional: older snapshots have none, and a
+        /// reading of unknown age is treated as stale.
+        var fetchedAt: Date?
     }
 
     /// Today's deep question, for the Daily question widget.

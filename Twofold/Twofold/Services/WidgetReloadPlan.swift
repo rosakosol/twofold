@@ -104,12 +104,14 @@ enum WidgetReloadPlan {
     /// - A drawing pad URL's signature. Every refresh signs the pads again, so the query string
     ///   is new every time while the pad it points at is the same; the widget re-reads the URL on
     ///   its own half-hourly reload, well inside the signature's twelve hours.
+    /// - When the weather was fetched. A new reading of the same weather shows the same thing.
     private static func fields(of snapshot: WidgetSnapshot) -> [String: Any]? {
         var comparable = snapshot
         comparable.nextFlight = snapshot.nextFlight.map { comparableFlight($0) }
         comparable.trackedFlights = snapshot.trackedFlights.map { comparableFlight($0) }
         comparable.mySignedDrawingPadURL = snapshot.mySignedDrawingPadURL.map { withoutQuery($0) }
         comparable.partnerSignedDrawingPadURL = snapshot.partnerSignedDrawingPadURL.map { withoutQuery($0) }
+        comparable.partnerWeather?.fetchedAt = nil
         guard let data = try? JSONEncoder().encode(comparable) else { return nil }
         return (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
     }

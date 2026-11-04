@@ -243,16 +243,16 @@ enum WidgetSnapshotWriter {
         // every 1-2 minutes for hours while a flight is actively tracked (see
         // refresh-due-flights' polling cadence), fanning out into a WeatherKit call per tick per
         // partner device for a number that hasn't meaningfully changed. Same ~hourly cadence
-        // HomeView's own city-gated weather refresh already uses, just keyed off the snapshot's
-        // own `writtenAt` instead of in-memory `@State` (this is a stateless enum, not a view).
+        // HomeView's own city-gated weather refresh already uses, just keyed off the reading's own
+        // `fetchedAt` instead of in-memory `@State` (this is a stateless enum, not a view).
         var weatherInfo: WidgetSnapshot.WeatherInfo?
         if let partnerCity {
-            let cityUnchanged = previous?.partnerCity == partnerCity.displayCity
-            let stillFresh = previous.map { Date.now.timeIntervalSince($0.writtenAt) < 3600 } ?? false
-            if cityUnchanged, stillFresh, let cached = previous?.partnerWeather {
+            if let cached = Self.reusableWeather(from: previous, partnerCity: partnerCity.displayCity) {
                 weatherInfo = cached
             } else if let reading = await TwofoldWeatherService.currentWeather(for: partnerCity), isStillSignedIn {
-                weatherInfo = WidgetSnapshot.WeatherInfo(symbolName: reading.symbolName, temperatureC: reading.temperatureC, isDaylight: reading.isDaylight)
+                weatherInfo = WidgetSnapshot.WeatherInfo(
+                    symbolName: reading.symbolName, temperatureC: reading.temperatureC, isDaylight: reading.isDaylight, fetchedAt: .now
+                )
             } else {
                 weatherInfo = previous?.partnerWeather
             }
@@ -282,6 +282,19 @@ enum WidgetSnapshotWriter {
         let onDisk = WidgetSnapshot.read()
         write(enriched)
         reload(WidgetReloadPlan.kinds(from: onDisk, to: enriched, changedImages: changedImages, forced: alsoReload))
+    }
+
+    /// The previous snapshot's weather, when it is still for the same city and was fetched less than
+    /// an hour ago, so it can be shown again rather than asking WeatherKit.
+    ///
+    /// Timed by the reading's own `fetchedAt`. It used to be the snapshot's `writtenAt`, which every
+    /// refresh moves on — and refreshes come every minute or two around a tracked flight and on every
+    /// foreground — so a reading carried forward was never an hour old and the weather was never
+    /// fetched again while the app was in use. A reading with no time is from before they had one.
+    static func reusableWeather(from previous: WidgetSnapshot?, partnerCity: String, now: Date = .now) -> WidgetSnapshot.WeatherInfo? {
+        guard let previous, previous.partnerCity == partnerCity,
+              let cached = previous.partnerWeather, let fetchedAt = cached.fetchedAt else { return nil }
+        return now.timeIntervalSince(fetchedAt) < 3600 ? cached : nil
     }
 
     /// Who is arriving where, for the Trip countdown widget: the one person travelling by name, or
