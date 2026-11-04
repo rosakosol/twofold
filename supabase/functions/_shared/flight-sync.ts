@@ -17,6 +17,7 @@ import { fetchRouteFallback } from "./adsbdb.ts";
 import { lookupAirlineName } from "./airlines.ts";
 import { deriveFlightStatus, formatDelay, type FlightStatus } from "./flight-status.ts";
 import { notifyForEvent } from "./notify.ts";
+import { PENDING_GIVE_UP_AFTER_DEPARTURE_MS } from "./flight-schedule.ts";
 import { sendLiveActivityUpdate, toCocoaTimestamp } from "./apns.ts";
 
 // Mirrors supabase/migrations/20260712000000_flight_tracking.sql's `flights` table exactly.
@@ -1056,6 +1057,26 @@ export async function refreshOneFlight(
   calledBy = "unattributed",
 ): Promise<FlightRow | null> {
   if (!flightRow.fa_flight_id) {
+    // Given up on, a few hours past its departure (or with no departure to wait for). Nothing else
+    // ever ends a pending row's tracking: it has no AeroAPI data, so it never reaches arrived and
+    // `reconcileOverdueArrival` never archives it, and every look is a billed /schedules call. A
+    // flight that boarded without ever being given an fa_flight_id is not going to be given one.
+    //
+    // The status is left as it is. Nothing is known about what happened to this flight, and every
+    // status the column allows says something did; the app already reads a flight whose time has
+    // passed as over (`Flight.isOver`), and `enable_flight_tracking` refuses one the same way.
+    const departureMs = flightRow.scheduled_out ? Date.parse(flightRow.scheduled_out) : Number.NaN;
+    if (Number.isNaN(departureMs) || Date.now() - departureMs > PENDING_GIVE_UP_AFTER_DEPARTURE_MS) {
+      const { error } = await serviceClient
+        .from("flights")
+        .update({ tracking_enabled: false })
+        .eq("id", flightRow.id)
+        .is("fa_flight_id", null);
+      if (error) console.error(`[flight-sync] failed to stop tracking unresolved pending flight ${flightRow.id}:`, error.message);
+      else console.log(`[flight-sync] pending flight ${flightRow.id} never resolved by its departure; tracking stopped`);
+      return { ...flightRow, tracking_enabled: false };
+    }
+
     const resolvedId = await tryResolvePendingFaFlightId(flightRow, calledBy);
     if (!resolvedId) {
       // Still not on FlightAware's trackable set yet — bump last_refreshed_at so isDue()'s

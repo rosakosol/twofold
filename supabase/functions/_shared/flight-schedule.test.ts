@@ -34,6 +34,7 @@ function at(offsetMs: number): string {
 function flight(overrides: Partial<FlightRow> = {}): FlightRow {
   return {
     status: "scheduled",
+    fa_flight_id: "QFA1-1755432000-schedule-0001",
     scheduled_out: at(48 * HOUR),
     scheduled_in: null,
     estimated_out: null,
@@ -295,4 +296,28 @@ Deno.test("refreshThresholdMs: isDue is exactly 'stale past the threshold'", () 
     assertEquals(isDue({ ...f, last_refreshed_at: at(-threshold) }, NOW), false);
     assertEquals(isDue({ ...f, last_refreshed_at: at(-threshold - 1) }, NOW), true);
   }
+});
+
+// A pending row (no fa_flight_id yet) is polled for one thing: whether AeroAPI has assigned it a
+// trackable instance. Each look is a billed /schedules call, and none of the near-event reasons for
+// the one-minute tier apply — there is no takeoff or landing to catch on a flight that isn't being
+// tracked yet. A departure that had passed with nothing resolved put it on that tier for good.
+Deno.test("isDue: a pending flight whose departure has passed is not looked at every minute", () => {
+  const pending = flight({ fa_flight_id: null, scheduled_out: at(-30 * MINUTE) });
+  assertEquals(isDue({ ...pending, last_refreshed_at: at(-5 * MINUTE) }, NOW), false);
+  assertEquals(isDue({ ...pending, last_refreshed_at: at(-16 * MINUTE) }, NOW), true);
+});
+
+Deno.test("isDue: a pending flight leaving within the day is looked at every 15 minutes, not every 1 or 2", () => {
+  for (const out of [5 * MINUTE, 60 * MINUTE, 20 * HOUR]) {
+    const pending = flight({ fa_flight_id: null, scheduled_out: at(out) });
+    assertEquals(isDue({ ...pending, last_refreshed_at: at(-5 * MINUTE) }, NOW), false, `due 5 min after a look, ${out / MINUTE} min out`);
+    assertEquals(isDue({ ...pending, last_refreshed_at: at(-16 * MINUTE) }, NOW), true);
+  }
+});
+
+Deno.test("isDue: a pending flight days out keeps the six-hourly look", () => {
+  const pending = flight({ fa_flight_id: null, scheduled_out: at(5 * 24 * HOUR) });
+  assertEquals(isDue({ ...pending, last_refreshed_at: at(-5 * HOUR) }, NOW), false);
+  assertEquals(isDue({ ...pending, last_refreshed_at: at(-7 * HOUR) }, NOW), true);
 });

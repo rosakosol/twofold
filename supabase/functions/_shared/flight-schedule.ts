@@ -15,6 +15,11 @@ export const ACTIVE_STATUSES = ["boarding", "departed", "in_air", "landing_soon"
 
 export const NEAR_EVENT_WINDOW_MS = 10 * 60 * 1000;
 
+// How often a pending row inside its last day is asked about, and how long past its departure it
+// keeps being asked before it is given up on. See refreshThresholdMs and refreshOneFlight.
+export const PENDING_RESOLUTION_CADENCE_MS = 15 * 60 * 1000;
+export const PENDING_GIVE_UP_AFTER_DEPARTURE_MS = 3 * 60 * 60 * 1000;
+
 // How long this flight may go between AeroAPI polls right now: its cadence tier, in
 // milliseconds. `isDue` is "stale past this"; the cron also uses it to rank due flights by how
 // late each one is against its own cadence (see flight-refresh-run.ts).
@@ -26,6 +31,16 @@ export function refreshThresholdMs(flight: FlightRow, now: number): number {
   const bestDeparture = flight.estimated_out ?? flight.scheduled_out;
   const bestArrival = flight.estimated_in ?? flight.scheduled_in;
   const msToDeparture = new Date(bestDeparture).getTime() - now;
+
+  // A pending row (no fa_flight_id yet) is only ever asked one question — has AeroAPI assigned it
+  // a trackable instance — and each asking is a billed /schedules call. None of the near-event
+  // tiers below apply to it: there is no takeoff or landing to catch on a flight nobody is tracking
+  // yet, and a departure that passed unresolved used to put it on the one-minute overdue tier for
+  // good. A real one resolves days out; one that hasn't by departure gets a few more looks, then
+  // `refreshOneFlight` stops tracking it (PENDING_GIVE_UP_AFTER_DEPARTURE_MS).
+  if (!flight.fa_flight_id) {
+    return msToDeparture > 24 * 60 * 60 * 1000 ? 6 * 60 * 60 * 1000 : PENDING_RESOLUTION_CADENCE_MS;
+  }
   const msToArrival = bestArrival ? new Date(bestArrival).getTime() - now : null;
   const isNearDeparture = msToDeparture >= 0 && msToDeparture <= NEAR_EVENT_WINDOW_MS;
   const isNearArrival = msToArrival !== null && msToArrival >= 0 && msToArrival <= NEAR_EVENT_WINDOW_MS;
