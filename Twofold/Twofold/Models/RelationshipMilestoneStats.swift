@@ -32,11 +32,8 @@ struct RelationshipMilestoneStats {
     let longestDistanceKm: Double
     let longestTrip: Trip?
     let shortestTrip: Trip?
-    /// Longest gap between one reunion trip's return and the next one's departure. Falls back to
-    /// "how long since you've been apart" — measured from `couple.connectedAt` (or
-    /// `startedDatingOn` if that's somehow unset; nil if both are) — when there aren't two reunion trips to measure
-    /// a historical gap between but the couple is currently in different home cities, so a couple
-    /// with no trips yet sees a real running count instead of a blank "—".
+    /// The longest stretch apart so far, in calendar days — see `longestSeparationDays(reunions:couple:now:)`.
+    /// Nil when there is nothing to measure.
     let longestSeparationDays: Int?
     let nextReunion: Trip?
     let nextReunionDaysToGo: Int?
@@ -81,28 +78,66 @@ struct RelationshipMilestoneStats {
         longestTrip = withDuration.max { $0.arrivalDate.timeIntervalSince($0.departureDate) < $1.arrivalDate.timeIntervalSince($1.departureDate) }
         shortestTrip = withDuration.min { $0.arrivalDate.timeIntervalSince($0.departureDate) < $1.arrivalDate.timeIntervalSince($1.departureDate) }
 
-        let sortedReunions = reunions.sorted { $0.departureDate < $1.departureDate }
-        var longestGapDays: Int?
-        if sortedReunions.count > 1 {
-            for i in 1..<sortedReunions.count {
-                let gapDays = Calendar.current.dateComponents([.day], from: sortedReunions[i - 1].arrivalDate, to: sortedReunions[i].departureDate).day ?? 0
-                if gapDays > 0, gapDays > (longestGapDays ?? 0) {
-                    longestGapDays = gapDays
-                }
-            }
-        }
-        if let longestGapDays {
-            longestSeparationDays = longestGapDays
-        } else if !couple.sharesHomeCity, couple.partnerA.homeCity != nil, couple.partnerB.homeCity != nil,
-                  let since = couple.connectedAt ?? startedDatingOn {
-            longestSeparationDays = max(0, TimeMath.daysSince(since))
-        } else {
-            longestSeparationDays = nil
-        }
+        longestSeparationDays = Self.longestSeparationDays(reunions: reunions, couple: couple)
 
         let upcomingReunions = reunions.filter { $0.departureDate > .now }.sorted { $0.departureDate < $1.departureDate }
         nextReunion = upcomingReunions.first
         nextReunionDaysToGo = nextReunion.map { max(0, TimeMath.daysUntil($0.departureDate)) }
+    }
+
+    /// The longest stretch apart that has already happened, in calendar days.
+    ///
+    /// Only reunions that have started count — a trip booked for next spring is a plan, and
+    /// measuring up to it counted days nobody had lived yet. Within those:
+    ///
+    /// - each gap from a return to the next departure, measured from the *latest* return so far, so
+    ///   a short trip inside a longer one doesn't open a gap that was never there;
+    /// - the stretch since the last return — the one a couple is in the middle of, which is often
+    ///   the longest — or nothing while a reunion is under way;
+    /// - for a long-distance couple (both home cities known, and different), the stretch from
+    ///   connecting (`connectedAt`, or `startedDatingOn`) to the first reunion, or to now if there
+    ///   hasn't been one.
+    ///
+    /// A couple who share a home city get only the gaps between reunions. Those happened, whatever
+    /// the couple's arrangement then, but the stretch since the last one is not time apart for two
+    /// people who now live in the same city — counting it would grow a "longest gap" every day
+    /// they spend together. Same for the time before the first reunion. With no home cities known
+    /// at all, the stretch since the last reunion still counts: logging reunions is itself the sign
+    /// of a couple who live apart.
+    static func longestSeparationDays(reunions: [Trip], couple: Couple, now: Date = .now) -> Int? {
+        let sameCity = couple.sharesHomeCity
+        let longDistance = !sameCity && couple.partnerA.homeCity != nil && couple.partnerB.homeCity != nil
+        let connectedAt = longDistance ? (couple.connectedAt ?? couple.startedDatingOn) : nil
+
+        let past = reunions
+            .filter { $0.departureDate <= now }
+            .sorted { $0.departureDate < $1.departureDate }
+        var gaps: [Int] = []
+        func gap(from start: Date, to end: Date) {
+            gaps.append(max(0, TimeMath.calendarDaysBetween(start, end)))
+        }
+
+        guard let first = past.first else {
+            if let connectedAt { gap(from: connectedAt, to: now) }
+            return gaps.max()
+        }
+        if let connectedAt, connectedAt < first.departureDate {
+            gap(from: connectedAt, to: first.departureDate)
+        }
+        // `max` with the departure too, against any legacy row whose arrival isn't after it.
+        var latestReturn = max(first.arrivalDate, first.departureDate)
+        for reunion in past.dropFirst() {
+            if reunion.departureDate > latestReturn {
+                gap(from: latestReturn, to: reunion.departureDate)
+            }
+            latestReturn = max(latestReturn, reunion.arrivalDate)
+        }
+        if latestReturn > now {
+            gaps.append(0)
+        } else if !sameCity {
+            gap(from: latestReturn, to: now)
+        }
+        return gaps.max()
     }
 
     /// "2 years, 3 months" / "1 year" / "5 months" / "23 days" — whichever of years/months are
