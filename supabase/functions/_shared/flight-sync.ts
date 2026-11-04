@@ -5,6 +5,7 @@
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import {
   type AeroFlight,
+  type AeroScheduledFlight,
   fetchAirportCoordinates,
   fetchAirportWeather,
   fetchFlightByFaId,
@@ -992,6 +993,44 @@ async function tryResolvePendingFaFlightId(flightRow: FlightRow, calledBy = "una
 
   const match = scheduled.find((s) => s.fa_flight_id && (s.ident_iata ?? s.ident_icao ?? s.ident) === ident);
   return match?.fa_flight_id ?? null;
+}
+
+// How far a confirmed schedule's departure may sit from the one the client sent. The client's
+// value is the same /schedules row resolve-flight returned, round-tripped through an ISO formatter
+// at whole-second precision, so anything past a minute is a different flight (or a retimed one,
+// which the traveller should search for again rather than track at the old time).
+const PENDING_CONFIRM_TOLERANCE_MS = 60 * 1000;
+
+// The /schedules row a pending add claims to be, or null when AeroAPI has no such flight.
+//
+// add-flight's pending path is the one place flight fields come from the client, so before this a
+// client could save any designator at any time — and a departure in the past with no arrival sits
+// on the refresher's one-minute tier, making a billed /schedules call on every tick, forever. Asked
+// the same way `tryResolvePendingFaFlightId` asks (same designator split, same ±1 day window, same
+// ident match), so a flight this confirms is one the refresher can later resolve. Throws on an
+// AeroAPI failure, which the caller answers as a lookup failure rather than as "no such flight".
+export async function confirmPendingSchedule(
+  pending: { ident: string; scheduledOut: string; origin?: string | null },
+  usage: ApiCallContext,
+): Promise<AeroScheduledFlight | null> {
+  const ident = pending.ident.trim().toUpperCase();
+  const designator = splitPendingFlightDesignator(ident);
+  const targetMs = Date.parse(pending.scheduledOut);
+  if (!designator || Number.isNaN(targetMs)) return null;
+
+  const start = toPendingLookupTimestamp(new Date(targetMs - 24 * 60 * 60 * 1000));
+  const end = toPendingLookupTimestamp(new Date(targetMs + 24 * 60 * 60 * 1000));
+  const scheduled = await fetchScheduledFlights(start, end, {
+    airline: designator.airline,
+    flightNumber: designator.flightNumber,
+    origin: pending.origin ?? undefined,
+  }, usage);
+
+  return scheduled.find((s) => {
+    if ((s.ident_iata ?? s.ident_icao ?? s.ident)?.toUpperCase() !== ident) return false;
+    const outMs = s.scheduled_out ? Date.parse(s.scheduled_out) : Number.NaN;
+    return !Number.isNaN(outMs) && Math.abs(outMs - targetMs) <= PENDING_CONFIRM_TOLERANCE_MS;
+  }) ?? null;
 }
 
 // Attribution for a metered AeroAPI call made on behalf of one flight row. `calledBy` has to be

@@ -16,6 +16,8 @@ import type { FlightRow } from "../flight-sync.ts";
 export const LOCAL_URL = Deno.env.get("SUPABASE_TEST_URL") ?? "http://127.0.0.1:54321";
 export const LOCAL_SERVICE_KEY = Deno.env.get("SUPABASE_TEST_SERVICE_ROLE_KEY") ??
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU";
+export const LOCAL_ANON_KEY = Deno.env.get("SUPABASE_TEST_ANON_KEY") ??
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0";
 
 export interface ApnsRequest {
   token: string;
@@ -68,6 +70,7 @@ export async function installLocalStack(): Promise<void> {
 
   Deno.env.set("SUPABASE_URL", LOCAL_URL);
   Deno.env.set("SUPABASE_SERVICE_ROLE_KEY", LOCAL_SERVICE_KEY);
+  Deno.env.set("SUPABASE_ANON_KEY", LOCAL_ANON_KEY);
   Deno.env.set("AEROAPI_KEY", "aeroapi-key-for-tests");
   Deno.env.set("APNS_TEAM_ID", "TEAMID1234");
   Deno.env.set("APNS_BUNDLE_ID", "app.twofold.tests");
@@ -201,4 +204,59 @@ export async function eventsOf(client: SupabaseClient, flightId: string, type: s
     .eq("flight_id", flightId)
     .eq("type", type);
   return count ?? 0;
+}
+
+/// A signed-in session for `profileId`, as the app would hold one: the bearer header an edge
+/// function receives. The seeded password is random and thrown away, so a fresh one is set here.
+export async function bearerFor(client: SupabaseClient, profileId: string): Promise<string> {
+  const password = `Aa1!${crypto.randomUUID()}`;
+  const { data: updated, error } = await client.auth.admin.updateUserById(profileId, { password });
+  if (error || !updated.user?.email) throw new Error(`password reset failed: ${error?.message}`);
+  const anon = createClient(LOCAL_URL, LOCAL_ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
+  const { data, error: signInErr } = await anon.auth.signInWithPassword({ email: updated.user.email, password });
+  if (signInErr || !data.session) throw new Error(`sign-in failed: ${signInErr?.message}`);
+  return `Bearer ${data.session.access_token}`;
+}
+
+/// Puts the couple on a paid plan, through `profiles` the way the RevenueCat webhook does.
+export async function subscribe(client: SupabaseClient, profileId: string, tier = "plus"): Promise<void> {
+  const { error } = await client
+    .from("profiles")
+    .update({ subscription_active: true, subscription_tier: tier })
+    .eq("id", profileId);
+  if (error) throw new Error(`subscribe failed: ${error.message}`);
+}
+
+type Handler = (req: Request) => Response | Promise<Response>;
+const handlers = new Map<string, Handler>();
+
+/// The real handler of `supabase/functions/<name>/index.ts`, with `Deno.serve` captured rather than
+/// listening — the same trick cron-entrypoints.test.ts uses — so a test calls the code that ships.
+/// Call after `installLocalStack()`, which sets the env the handler reads at request time.
+export async function loadHandler(name: string): Promise<Handler> {
+  const cached = handlers.get(name);
+  if (cached) return cached;
+  // deno-lint-ignore no-explicit-any
+  const d = Deno as any;
+  const realServe = d.serve;
+  let captured: Handler | undefined;
+  d.serve = (handler: Handler) => {
+    captured = handler;
+    return { finished: Promise.resolve(), shutdown: () => Promise.resolve() };
+  };
+  try {
+    await import(`../../${name}/index.ts`);
+  } finally {
+    d.serve = realServe;
+  }
+  if (!captured) throw new Error(`${name} did not register a handler`);
+  handlers.set(name, captured);
+  return captured;
+}
+
+/// A POST to a handler, as the app sends one.
+export function postJson(body: unknown, authorization?: string): Request {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (authorization) headers.Authorization = authorization;
+  return new Request("http://localhost/", { method: "POST", headers, body: JSON.stringify(body) });
 }

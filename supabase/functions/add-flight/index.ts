@@ -8,8 +8,9 @@
 // trackable instance yet — normally resolves a few days before departure, see
 // resolve-flight/index.ts's `isTrackable`/`canTrack`). In that case `pending` must carry enough
 // of the original candidate to persist a placeholder row — this is the ONE place client-supplied
-// flight fields are trusted, precisely because there's no fa_flight_id yet to re-fetch fresh data
-// by. `refreshOneFlight` (_shared/flight-sync.ts) periodically retries resolving a real
+// flight fields are taken, precisely because there's no fa_flight_id yet to re-fetch fresh data
+// by. Taken, no longer trusted: the candidate is shape-checked (pending.ts) and then confirmed
+// against /schedules, and the schedule AeroAPI answers with is what gets stored. `refreshOneFlight` (_shared/flight-sync.ts) periodically retries resolving a real
 // fa_flight_id for these via /schedules, and once found, transparently starts full live tracking
 // through the exact same poll pipeline as any other flight — no separate "activate tracking" step.
 //
@@ -33,8 +34,9 @@ import { userSession } from "../_shared/auth.ts";
 import { type AeroFlight, fetchAirportCoordinates, fetchFlightByFaId } from "../_shared/aeroapi.ts";
 import { enforceRateLimit } from "../_shared/rate-limit.ts";
 import { deriveFlightStatus } from "../_shared/flight-status.ts";
-import { type MappedAeroFields, mapAeroFlightToRow } from "../_shared/flight-sync.ts";
+import { confirmPendingSchedule, type MappedAeroFields, mapAeroFlightToRow } from "../_shared/flight-sync.ts";
 import { isWithinAllowance } from "./allowance.ts";
+import { pendingProblem } from "./pending.ts";
 
 interface PendingCandidate {
   identIata?: string | null;
@@ -162,6 +164,10 @@ Deno.serve(async (req) => {
       { error: "Either 'faFlightId', or 'pending' with 'flightNumberIata' and 'scheduledOut', is required" },
       { status: 400 },
     );
+  }
+  if (!input.faFlightId) {
+    const problem = pendingProblem(input.pending!);
+    if (problem) return Response.json({ error: problem }, { status: 400 });
   }
   if (typeof input.notifyMe !== "boolean") {
     return Response.json({ error: "'notifyMe' is required" }, { status: 400 });
@@ -291,7 +297,35 @@ Deno.serve(async (req) => {
     }
     mapped = await mapAeroFlightToRow(serviceClient, aeroFlight);
   } else {
+    // One /schedules call, so the row stored is a flight AeroAPI actually has, at the time AeroAPI
+    // has it. The client's times otherwise decided the refresher's cadence for this row and when
+    // it would ever arrive and archive — see pending.ts. Bounded per account by the rate limit
+    // above, like this function's other lookups.
+    let confirmed;
+    try {
+      confirmed = await confirmPendingSchedule({
+        ident: input.pending!.flightNumberIata!,
+        scheduledOut: input.pending!.scheduledOut!,
+        origin: input.pending!.origin?.iata ?? input.pending!.origin?.icao ?? null,
+      }, { calledBy: "add-flight", coupleId: couple.id });
+    } catch (err) {
+      console.error("[add-flight] /schedules confirmation failed:", (err as Error).message);
+      return Response.json({ error: "Flight lookup failed, please try again" }, { status: 502 });
+    }
+    if (!confirmed) {
+      return Response.json({ error: "Flight not found" }, { status: 404 });
+    }
     mapped = mapPendingCandidateToRow(input.pending!);
+    // AeroAPI's word for everything that decides how this row is polled and where it flies. The
+    // names, cities and aircraft stay the client's: display labels on the couple's own card.
+    mapped.scheduled_out = confirmed.scheduled_out ?? mapped.scheduled_out;
+    mapped.scheduled_in = confirmed.scheduled_in ?? null;
+    mapped.flight_number_iata = confirmed.ident_iata ?? confirmed.ident ?? mapped.flight_number_iata;
+    mapped.flight_number_icao = confirmed.ident_icao ?? null;
+    mapped.origin_iata = confirmed.origin_iata ?? null;
+    mapped.origin_icao = confirmed.origin_icao ?? null;
+    mapped.destination_iata = confirmed.destination_iata ?? null;
+    mapped.destination_icao = confirmed.destination_icao ?? null;
   }
 
   // Airport coordinates aren't on the /flights response — a one-time /airports/{id} lookup per
