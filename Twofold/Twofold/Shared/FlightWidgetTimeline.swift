@@ -102,6 +102,14 @@ nonisolated enum FlightWidgetTimeline {
         )
     }
 
+    /// The status the Smart Rotating widget's flight slide names once there is nothing left to
+    /// count down to: the stored one moved along the clock to `date`, as the other flight widgets
+    /// show it. It named the stored one, and a flight nobody tracks stays `.scheduled` on the server
+    /// after it has flown, so the slide read "Scheduled" for a flight that had landed.
+    static func slideStatus(of flight: WidgetSnapshot.FlightInfo, at date: Date) -> FlightStatus {
+        moment(flight, at: date).status ?? flight.status
+    }
+
     /// The delay of the leg still to come: departure's before take-off, arrival's after (FLT-24).
     /// The one figure an older snapshot stored was chosen when it was written, and kept showing
     /// the departure delay for the rest of the flight; it is still read when it is all there is.

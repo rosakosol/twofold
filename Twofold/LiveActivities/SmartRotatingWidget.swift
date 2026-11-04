@@ -133,7 +133,7 @@ struct SmartRotatingWidgetView: View {
             if let target, target > entry.date {
                 journeyCountdownText(to: target)
             } else {
-                Text(flight.status.displayLabel)
+                Text(FlightWidgetTimeline.slideStatus(of: flight, at: entry.date).displayLabel)
             }
         } accessory: {
             // Same rule as FlightTrackingWidget: the traveller's own face, and a face only when

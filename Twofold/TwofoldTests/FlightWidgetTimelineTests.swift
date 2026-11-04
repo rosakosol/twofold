@@ -227,4 +227,22 @@ struct FlightWidgetTimelineTests {
         let snapshot = Self.snapshot([Self.flight(delaySeconds: 900)])
         #expect(FlightWidgetTimeline.trackingMoment(snapshot, at: Self.departure.addingTimeInterval(-600)).delaySeconds == 900)
     }
+
+    // MARK: - Smart Rotating's flight slide
+
+    /// The slide counts down to take-off and then to touchdown, and names the status once there is
+    /// nothing left to count. It named the stored one: a flight nobody was tracking stays
+    /// `.scheduled` on the server after it has flown, so the slide said "Scheduled" under "Lands
+    /// in" for a flight that had landed hours ago.
+    @Test("the rotating slide names a flown, untracked flight as landed, not as it was stored")
+    func rotatingSlideProjectsTheStatus() {
+        let flown = Self.flight(status: .scheduled)
+        #expect(FlightWidgetTimeline.slideStatus(of: flown, at: Self.arrival.addingTimeInterval(3600)) == .landed)
+    }
+
+    @Test("the rotating slide leaves a cancelled flight cancelled")
+    func rotatingSlideKeepsTerminalStatus() {
+        let cancelled = Self.flight(status: .cancelled)
+        #expect(FlightWidgetTimeline.slideStatus(of: cancelled, at: Self.arrival.addingTimeInterval(3600)) == .cancelled)
+    }
 }
