@@ -35,9 +35,11 @@ thing.
 
 The whole Deno suite runs on the host with
 `deno test --allow-all --node-modules-dir=none supabase/functions` (the flag keeps Deno away from
-the repo-root package.json). `flight-sync-races.test.ts` and `flight-refresh-run.test.ts` talk to
+the repo-root package.json). Every test that imports `_shared/testing/local-stack.ts` talks to
 the local stack (`supabase start`), stubbing only AeroAPI, ADS-B and APNs; they skip themselves
-when it isn't running.
+when it isn't running. Some of them call a function's real handler as a signed-in user
+(`loadHandler`, `bearerFor`), and the `*-races` ones fire requests in parallel, because what they
+pin is whether two transactions overlapped — which pgTAP, running in one, cannot show.
 
 Anything a cron job or the app calls on a schedule is worth a test here rather than a manual check
 against production — the flight cadence in particular decides both the AeroAPI bill and how quickly
