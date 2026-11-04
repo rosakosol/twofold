@@ -25,7 +25,9 @@ struct PartnerSetupView: View {
 
     @State private var partnerName: String = ""
     @State private var partnerCity: Place?
-    @State private var anniversaryDate: Date = .now
+    /// Nil until the couple gives one. It used to start at `.now` for a couple with none, so the
+    /// picker showed today as their anniversary, and nudging it at all saved whatever it landed on.
+    @State private var anniversaryDate: Date?
     @State private var partnerAvatarError: String?
     @State private var isSaving = false
     @State private var showingHappyAnniversary = false
@@ -43,7 +45,13 @@ struct PartnerSetupView: View {
     }
 
     /// The anniversary as this screen opened with it, to tell an edit from a Save that left it alone.
-    @State private var originalAnniversaryDate: Date = .now
+    @State private var originalAnniversaryDate: Date?
+
+    /// Where the picker starts once someone taps "Add your anniversary": a year ago, as onboarding's
+    /// does, rather than today, which is the one date it is least likely to be.
+    private static var suggestedAnniversary: Date {
+        Calendar.current.date(byAdding: .year, value: -1, to: .now) ?? .now
+    }
 
     /// Whether Save should mark the anniversary.
     ///
@@ -52,10 +60,11 @@ struct PartnerSetupView: View {
     ///
     /// Only when the date was changed here. It used to be any Save on that day of the year — editing
     /// the partner's name on your anniversary got the full-screen moment — and, worse, a couple
-    /// with no anniversary stored shows today's date (the unpaired placeholder is `.now`), so every
-    /// Save by an unpaired person was "Happy anniversary", for zero years.
-    static func shouldCelebrate(original: Date, picked: Date, now: Date = .now, calendar: Calendar = .current) -> Bool {
-        guard !calendar.isDate(original, inSameDayAs: picked) else { return false }
+    /// with no anniversary stored showed today's date (the unpaired placeholder was `.now`), so every
+    /// Save by an unpaired person was "Happy anniversary", for zero years. `original` is nil when
+    /// there was none, so giving one for the first time counts as changing it.
+    static func shouldCelebrate(original: Date?, picked: Date, now: Date = .now, calendar: Calendar = .current) -> Bool {
+        if let original, calendar.isDate(original, inSameDayAs: picked) { return false }
         let pickedDay = calendar.dateComponents([.month, .day], from: picked)
         let today = calendar.dateComponents([.month, .day], from: now)
         return pickedDay.month == today.month && pickedDay.day == today.day
@@ -139,10 +148,23 @@ struct PartnerSetupView: View {
                     // Shown whether or not a partner is connected. It is the one field here that
                     // belongs to the couple rather than to this person's private notes about them,
                     // and it used to disappear from this screen the moment they paired.
+                    //
+                    // Optional, since onboarding lets it be skipped: with none given there is no
+                    // date to show, only a way to add one.
                     SectionCard {
                         Text("Anniversary").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.textSecondary)
-                        DatePicker("Together since", selection: $anniversaryDate, in: ...latestSelectableDate, displayedComponents: .date)
-                            .datePickerStyle(.compact)
+                        if let date = Binding($anniversaryDate) {
+                            DatePicker("Together since", selection: date, in: ...latestSelectableDate, displayedComponents: .date)
+                                .datePickerStyle(.compact)
+                        } else {
+                            Button("Add your anniversary", systemImage: "heart") {
+                                anniversaryDate = Self.suggestedAnniversary
+                            }
+                            .buttonStyle(.twofoldSecondaryCompact)
+                            Text("Optional. It's what Stats and the Days Together widget count from.")
+                                .font(.caption2)
+                                .foregroundStyle(Theme.textSecondary)
+                        }
                     }
 
                     if !appModel.session.partnerConnected {
@@ -183,7 +205,7 @@ struct PartnerSetupView: View {
         .postHogScreenView("Settings: Partner Setup")
         .fullScreenCover(isPresented: $showingHappyAnniversary, onDismiss: dismiss.callAsFunction) {
             HappyAnniversaryView(
-                years: max(0, Calendar.current.dateComponents([.year], from: anniversaryDate, to: .now).year ?? 0),
+                years: max(0, Calendar.current.dateComponents([.year], from: anniversaryDate ?? .now, to: .now).year ?? 0),
                 onContinue: { showingHappyAnniversary = false }
             )
         }
@@ -200,12 +222,15 @@ struct PartnerSetupView: View {
             if !appModel.session.partnerConnected, let partnerCity {
                 await appModel.updatePartnerHomeCity(partnerCity)
             }
-            await appModel.updateAnniversaryDate(anniversaryDate)
+            // Only one that was given. None is not a date to save.
+            if let anniversaryDate {
+                await appModel.updateAnniversaryDate(anniversaryDate)
+            }
             isSaving = false
             // Setting the date to today is worth marking rather than silently closing. Carried
             // over from the screen this absorbed; without it the merge would have quietly deleted
             // the one moment of delight in Settings.
-            if Self.shouldCelebrate(original: originalAnniversaryDate, picked: anniversaryDate) {
+            if let anniversaryDate, Self.shouldCelebrate(original: originalAnniversaryDate, picked: anniversaryDate) {
                 showingHappyAnniversary = true
             } else {
                 dismiss()

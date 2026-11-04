@@ -186,9 +186,9 @@ extension BackendService {
             // Home city is never overridden — that one's always shared/real once paired.
             partnerB: person(for: partnerProfile, nameOverride: meProfile.partnerName, avatarURL: await partnerAvatarURL, paletteIndex: 0),
             // Couple-level once paired (`redeem_invite_code` seeds it from whichever partner set
-            // one during onboarding) — `.now` is only a last-resort fallback for the rare case
-            // neither partner ever set one.
-            startedDatingOn: coupleRow.startedDatingOn ?? .now,
+            // one during onboarding). Nil when neither did, which is no longer rare now the
+            // anniversary can be skipped — and was never "today", which is what `.now` made it.
+            startedDatingOn: coupleRow.startedDatingOn,
             connectedAt: coupleRow.createdAt,
             maxDistanceKm: coupleRow.maxDistanceKm
         )

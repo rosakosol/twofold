@@ -109,7 +109,7 @@ final class CoupleSession: AccountScopedStore {
         Couple(
             partnerA: Person(name: "You", accentColor: Person.palette[1]),
             partnerB: Person(name: "Partner", accentColor: Person.palette[0]),
-            startedDatingOn: .now
+            startedDatingOn: nil
         )
     }
 

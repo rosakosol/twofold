@@ -445,8 +445,8 @@ final class AppModel {
         if partnerDrawingURL == nil { partnerDrawingURL = cached.partnerDrawingURL }
         // The couple's own fields, and only while `couple` is still the placeholder — once
         // `performAdopt` has run, `couple.id` matches the cached one and the live values stand.
-        // `placeholderCouple` dates the relationship to `.now`, so without this the Stats screen
-        // opened offline saying a couple of nine years had been together for zero days.
+        // `placeholderCouple` has no anniversary, so without this the Stats screen opened offline
+        // asking a couple of nine years for the date they had already given.
         if session.couple.id != cached.coupleID {
             if let startedDatingOn = cached.startedDatingOn { session.couple.startedDatingOn = startedDatingOn }
             if session.couple.connectedAt == nil { session.couple.connectedAt = cached.connectedAt }

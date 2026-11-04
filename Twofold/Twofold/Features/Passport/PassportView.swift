@@ -24,6 +24,8 @@ enum StatsSection: String, CaseIterable {
 struct PassportView: View {
     @Environment(AppModel.self) private var appModel
     @State private var showingRelationshipStatsShare = false
+    /// Partner setup, where the anniversary is set, for a couple who skipped it.
+    @State private var showingAnniversarySetup = false
     @State private var showingTripShare = false
     @State private var showingPassportShare = false
     @State private var showingAllFlightStats = false
@@ -65,9 +67,12 @@ struct PassportView: View {
 
                     switch section {
                     case .relationship:
-                        RelationshipStatsCard(couple: appModel.session.couple, stats: relationshipStats) {
-                            showingRelationshipStatsShare = true
-                        }
+                        RelationshipStatsCard(
+                            couple: appModel.session.couple,
+                            stats: relationshipStats,
+                            onShare: { showingRelationshipStatsShare = true },
+                            onAddAnniversary: { showingAnniversarySetup = true }
+                        )
                     case .trips:
                         TripStatsCard(
                             stats: tripStats,
@@ -95,6 +100,9 @@ struct PassportView: View {
                     section = requestedSection
                     self.requestedSection = nil
                 }
+            }
+            .sheet(isPresented: $showingAnniversarySetup) {
+                PartnerSetupView()
             }
             .sheet(isPresented: $showingRelationshipStatsShare) {
                 RelationshipStatsShareView(couple: appModel.session.couple, stats: relationshipStats)

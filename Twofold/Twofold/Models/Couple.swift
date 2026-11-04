@@ -9,7 +9,10 @@ struct Couple: Identifiable, Hashable {
     let id: UUID
     var partnerA: Person
     var partnerB: Person
-    var startedDatingOn: Date
+    /// The couple's anniversary, nil until one of them gives it. Onboarding lets them skip it, and
+    /// before this was optional an unset one was `.now`: Stats said "0 days" together and the widgets
+    /// counted from whenever they were last written.
+    var startedDatingOn: Date?
     /// The real moment `redeem_invite_code` paired these two — nil only for the placeholder
     /// couple a not-yet-connected solo user starts with. Drives the daily-question/streak reset
     /// boundary (see `DailyActivityCard`), which is relative to this rather than a shared UTC
@@ -22,7 +25,7 @@ struct Couple: Identifiable, Hashable {
     /// never had both home cities set at once yet.
     var maxDistanceKm: Double?
 
-    init(id: UUID = UUID(), partnerA: Person, partnerB: Person, startedDatingOn: Date, connectedAt: Date? = nil, maxDistanceKm: Double? = nil) {
+    init(id: UUID = UUID(), partnerA: Person, partnerB: Person, startedDatingOn: Date?, connectedAt: Date? = nil, maxDistanceKm: Double? = nil) {
         self.id = id
         self.partnerA = partnerA
         self.partnerB = partnerB

@@ -11,12 +11,14 @@ import CoreLocation
 import Foundation
 
 struct RelationshipMilestoneStats {
-    let daysTogether: Int
+    /// Nil when the couple has not given an anniversary: there is nothing to count from, and
+    /// counting from today said "0 days" to a couple of years.
+    let daysTogether: Int?
     /// Broken-down calendar components of the same span `daysTogether` measures — used for the
     /// card's headline ("2 years, 3 months"), computed via `Calendar` rather than dividing the
-    /// raw day count so month length varies correctly (not every "month" is 30 days).
-    let yearsTogether: Int
-    let monthsTogether: Int
+    /// raw day count so month length varies correctly (not every "month" is 30 days). Nil with it.
+    let yearsTogether: Int?
+    let monthsTogether: Int?
     let tripCount: Int
     let memoryCount: Int
     let reunionCount: Int
@@ -32,7 +34,7 @@ struct RelationshipMilestoneStats {
     let shortestTrip: Trip?
     /// Longest gap between one reunion trip's return and the next one's departure. Falls back to
     /// "how long since you've been apart" — measured from `couple.connectedAt` (or
-    /// `startedDatingOn` if that's somehow unset) — when there aren't two reunion trips to measure
+    /// `startedDatingOn` if that's somehow unset; nil if both are) — when there aren't two reunion trips to measure
     /// a historical gap between but the couple is currently in different home cities, so a couple
     /// with no trips yet sees a real running count instead of a blank "—".
     let longestSeparationDays: Int?
@@ -41,20 +43,26 @@ struct RelationshipMilestoneStats {
 
     init(couple: Couple, trips: [Trip], memories: [Memory]) {
         let startedDatingOn = couple.startedDatingOn
-        daysTogether = max(0, TimeMath.daysSince(startedDatingOn))
-        // Start-of-day on both sides, for the same reason as `daysSince` above. On the morning
-        // of a sixth anniversary, against a `startedDatingOn` carrying an inherited evening
-        // time-of-day, the raw instants are eleven months and thirty-one-and-a-bit days apart —
-        // so the card read "5 years, 11 months" on the one day of the year it most needed to say
-        // six. The time-of-day is picker residue, not something the couple chose.
-        let calendar = Calendar.current
-        let ymd = calendar.dateComponents(
-            [.year, .month],
-            from: calendar.startOfDay(for: startedDatingOn),
-            to: calendar.startOfDay(for: .now)
-        )
-        yearsTogether = max(0, ymd.year ?? 0)
-        monthsTogether = max(0, ymd.month ?? 0)
+        if let startedDatingOn {
+            daysTogether = max(0, TimeMath.daysSince(startedDatingOn))
+            // Start-of-day on both sides, for the same reason as `daysSince` above. On the morning
+            // of a sixth anniversary, against a `startedDatingOn` carrying an inherited evening
+            // time-of-day, the raw instants are eleven months and thirty-one-and-a-bit days apart —
+            // so the card read "5 years, 11 months" on the one day of the year it most needed to say
+            // six. The time-of-day is picker residue, not something the couple chose.
+            let calendar = Calendar.current
+            let ymd = calendar.dateComponents(
+                [.year, .month],
+                from: calendar.startOfDay(for: startedDatingOn),
+                to: calendar.startOfDay(for: .now)
+            )
+            yearsTogether = max(0, ymd.year ?? 0)
+            monthsTogether = max(0, ymd.month ?? 0)
+        } else {
+            daysTogether = nil
+            yearsTogether = nil
+            monthsTogether = nil
+        }
         tripCount = trips.count
         memoryCount = memories.count
 
@@ -85,8 +93,8 @@ struct RelationshipMilestoneStats {
         }
         if let longestGapDays {
             longestSeparationDays = longestGapDays
-        } else if !couple.sharesHomeCity, couple.partnerA.homeCity != nil, couple.partnerB.homeCity != nil {
-            let since = couple.connectedAt ?? startedDatingOn
+        } else if !couple.sharesHomeCity, couple.partnerA.homeCity != nil, couple.partnerB.homeCity != nil,
+                  let since = couple.connectedAt ?? startedDatingOn {
             longestSeparationDays = max(0, TimeMath.daysSince(since))
         } else {
             longestSeparationDays = nil
@@ -99,8 +107,10 @@ struct RelationshipMilestoneStats {
 
     /// "2 years, 3 months" / "1 year" / "5 months" / "23 days" — whichever of years/months are
     /// actually non-zero, dropping down to a plain day count once a couple is under a month in
-    /// (where "0 years, 0 months" would otherwise read as broken rather than just new).
-    var timeTogetherLabel: String {
+    /// (where "0 years, 0 months" would otherwise read as broken rather than just new). Nil with no
+    /// anniversary to measure from.
+    var timeTogetherLabel: String? {
+        guard let daysTogether, let yearsTogether, let monthsTogether else { return nil }
         guard yearsTogether > 0 || monthsTogether > 0 else {
             return daysTogether == 1 ? "1 day" : "\(daysTogether) days"
         }

@@ -16,6 +16,10 @@ struct RelationshipStatsCard: View {
     /// snapshot" button that used to sit below this card on the Stats tab. Nil hides the button
     /// entirely (e.g. for the share card's own preview, which has nothing to open).
     var onShare: (() -> Void)?
+    /// Where "Add your anniversary" goes, for a couple who have not given one. Nil leaves the
+    /// headline out instead — the share card, which has nowhere to go and should not carry a button
+    /// into an image.
+    var onAddAnniversary: (() -> Void)?
     /// The Stats-tab in-app card always shows everything (these default to `true`) — only the
     /// share card's "Stats to include" customization ever turns one of these off, matching the
     /// exact three numbers `RelationshipStatsShareCard`'s photo-story layout already lets you
@@ -60,14 +64,31 @@ struct RelationshipStatsCard: View {
             StatsHeroCard(gradient: Theme.heroBlue, shareLabel: "Share relationship stats", onShare: onShare) {
                 AvatarPair(me: couple.partnerA, partner: couple.partnerB, size: 44, isOnColour: true)
 
-                Text(stats.timeTogetherLabel)
-                    .font(.system(size: timeTogetherFontSize, weight: .bold))
-                    .tracking(-0.6)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: .infinity)
+                if let timeTogether = stats.timeTogetherLabel {
+                    Text(timeTogether)
+                        .font(.system(size: timeTogetherFontSize, weight: .bold))
+                        .tracking(-0.6)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity)
+                } else if let onAddAnniversary {
+                    // No anniversary given: ask for it, rather than counting from today — which
+                    // read "0 days" to a couple of any length.
+                    Button(action: onAddAnniversary) {
+                        Label("Add your anniversary", systemImage: "heart.fill")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Theme.accent)
+                            .padding(.horizontal, Theme.Spacing.md)
+                            .padding(.vertical, Theme.Spacing.sm)
+                            .background(Theme.raised, in: Capsule())
+                            .overlay { Capsule().strokeBorder(Theme.line, lineWidth: 1) }
+                    }
+                    .buttonStyle(.plain)
+                }
 
                 heroStatLayout {
-                    StatsHeroNumber(label: "Days together", value: "\(stats.daysTogether)", capsLines: capsLinesToFitGrid)
+                    if let daysTogether = stats.daysTogether {
+                        StatsHeroNumber(label: "Days together", value: "\(daysTogether)", capsLines: capsLinesToFitGrid)
+                    }
                     if showTripsStat {
                         StatsHeroNumber(label: "Trips", value: "\(stats.tripCount)", capsLines: capsLinesToFitGrid)
                     }

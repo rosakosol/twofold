@@ -64,7 +64,10 @@ struct ResumeSetupView: View {
                     case .inviter:
                         savedRow("person.fill", "Your name and \(partnerDescription)")
                         savedRow("mappin.and.ellipse", "Where you both are")
-                        savedRow("heart.fill", "Your anniversary")
+                        // Only when there is one: it can be skipped, and then nothing was saved.
+                        if appModel.session.couple.startedDatingOn != nil {
+                            savedRow("heart.fill", "Your anniversary")
+                        }
                     case .inviteeAwaitingReply(let inviterName):
                         savedRow("person.fill", "Your account")
                         savedRow("heart.fill", "Your request to connect with \(inviterName)")
