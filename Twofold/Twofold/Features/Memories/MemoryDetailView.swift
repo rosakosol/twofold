@@ -42,9 +42,20 @@ struct MemoryDetailView: View {
     /// at rather than always the first.
     @State private var visiblePhotoIndex = 0
     @State private var errorMessage: String?
+    /// Whether the whole panel can be shown. Held back until the photo it opens on is decoded, so
+    /// the screen appears once rather than as text under a placeholder that a moment later swaps
+    /// for the picture.
+    @State private var isReady: Bool
+
+    /// The longest the photo may hold the screen back. Past this the panel shows with the photo's
+    /// own placeholder in its place, and the photo arrives into it when it is ready.
+    static let photoWait: Duration = .milliseconds(2500)
 
     init(memory: Memory) {
         memoryID = memory.id
+        // Ready from the first frame when there's nothing to wait for: no photo, or one already
+        // decoded (opened before, or warmed by the list's thumbnail fetching the same bytes).
+        _isReady = State(initialValue: memory.photos.first.map { MemoryPhotoView.isDecoded($0) } ?? true)
     }
 
     private var memory: Memory? {
@@ -54,97 +65,118 @@ struct MemoryDetailView: View {
     var body: some View {
         Group {
             if let memory {
-                ScrollView {
-                    VStack(spacing: Theme.Spacing.lg) {
-                        photoCarousel(for: memory)
-                            .padding(.top, Theme.Spacing.lg)
-
-                        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-                            titleField(for: memory)
-                            locationRow(for: memory)
-                            dateRow(for: memory)
-
-                            if !memory.note.isEmpty {
-                                Divider().padding(.vertical, Theme.Spacing.xs)
-                                // Newsreader, 19pt (section 3): a note reads as something written by
-                                // hand, not as interface copy.
-                                Text(memory.note)
-                                    .newsreaderFont(size: 19, relativeTo: .body)
-                                    .foregroundStyle(Theme.textPrimary)
-                            }
-
-                            if let errorMessage {
-                                Text(errorMessage)
-                                    .font(.caption)
-                                    .foregroundStyle(Theme.error)
-                            }
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, Theme.Spacing.lg)
-                    }
+                LoadingGateView(isReady: isReady) {
+                    content(for: memory)
                 }
-                .toolbar {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Menu {
-                            Button {
-                                showingEdit = true
-                            } label: {
-                                Label("Edit", systemImage: "pencil")
-                            }
-                            Button(role: .destructive) {
-                                confirmingDelete = true
-                            } label: {
-                                Label("Delete", systemImage: "trash")
-                            }
-                        } label: {
-                            Label("More options", systemImage: "ellipsis.circle")
-                        }
-                    }
-                }
-                .confirmationDialog("Delete this memory?", isPresented: $confirmingDelete, titleVisibility: .visible) {
-                    Button("Delete", role: .destructive) {
-                        Task {
-                            await appModel.travel.deleteMemory(memory)
-                            dismiss()
-                        }
-                    }
-                    Button("Cancel", role: .cancel) {}
-                }
-                .sheet(isPresented: $showingPhotoPicker) {
-                    MemoryPhotosSheet(
-                        photos: memory.photos.map { .uploaded($0) },
-                        isBusy: isAddingPhotos,
-                        onAdd: { data in await addPhotos(data) },
-                        onRemove: { item in
-                            if case .uploaded(let photo) = item {
-                                // Step the carousel back first, or removing the page being looked
-                                // at leaves it on an index that no longer exists.
-                                visiblePhotoIndex = max(0, min(visiblePhotoIndex, memory.photos.count - 2))
-                                Task { await appModel.travel.removePhoto(photo, from: memory) }
-                            }
-                        }
-                    )
-                }
-                .sheet(isPresented: $showingEdit) {
-                    AddMemoryView(existingMemory: memory)
-                }
-                .sheet(isPresented: $showingLocationSearch) {
-                    MemoryLocationSearchView { selected in
-                        apply { $0.place = selected }
-                    }
-                }
-                .sheet(isPresented: $showingDatePicker) {
-                    MemoryDateTimeSheet(date: $draftDate) {
-                        showingDatePicker = false
-                        apply { $0.date = draftDate }
-                    }
-                }
+                .task { await prepare(memory) }
             }
         }
         .background(ScreenBackground())
         .navigationTitle("Memory")
         .navigationBarTitleDisplayMode(.inline)
         .postHogScreenView("Memories: Memory Detail")
+    }
+
+    /// Decodes the photo the screen opens on before showing it, with `photoWait` as the limit.
+    private func prepare(_ memory: Memory) async {
+        guard !isReady else { return }
+        // Filled now, so the title field doesn't show its "Title" placeholder for a frame first.
+        draftTitle = memory.title
+        if let photo = memory.photos.first {
+            _ = await LoadingGate.wait(upTo: Self.photoWait) {
+                await MemoryPhotoView.loadImage(for: photo, thumbnailPixelSize: nil)
+            }
+        }
+        isReady = true
+    }
+
+    @ViewBuilder
+    private func content(for memory: Memory) -> some View {
+        ScrollView {
+            VStack(spacing: Theme.Spacing.lg) {
+                photoCarousel(for: memory)
+                    .padding(.top, Theme.Spacing.lg)
+
+                VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+                    titleField(for: memory)
+                    locationRow(for: memory)
+                    dateRow(for: memory)
+
+                    if !memory.note.isEmpty {
+                        Divider().padding(.vertical, Theme.Spacing.xs)
+                        // Newsreader, 19pt (section 3): a note reads as something written by
+                        // hand, not as interface copy.
+                        Text(memory.note)
+                            .newsreaderFont(size: 19, relativeTo: .body)
+                            .foregroundStyle(Theme.textPrimary)
+                    }
+
+                    if let errorMessage {
+                        Text(errorMessage)
+                            .font(.caption)
+                            .foregroundStyle(Theme.error)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, Theme.Spacing.lg)
+            }
+        }
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    Button {
+                        showingEdit = true
+                    } label: {
+                        Label("Edit", systemImage: "pencil")
+                    }
+                    Button(role: .destructive) {
+                        confirmingDelete = true
+                    } label: {
+                        Label("Delete", systemImage: "trash")
+                    }
+                } label: {
+                    Label("More options", systemImage: "ellipsis.circle")
+                }
+            }
+        }
+        .confirmationDialog("Delete this memory?", isPresented: $confirmingDelete, titleVisibility: .visible) {
+            Button("Delete", role: .destructive) {
+                Task {
+                    await appModel.travel.deleteMemory(memory)
+                    dismiss()
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        }
+        .sheet(isPresented: $showingPhotoPicker) {
+            MemoryPhotosSheet(
+                photos: memory.photos.map { .uploaded($0) },
+                isBusy: isAddingPhotos,
+                onAdd: { data in await addPhotos(data) },
+                onRemove: { item in
+                    if case .uploaded(let photo) = item {
+                        // Step the carousel back first, or removing the page being looked
+                        // at leaves it on an index that no longer exists.
+                        visiblePhotoIndex = max(0, min(visiblePhotoIndex, memory.photos.count - 2))
+                        Task { await appModel.travel.removePhoto(photo, from: memory) }
+                    }
+                }
+            )
+        }
+        .sheet(isPresented: $showingEdit) {
+            AddMemoryView(existingMemory: memory)
+        }
+        .sheet(isPresented: $showingLocationSearch) {
+            MemoryLocationSearchView { selected in
+                apply { $0.place = selected }
+            }
+        }
+        .sheet(isPresented: $showingDatePicker) {
+            MemoryDateTimeSheet(date: $draftDate) {
+                showingDatePicker = false
+                apply { $0.date = draftDate }
+            }
+        }
     }
 
     // MARK: - Editing in place
