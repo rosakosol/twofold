@@ -198,6 +198,50 @@ extension PendingMemoryDiskTests {
             #expect(written.items.count == 1, "the signed-out account's names were written back into the widgets")
         }
 
+        // MARK: - Memory photo prefetch
+
+        private func memoryWithPhoto(_ name: String) -> Memory {
+            let path = "couple/\(UUID().uuidString)/\(name).jpg"
+            return Memory(
+                title: name, place: nil, date: .now, note: "",
+                photos: [MemoryPhoto(id: UUID(), path: path, url: URL(string: "https://\(HeldURLProtocol.host)/\(path)")!)]
+            )
+        }
+
+        /// The prefetch pulls a couple's whole photo history onto disk in a detached task. Nothing
+        /// stopped it at sign-out, so the photos still downloading were written to the cache after
+        /// sign-out had emptied it, and the flag it holds while running kept the next account's
+        /// prefetch from starting until the previous couple's had finished.
+        @Test("a memory photo prefetch running at sign-out writes nothing, and does not hold up the next account's")
+        func memoryPhotoPrefetchAcrossSignOut() async {
+            URLProtocol.registerClass(HeldURLProtocol.self)
+            defer { URLProtocol.unregisterClass(HeldURLProtocol.self) }
+            let model = AppModel()
+            let previous = memoryWithPhoto("previous")
+            model.travel.memories = [previous]
+
+            model.travel.prefetchMemoryPhotos()
+            for _ in 0..<500 where HeldURLProtocol.heldCount == 0 {
+                try? await Task.sleep(for: .milliseconds(10))
+            }
+            #expect(HeldURLProtocol.heldCount == 1, "precondition: the previous couple's photo is downloading")
+
+            model.resetAccountScopedState()
+            HeldURLProtocol.releaseAll()
+            // Long enough for a write that is going to happen to have happened.
+            try? await Task.sleep(for: .milliseconds(500))
+            #expect(!MemoryPhotoDiskCache.has(path: previous.photos[0].path), "the signed-out couple's photo was written to the cache")
+
+            let next = memoryWithPhoto("next")
+            model.travel.memories = [next]
+            model.travel.prefetchMemoryPhotos()
+            for _ in 0..<200 where HeldURLProtocol.heldCount == 0 {
+                try? await Task.sleep(for: .milliseconds(10))
+            }
+            #expect(HeldURLProtocol.heldCount == 1, "the next account's prefetch did not start")
+            HeldURLProtocol.releaseAll()
+        }
+
         // MARK: - CORE-9
 
         @Test("sign-out ends Live Activities while the session they need still exists")

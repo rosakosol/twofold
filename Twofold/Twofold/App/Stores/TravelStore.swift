@@ -100,6 +100,8 @@ final class TravelStore: AccountScopedStore {
         }
         stopFlightsRealtimeChannel = nil
         flightsRealtimeCoupleID = nil
+        memoryPhotoPrefetch?.cancel()
+        memoryPhotoPrefetch = nil
     }
 
     // MARK: - Through the host
@@ -261,9 +263,10 @@ final class TravelStore: AccountScopedStore {
         }
     }
 
-    /// Guards against a second pass piling on top of one already in flight — `performAdopt` runs
-    /// on every foreground refresh, not just at launch.
-    private var isPrefetchingMemoryPhotos = false
+    /// The pass in flight, if any. Guards against a second piling on top of it — `performAdopt`
+    /// runs on every foreground refresh, not just at launch — and is how sign-out stops it (see
+    /// `reset()`).
+    @ObservationIgnored private var memoryPhotoPrefetch: Task<Void, Never>?
 
     /// Pulls memory photos onto disk ahead of time so they're actually there when there's no
     /// connection. Caching on display alone isn't enough for the case this exists for: a photo is
@@ -275,8 +278,12 @@ final class TravelStore: AccountScopedStore {
     /// megabytes over cellular to pre-empt a trip someone may not be taking is not a reasonable
     /// trade. Runs detached at low priority; every failure is skipped rather than retried, since
     /// the display path re-downloads on demand anyway.
+    ///
+    /// Cancelled at sign-out. It used to carry on, writing the signed-out couple's photos into the
+    /// cache sign-out had just emptied, and holding the next account's prefetch back until it was
+    /// done.
     func prefetchMemoryPhotos() {
-        guard !isPrefetchingMemoryPhotos else { return }
+        guard memoryPhotoPrefetch == nil else { return }
         guard NetworkMonitor.shared.isConnected, !NetworkMonitor.shared.isExpensive else { return }
 
         let photos = memories
@@ -285,14 +292,20 @@ final class TravelStore: AccountScopedStore {
             .filter { $0.path != "pending" && !MemoryPhotoDiskCache.has(path: $0.path) }
         guard !photos.isEmpty else { return }
 
-        isPrefetchingMemoryPhotos = true
-        Task.detached(priority: .background) {
+        memoryPhotoPrefetch = Task.detached(priority: .background) { [weak self] in
             for photo in photos {
+                guard !Task.isCancelled else { return }
                 guard let (data, _) = try? await URLSession.shared.data(from: photo.url) else { continue }
+                // A download already in the air at sign-out can still finish; its photo is not
+                // the next account's to keep.
+                guard !Task.isCancelled else { return }
                 MemoryPhotoDiskCache.write(data, path: photo.path)
             }
             MemoryPhotoDiskCache.enforceSizeLimit()
-            await MainActor.run { self.isPrefetchingMemoryPhotos = false }
+            // Not when cancelled: `reset()` has already let go of this one, and the slot may now
+            // hold the next account's.
+            guard !Task.isCancelled, let self else { return }
+            await MainActor.run { self.memoryPhotoPrefetch = nil }
         }
     }
 
