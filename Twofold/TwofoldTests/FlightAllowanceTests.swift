@@ -70,17 +70,41 @@ struct FlightAllowanceTests {
         #expect(message.contains("partner"))
     }
 
-    /// Every other failure keeps the behaviour it had: show whatever the server said.
-    @Test("an uncoded failure still shows the server's own message")
-    func uncodedFailurePassesThrough() {
-        let body = Data(#"{"error":"Flight not found"}"#.utf8)
-        let error = AeroFlightService.failure(status: 404, body: body)
-        guard case .requestFailed(let status, let message) = error else {
-            Issue.record("got \(error)")
-            return
+    /// The exact refusal `add-flight` and `resolve-flight` both return to a couple with no active
+    /// subscription. Verbatim, for the same reason as the bodies above.
+    private static let subscriptionBody = Data("""
+    {"error":"Tracking a new flight needs an active subscription. Everything you've already saved stays where it is.","code":"subscription_required"}
+    """.utf8)
+
+    /// The free couple's refusal from flight search and add flight. It used to fall through to
+    /// `requestFailed` and put the server's sentence on screen, where the way on is the paywall.
+    @Test("a no-subscription refusal is its own case, not the server's sentence")
+    func subscriptionRefusalIsRecognised() {
+        let error = AeroFlightService.failure(status: 403, body: Self.subscriptionBody)
+        if case .requestFailed = error {
+            Issue.record("got \(error) — the subscription refusal fell through to the server's own text")
         }
-        #expect(status == 404)
-        #expect(message == "Flight not found")
+        #expect(error.errorDescription != "Tracking a new flight needs an active subscription. Everything you've already saved stays where it is.")
+    }
+
+    /// Nothing the edge functions write reaches a traveller. Their sentences are written for
+    /// whoever reads the logs — "'date' must be YYYY-MM-DD", "Flight lookup failed: AeroAPI 500"
+    /// — and the app has its own words for every status it can get.
+    @Test("an uncoded failure shows the app's words, never the server's", arguments: [
+        (400, #"{"error":"'date' must be YYYY-MM-DD"}"#, "'date' must be YYYY-MM-DD"),
+        (404, #"{"error":"Flight not found"}"#, "Flight not found"),
+        (429, #"{"error":"You've done that a few too many times just now — please try again a bit later."}"#,
+         "You've done that a few too many times just now — please try again a bit later."),
+        (500, #"{"error":"Failed to save flight"}"#, "Failed to save flight"),
+        (502, #"{"error":"Flight lookup failed: AeroAPI 500 Internal Server Error"}"#, "Flight lookup failed: AeroAPI 500 Internal Server Error"),
+        (503, #"{"error":"Couldn't check your subscription. Please try again."}"#, "Couldn't check your subscription. Please try again."),
+    ])
+    func uncodedFailureUsesAppCopy(status: Int, body: String, serverSentence: String) {
+        let error = AeroFlightService.failure(status: status, body: Data(body.utf8))
+        let message = error.errorDescription ?? ""
+        #expect(!message.isEmpty)
+        #expect(message != serverSentence, "the server's own sentence reached the screen for \(status)")
+        #expect(!message.contains("AeroAPI"), "a supplier's name reached the screen: \(message)")
     }
 
     /// A 502 with an HTML body, or an empty one. Decoding fails, and that must not be mistaken
