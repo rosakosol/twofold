@@ -1222,19 +1222,18 @@ final class AppModel {
         // The only "…IfNeeded" that stays: its guard is `hasCouple`, not a staleness check, so
         // it already re-fetches every time it's called.
         //
-        // For a couple it is also the *only* one of the four needed. `fetchCoupleState` already
-        // returns trips, flights and memories — so pairing it with `refreshTrips`/`refreshFlights`
-        // /`refreshMemories` fetched all three twice per pull, and signed every photo the couple
-        // has ever added a second time along with them. Solo, it returns early on `hasCouple`,
-        // and the individual refreshes are the only thing that fetches anything at all.
+        // And the only one of the travel refreshes needed. For a couple, `fetchCoupleState`
+        // already returns trips, flights and memories — so pairing it with `refreshTrips`/
+        // `refreshFlights`/`refreshMemories` fetched all three twice per pull, and signed every
+        // photo the couple has ever added a second time along with them. Without a couple there is
+        // nothing for them to fetch: each returns at once on a nil `backendCoupleID`, which is
+        // every case where `hasCouple` is false (a solo account has `hasCouple` true and no couple
+        // id). They used to be called here for `!hasCouple` anyway, three no-ops.
         async let coupleState: Void = refreshCoupleStateIfNeeded()
-        async let trips: Void = session.hasCouple ? () : travel.refreshTrips()
-        async let flights: Void = session.hasCouple ? () : travel.refreshFlights()
-        async let memories: Void = session.hasCouple ? () : travel.refreshMemories()
         async let decks: Void = games.refreshGameDecks()
         async let streak: Void = games.refreshDailyStreak()
         async let pads: Void = loadDrawingPads()
-        _ = await (coupleState, trips, flights, memories, decks, streak, pads)
+        _ = await (coupleState, decks, streak, pads)
         if needsPartnerInvite {
             await session.refreshPendingConnectionRequests()
         }
