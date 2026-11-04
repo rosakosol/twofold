@@ -12,6 +12,7 @@ struct MemoriesMapView: View {
 
     @Environment(AppModel.self) private var appModel
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.colorScheme) private var colorScheme
     @State private var selectedCity: Place?
     /// Drives `AddMemoryView`'s sheet when the per-location list's own empty state is tapped —
     /// separate from `selectedCity` since that one's sheet stays open underneath (adding a memory
@@ -20,9 +21,18 @@ struct MemoriesMapView: View {
     /// Starts small (peek height) so the map's still visible/pannable underneath — swiping the
     /// sheet up, or tapping anywhere in the peek content, expands it to full height.
     @State private var sheetDetent: PresentationDetent = Self.peekDetent
-    /// Drives the staggered pin entrance below — same pattern onboarding's `MapSellView` mock
-    /// already uses, just against the real `citiesWithMemories` list instead of mock data.
+    /// The pins drawn at full size. Every pin the map opens with is in here from the start — they
+    /// appear with the map, under the same fade — and only a pin that arrives afterwards (a memory
+    /// just added) is inserted later, with the pop-in below.
     @State private var shownCityIDs: Set<UUID> = []
+    /// Ticks once per late pin's arrival, for its haptic. Its own trigger rather than
+    /// `shownCityIDs`, so the map opening with all its pins at once doesn't buzz.
+    @State private var latePinArrivals = 0
+    /// Whether the map is uncovered. Until it is, a themed cover sits over it while the tiles for
+    /// the opening region load (see `revealMap`), so the map appears once, finished, instead of
+    /// filling in tile by tile with the pins already standing on a blank grid.
+    @State private var isMapRevealed = Self.hasRevealedThisSession
+    @State private var mapSize: CGSize = .zero
     /// Seeded from `initialRegion` on first appearance and otherwise only written when a place is
     /// searched. See the `Map` below for why it is bound rather than an `initialPosition`.
     @State private var cameraPosition: MapCameraPosition = .automatic
@@ -43,6 +53,18 @@ struct MemoriesMapView: View {
     /// peek sits at x=8 w=386, `.large` at x=0 w=402, and `.fraction(0.98)` at x=8 w=386 — same
     /// width as the peek, ~823pt tall against `.large`'s 874.
     static let expandedDetent: PresentationDetent = .fraction(0.98)
+
+    /// The longest the cover may stay up. Past this the map shows whatever it has — offline, or on
+    /// a slow connection, a half-drawn map is better than a cover that never lifts.
+    static let tileWait: Duration = .milliseconds(2500)
+
+    /// Set once the map has been uncovered in this run of the app. The tiles for the opening
+    /// region are in MapKit's cache by then, so switching back from the list doesn't put the cover
+    /// up again for a map that would draw at once anyway.
+    private static var hasRevealedThisSession = false
+
+    /// The decoded size the pins draw their photo at — `MemoryMapPin.photoSize` (64pt) at 3x.
+    private static let pinThumbnailPixelSize: CGFloat = 192
 
     /// Centers on the user's own home city when known — same "home city as location" surrogate
     /// the rest of the app already uses for weather/distance, so this needs no fresh location
@@ -106,7 +128,9 @@ struct MemoriesMapView: View {
                 selectedCity = nil
             }
             .onAppear {
-                animatePins()
+                // All at once, with no stagger: they are under the cover until the map is ready,
+                // and come out from under it together with the map.
+                shownCityIDs = Set(pins.map(\.id))
                 // Once. Re-seeding on every appearance would throw away wherever the person had
                 // panned to the last time they looked at this screen.
                 if !didSeedCamera {
@@ -117,13 +141,21 @@ struct MemoriesMapView: View {
             // Adding a memory presents AddMemoryView as a sheet *over* this same view instance —
             // it never disappears/reappears, so `.onAppear` doesn't fire again on dismiss. Without
             // this, a newly-added city's pin renders into the Map's content (ForEach is reactive)
-            // but stays permanently scaled-to-0/invisible, since `animatePins()` only ever ran once
+            // but stays permanently scaled-to-0/invisible, since `onAppear` only ever ran once
             // and never added the new city's id to `shownCityIDs`. Switching to List and back used
             // to "fix" it only because that remounts this view, re-triggering `.onAppear`.
             .onChange(of: pins.map(\.id)) { _, newIDs in
                 revealNewPins(newIDs)
             }
-            .sensoryFeedback(.impact(weight: .light), trigger: shownCityIDs)
+            .sensoryFeedback(.impact(weight: .light), trigger: latePinArrivals)
+            .onGeometryChange(for: CGSize.self) { $0.size } action: { mapSize = $0 }
+            .overlay {
+                if !isMapRevealed {
+                    MapLoadingCover()
+                        .transition(.opacity)
+                }
+            }
+            .task { await revealMap(pins: pins) }
 
             // The map fades into the screen background at the top (section 6, Memories), so the
             // title and search field sit on calm ground rather than straight on the map.
@@ -282,7 +314,7 @@ struct MemoriesMapView: View {
             if let newest = pin.newest {
                 // The pin draws at `MemoryMapPin.photoSize` (64pt), so 192px covers it at 3x.
                 // Without this the map decodes a full 1600px upload per pin to fill a thumbnail.
-                MemoryPhotoView(memory: newest, cornerRadius: 6, thumbnailPixelSize: 192)
+                MemoryPhotoView(memory: newest, cornerRadius: 6, thumbnailPixelSize: Self.pinThumbnailPixelSize)
             } else {
                 RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Theme.surface)
             }
@@ -345,7 +377,8 @@ struct MemoriesMapView: View {
         }
     }
 
-    /// The gap between one pin appearing and the next, for a set of `count` pins.
+    /// The gap between one pin appearing and the next, for a set of `count` pins arriving after
+    /// the map is already showing (the pins it opens with appear together, with the map).
     ///
     /// The beat was a flat 0.12s per pin, which makes time-to-finished a straight multiple of how
     /// many places a couple has been: ten places took 1.2s, forty took **4.8s** — and a pin sits
@@ -364,31 +397,82 @@ struct MemoriesMapView: View {
     /// The longest the whole reveal may take, last pin included.
     static let pinRevealWindow: Double = 1.08
 
-    /// Same staggered-reveal timing `MapSellView`'s onboarding mock uses — each pin scales/fades
-    /// in a beat after the last, rather than the whole set popping onto the map at once.
-    private func animatePins() {
-        shownCityIDs.removeAll()
-        let cities = appModel.travel.citiesWithMemories
-        let stagger = Self.pinRevealStagger(count: cities.count)
-        for (index, city) in cities.enumerated() {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.65).delay(0.15 + Double(index) * stagger)) {
-                _ = shownCityIDs.insert(city.id)
+    /// Lifts the cover once the opening region's tiles and the photos of the pins in it are
+    /// loaded, or after `tileWait`, whichever is first — then the map and its pins fade in as one.
+    ///
+    /// SwiftUI's `Map` says nothing about when its tiles have finished (there is no counterpart to
+    /// `MKMapViewDelegate`'s `mapViewDidFinishRenderingMap`), so the tiles are fetched by an
+    /// `MKMapSnapshotter` of the same region and style instead. Both go through MapKit's shared tile
+    /// cache, so once the snapshot is done the map behind the cover draws from it rather than the
+    /// network; the short settle after it is the map's own draw.
+    private func revealMap(pins: [CityPin]) async {
+        guard !isMapRevealed else { return }
+        let region = initialRegion
+        let size = mapSize == .zero ? CGSize(width: 402, height: 874) : mapSize
+        let style: UIUserInterfaceStyle = colorScheme == .dark ? .dark : .light
+        let photos = pins.filter { Self.region(region, contains: $0.place.coordinate) }.compactMap { $0.newest?.photos.first }
+
+        _ = await LoadingGate.wait(upTo: Self.tileWait) {
+            async let tiles: Void = Self.warmTiles(for: region, size: size, style: style)
+            async let thumbnails: Void = Self.warmPinPhotos(photos)
+            _ = await (tiles, thumbnails)
+        }
+        Self.hasRevealedThisSession = true
+        withAnimation(.easeOut(duration: 0.35)) { isMapRevealed = true }
+    }
+
+    /// Loads the tiles for `region` into MapKit's cache by drawing a snapshot of it, in the map's
+    /// own style and appearance so they are the same tiles.
+    private static func warmTiles(for region: MKCoordinateRegion, size: CGSize, style: UIUserInterfaceStyle) async {
+        let options = MKMapSnapshotter.Options()
+        options.region = region
+        options.size = size
+        options.preferredConfiguration = MKStandardMapConfiguration(elevationStyle: .realistic)
+        options.traitCollection = UITraitCollection(userInterfaceStyle: style)
+        // A failure (offline, mostly) ends the wait too: there is nothing more to wait for.
+        _ = try? await MKMapSnapshotter(options: options).start()
+        try? await Task.sleep(for: .milliseconds(250))
+    }
+
+    /// Decodes the pins' thumbnails into the cache their `MemoryPhotoView`s read on first draw, so
+    /// the pins come up with their photos rather than each swapping its placeholder out on its own.
+    private static func warmPinPhotos(_ photos: [MemoryPhoto]) async {
+        let size = pinThumbnailPixelSize
+        await withTaskGroup(of: Void.self) { group in
+            for photo in photos.prefix(30) {
+                group.addTask { _ = await MemoryPhotoView.loadImage(for: photo, thumbnailPixelSize: size) }
             }
         }
     }
 
-    /// Reveals just the cities not already shown — used after the initial `animatePins()` so a
+    /// Whether a coordinate is inside a region, for picking the pins the map opens on.
+    static func region(_ region: MKCoordinateRegion, contains coordinate: CLLocationCoordinate2D) -> Bool {
+        let halfLatitude = region.span.latitudeDelta / 2
+        let halfLongitude = region.span.longitudeDelta / 2
+        var longitudeOffset = abs(coordinate.longitude - region.center.longitude).truncatingRemainder(dividingBy: 360)
+        if longitudeOffset > 180 { longitudeOffset = 360 - longitudeOffset }
+        return abs(coordinate.latitude - region.center.latitude) <= halfLatitude && longitudeOffset <= halfLongitude
+    }
+
+    /// Reveals just the cities not already shown — used after the initial set in `onAppear` so a
     /// memory added later (e.g. via the "+" sheet) pops in on its own instead of staying invisible
     /// until this view happens to remount. See the `.onChange` comment above for why this exists.
     private func revealNewPins(_ cityIDs: [UUID]) {
         let newIDs = cityIDs.filter { !shownCityIDs.contains($0) }
         guard !newIDs.isEmpty else { return }
+        // Still covered — memories landing from a refresh while the tiles load. No pop-in for
+        // what nobody can see; they come out with the map.
+        guard isMapRevealed else {
+            shownCityIDs.formUnion(newIDs)
+            return
+        }
         let stagger = Self.pinRevealStagger(count: newIDs.count)
         for (index, id) in newIDs.enumerated() {
             withAnimation(.spring(response: 0.4, dampingFraction: 0.65).delay(Double(index) * stagger)) {
                 _ = shownCityIDs.insert(id)
             }
         }
+        latePinArrivals += 1
     }
 
     private var emptyStateHint: some View {
@@ -443,6 +527,39 @@ struct MemoriesMapView: View {
         let height = max(maxY - minY, minSize) * (1 + 2 * padding)
         let rect = MKMapRect(x: (minX + maxX) / 2 - width / 2, y: (minY + maxY) / 2 - height / 2, width: width, height: height)
         return MKCoordinateRegion(rect)
+    }
+}
+
+/// What stands over the map while its tiles load: the screen's own background, so the map seems to
+/// develop out of the page rather than a grey grid, with a soft band of light passing over it to
+/// say something is coming. The band stays still under Reduce Motion.
+private struct MapLoadingCover: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var sweeping = false
+
+    var body: some View {
+        ZStack {
+            ScreenBackground()
+            if !reduceMotion {
+                GeometryReader { geo in
+                    LinearGradient(
+                        colors: [Theme.raised.opacity(0), Theme.raised.opacity(0.45), Theme.raised.opacity(0)],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                    .frame(width: geo.size.width * 0.6)
+                    .offset(x: sweeping ? geo.size.width : -geo.size.width * 0.6)
+                    .onAppear {
+                        withAnimation(.easeInOut(duration: 1.4).repeatForever(autoreverses: false)) { sweeping = true }
+                    }
+                }
+                .ignoresSafeArea()
+            }
+        }
+        // Holds the touches too: a pan or a pin tapped on a map nobody can see yet would move it
+        // somewhere unexpected by the time it shows.
+        .contentShape(Rectangle())
+        .accessibilityHidden(true)
     }
 }
 
