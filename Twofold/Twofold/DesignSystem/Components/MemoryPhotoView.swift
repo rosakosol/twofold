@@ -59,7 +59,11 @@ struct MemoryPhotoView: View {
     private var primaryPhoto: MemoryPhoto? { photo }
 
     private var cacheKey: String? {
-        guard let photo = primaryPhoto else { return nil }
+        primaryPhoto.map { Self.cacheKey(for: $0, thumbnailPixelSize: thumbnailPixelSize) }
+    }
+
+    /// Where a photo's decoded image lives in `ImageMemoryCache.memoryPhotos`, at a given size.
+    static func cacheKey(for photo: MemoryPhoto, thumbnailPixelSize: CGFloat?) -> String {
         let base = photo.path == "pending" ? photo.url.absoluteString : photo.path
         // The size belongs in the key. Without it a pin's 192px thumbnail and the detail screen's
         // full-size decode are the same entry, and whichever loads first is what the other gets —
@@ -69,6 +73,12 @@ struct MemoryPhotoView: View {
         // original bytes under the plain path, so a thumbnail and a full decode share one download.
         guard let thumbnailPixelSize else { return base }
         return "\(base)@\(Int(thumbnailPixelSize))"
+    }
+
+    /// Whether the photo is already decoded in memory at this size, so a view drawing it now
+    /// draws it on its first frame.
+    static func isDecoded(_ photo: MemoryPhoto, thumbnailPixelSize: CGFloat? = nil) -> Bool {
+        ImageMemoryCache.memoryPhotos.image(for: cacheKey(for: photo, thumbnailPixelSize: thumbnailPixelSize)) != nil
     }
 
     private var resolvedImage: UIImage? {
@@ -125,32 +135,41 @@ struct MemoryPhotoView: View {
         }
     }
 
+    private func load(_ photo: MemoryPhoto) async {
+        guard let image = await Self.loadImage(for: photo, thumbnailPixelSize: thumbnailPixelSize) else { return }
+        loadedImage = image
+    }
+
     /// Three tiers, cheapest first: the in-memory `NSCache`, then `MemoryPhotoDiskCache`, then the
     /// network. The disk tier is what makes memories browsable with no connection — the `NSCache`
     /// above is empty on every cold launch, and `photo.url` is a signed URL that can't be fetched
     /// offline (and has usually expired anyway), so without it a plane trip shows nothing but
     /// placeholder gradients.
-    private func load(_ photo: MemoryPhoto) async {
-        guard let key = cacheKey else { return }
+    ///
+    /// Static, and storing what it decodes, so a screen can warm the cache before it draws — the
+    /// memory detail screen and the map wait on this, then every `MemoryPhotoView` for the same
+    /// photo and size draws from the cache on its first frame.
+    @discardableResult
+    static func loadImage(for photo: MemoryPhoto, thumbnailPixelSize: CGFloat?) async -> UIImage? {
+        let key = cacheKey(for: photo, thumbnailPixelSize: thumbnailPixelSize)
         if let cached = ImageMemoryCache.memoryPhotos.image(for: key) {
-            loadedImage = cached
-            return
+            return cached
         }
 
         // Pending (not-yet-uploaded) photos are already real local files courtesy of
         // `PendingMemoryStore`, so there's nothing to cache a second copy of.
         let isUploaded = photo.path != "pending"
 
-        if isUploaded, let data = MemoryPhotoDiskCache.read(path: photo.path), let image = await decoded(data) {
+        if isUploaded, let data = MemoryPhotoDiskCache.read(path: photo.path), let image = await decoded(data, thumbnailPixelSize: thumbnailPixelSize) {
             ImageMemoryCache.memoryPhotos.store(image, for: key)
-            loadedImage = image
-            return
+            return image
         }
 
-        guard let (data, _) = try? await URLSession.shared.data(from: photo.url), let image = await decoded(data) else { return }
+        guard let (data, _) = try? await URLSession.shared.data(from: photo.url),
+              let image = await decoded(data, thumbnailPixelSize: thumbnailPixelSize) else { return nil }
         if isUploaded { MemoryPhotoDiskCache.write(data, path: photo.path) }
         ImageMemoryCache.memoryPhotos.store(image, for: key)
-        loadedImage = image
+        return image
     }
 
     /// Decodes off the main actor, at `thumbnailPixelSize` when one is set.
@@ -159,9 +178,8 @@ struct MemoryPhotoView: View {
     /// the `UIImage(data:)` that used to sit in it — runs on the main actor. On a cold launch with
     /// an empty `NSCache` that is a full-size JPEG decode per visible pin, on the thread drawing
     /// the map.
-    private func decoded(_ data: Data) async -> UIImage? {
-        let target = thumbnailPixelSize
-        return await Task.detached(priority: .userInitiated) {
+    private static func decoded(_ data: Data, thumbnailPixelSize target: CGFloat?) async -> UIImage? {
+        await Task.detached(priority: .userInitiated) {
             guard let target else { return UIImage(data: data) }
             return MemoryPhotoView.downsampled(data, maxPixelSize: target)
         }.value
