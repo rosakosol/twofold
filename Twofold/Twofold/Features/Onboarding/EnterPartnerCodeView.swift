@@ -17,15 +17,9 @@ struct EnterPartnerCodeView: View {
             subtitle: "It looks like XXXX-XXXX.",
             content: {
                 VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-                    TextField("e.g. ABCD-EFGH", text: $code)
-                        .textInputAutocapitalization(.characters)
-                        .autocorrectionDisabled()
+                    InviteCodeField(placeholder: "e.g. ABCD-EFGH", code: $code)
                         .padding()
                         .onboardingFieldBackground()
-                        .onChange(of: code) { oldValue, newValue in
-                            let formatted = InviteCode.autoFormat(newValue, isDeleting: newValue.count < oldValue.count)
-                            if formatted != code { code = formatted }
-                        }
                     if let errorMessage {
                         Text(errorMessage)
                             .font(.caption)

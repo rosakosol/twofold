@@ -115,18 +115,10 @@ struct RedeemPartnerCodeView: View {
                 .redacted(reason: hasResolvedLinkInviter ? [] : .placeholder)
             }
 
-            TextField("XXXX-XXXX", text: $code)
-                .textInputAutocapitalization(.characters)
-                .autocorrectionDisabled()
-                .multilineTextAlignment(.center)
-                .font(.title.bold())
+            InviteCodeField(placeholder: "XXXX-XXXX", code: $code, textStyle: .title1, isBold: true, alignment: .center)
                 .padding()
                 .onboardingFieldBackground()
                 .padding(.horizontal, Theme.Spacing.lg)
-                .onChange(of: code) { oldValue, newValue in
-                    let formatted = InviteCode.autoFormat(newValue, isDeleting: newValue.count < oldValue.count)
-                    if formatted != code { code = formatted }
-                }
 
             if let errorMessage {
                 Text(errorMessage)

@@ -78,4 +78,9 @@ enum InviteCode {
         let rest = limited.dropFirst(4)
         return rest.isEmpty ? "\(firstFour)-" : "\(firstFour)-\(rest)"
     }
+
+    /// What the field holds after the keyboard changes `current` to `typed`.
+    static func applyingEdit(_ typed: String, to current: String) -> String {
+        autoFormat(typed, isDeleting: typed.count < current.count)
+    }
 }

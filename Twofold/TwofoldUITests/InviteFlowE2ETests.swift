@@ -49,14 +49,10 @@ final class InviteFlowE2ETests: E2ETestCase {
         field.typeText(text)
     }
 
-    /// One letter at a time. The code field reformats itself on every change (`InviteCode
-    /// .autoFormat`), and typed at full speed a keystroke landing mid-reformat was dropped.
+    /// At full speed. It used to go a letter at a time, because the field dropped keystrokes that
+    /// landed while it reformatted itself; `testACodeTypedAtFullSpeedKeepsEveryLetter` holds that.
     private func typeCode(_ code: String, into field: XCUIElement, in app: XCUIApplication) {
-        type("", into: field, in: app)
-        for letter in code where letter.isLetter {
-            field.typeText(String(letter))
-            usleep(150_000)
-        }
+        type(String(code.filter(\.isLetter)), into: field, in: app)
     }
 
     /// Welcome → "I have an account or invite" → "Have an invite code instead?"
@@ -66,6 +62,24 @@ final class InviteFlowE2ETests: E2ETestCase {
         app.buttons["I have an account or invite"].tap()
         require(app.buttons["Have an invite code instead?"], timeout: 10, "No invite-code route on the sign-in sheet").tap()
         require(app.staticTexts["Enter your partner's code"], timeout: 10, "Never reached the code screen")
+    }
+
+    // MARK: - Typing a code
+
+    /// Typed at full speed, as somebody copying a code off their partner's screen does. The field
+    /// reformatted itself after each change, in a second update, and a letter typed while that
+    /// was pending was overwritten by it — the one after the dash, most often.
+    @MainActor
+    func testACodeTypedAtFullSpeedKeepsEveryLetter() throws {
+        let app = launchSignedOut()
+        openTypedCodeScreen(app)
+        let field = app.textFields["e.g. ABCD-EFGH"]
+        type("ABCDEFGH", into: field, in: app)
+        XCTAssertEqual(field.value as? String, "ABCD-EFGH", "Letters typed quickly were dropped")
+
+        for _ in 0..<12 { field.typeText(XCUIKeyboardKey.delete.rawValue) }
+        type("qwerzxcv", into: field, in: app)
+        XCTAssertEqual(field.value as? String, "QWER-ZXCV", "Letters typed quickly were dropped")
     }
 
     // MARK: - ONB-1
