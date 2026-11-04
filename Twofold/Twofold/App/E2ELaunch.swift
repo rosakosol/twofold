@@ -30,6 +30,10 @@
 //    TWOFOLD_E2E_HOLD_LAUNCH=<sec>   hold on the loading screen this long before restoring the
 //                                    session, so a link the test opens arrives as it would on a
 //                                    cold launch. See `launchHold`.
+//    TWOFOLD_E2E_FLIGHT_SEARCH=<json> answer every flight search with this `resolve-flight` body
+//                                    instead of calling it — the local stack has no AeroAPI key,
+//                                    so this is how a test reaches the confirm step and the real
+//                                    `add-flight` behind it. See `flightSearchResponse`.
 //    TWOFOLD_E2E_KEEP_DEVICE=1       skip the clean-device reset, for a second launch that must see
 //                                    what the first one left behind (the offline tests).
 //    TWOFOLD_E2E_WRITES_FAIL=1       every trip, memory and profile write, and every puzzle
@@ -175,6 +179,18 @@ enum E2ELaunch {
         return offers
     }
 
+    /// A `resolve-flight` response body to answer every flight search with, from
+    /// `TWOFOLD_E2E_FLIGHT_SEARCH`. Nil unless the test sets it, which leaves the search calling
+    /// the local function as it always does.
+    ///
+    /// Only the search is canned. A search result is what the confirm step needs, and the local
+    /// stack cannot produce one — it has no AeroAPI key — while what the tests exercise is what
+    /// `add-flight` answers once a result is chosen, which it does for real.
+    static var flightSearchResponse: Data? {
+        guard isOn, let body = environment["TWOFOLD_E2E_FLIGHT_SEARCH"], !body.isEmpty else { return nil }
+        return Data(body.utf8)
+    }
+
     /// Whether `LiveCoupleDataBackend` should fail every write right now. `NetworkMonitor`'s
     /// `TWOFOLD_FORCE_OFFLINE` is no use here: it takes reads down too, and what needs testing is
     /// a refresh that succeeds while the writes before it did not.
@@ -220,6 +236,7 @@ enum E2ELaunch {
     static var configuresRevenueCat: Bool { true }
     static var introductoryOffers: [String: IntroductoryOfferTerms]? { nil }
     static var writesFail: Bool { false }
+    static var flightSearchResponse: Data? { nil }
     static func noteBackgrounded() {}
     static func prepareCleanDeviceIfRequested() {}
     #endif

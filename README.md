@@ -994,6 +994,11 @@ waitForSignedInApp(app)
   background, so coming back is the reconnect. Pair it with `keepDevice: true, signIn: false` for a
   relaunch that must send what the first launch queued (see `OfflineWritesE2ETests` and
   `PuzzleResultE2ETests`).
+* **Flight search:** `TWOFOLD_E2E_FLIGHT_SEARCH=<json>` answers every flight search with that
+  `resolve-flight` body instead of calling it, since the local stack has no AeroAPI key to find a
+  real flight with; what follows (`add-flight`) is the real function. Tests that call edge
+  functions (`FlightPaywallE2ETests`) also need them served: `supabase functions serve` from the
+  repo root, beside the stack started above.
 * **Links during launch:** `TWOFOLD_E2E_HOLD_LAUNCH=<seconds>` holds the app on its loading screen
   before the session is restored, so a link the test opens with `app.open(_:)` arrives as one would
   on a cold launch. A real cold launch from a link cannot be driven from a UI test: the system

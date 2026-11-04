@@ -271,6 +271,9 @@ enum AeroFlightService {
     private static func call<Response: Decodable>(_ functionName: String, body: [String: Any]) async throws -> Response {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
+        if functionName == "resolve-flight", let canned = E2ELaunch.flightSearchResponse {
+            return try decoder.decode(Response.self, from: canned)
+        }
         do {
             // Slow: these wait on the airline data provider.
             return try await EdgeFunctions.invoke(functionName, body: body, timeout: EdgeFunctions.slowTimeout, decoder: decoder)
