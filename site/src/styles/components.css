@@ -555,6 +555,24 @@ select.input {
   font-size: var(--text-small);
   color: var(--text-secondary);
 }
+/* A figure not known yet (see PlanCard's Pending): the server cannot know the visitor's currency,
+   so it draws this rather than a price that would change in front of them. Sized in ch of the
+   surrounding text so it takes about the room the figure will, and shorter than the line so the
+   line box, and everything below it, stays put. */
+.plan-card-pending {
+  display: inline-block;
+  width: 4.5ch;
+  height: 0.8em;
+  border-radius: 6px;
+  background: var(--line);
+  vertical-align: -0.05em;
+  animation: plan-card-pending 1.4s ease-in-out infinite alternate;
+}
+@keyframes plan-card-pending {
+  to {
+    opacity: 0.45;
+  }
+}
 .plan-card-features {
   display: flex;
   flex-direction: column;

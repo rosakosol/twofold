@@ -28,7 +28,13 @@ import {
 import { useLivePrices } from "@/lib/marketing/useLivePrices";
 import { planCtaLabel, standingOffersTrial, type TrialStanding } from "@/lib/marketing/trialEligibility";
 import { resolveTrialStanding, useTrialStanding } from "@/lib/marketing/useTrialStanding";
-import { priceLabelFor, perMonthLabelFor, yearlySavingPercent, savingPercent } from "@/lib/marketing/priceDisplay";
+import {
+  currencyName,
+  figuresForPlan,
+  savingPercent,
+  type LivePriceStatus,
+  type PlanFigures,
+} from "@/lib/marketing/priceDisplay";
 import Link from "next/link";
 import { CheckCircle2, LayoutGrid } from "lucide-react";
 import { AppStoreButton } from "@/components/site/AppStoreButton";
@@ -69,6 +75,7 @@ function PricedPlanCard({
   buyingKey,
   onBuy,
   livePrices,
+  figures,
   standing,
 }: {
   plan: ResolvedPlan;
@@ -76,6 +83,8 @@ function PricedPlanCard({
   buyingKey: string | null;
   onBuy: (planId: PlanId, period: Period) => void;
   livePrices: LivePrices;
+  /** Null while the offering is still loading; see PlanCard. */
+  figures: PlanFigures | null;
   standing: TrialStanding;
 }) {
   const key = `${plan.id}-${period}`;
@@ -85,29 +94,11 @@ function PricedPlanCard({
   // offering only exist in code, so they come from PLANS - same lookup attemptPurchase does.
   const packages = PLANS[plan.id];
 
-  // Live where the offering has it, the plan's own label otherwise. The label renders first
-  // and is replaced in place once the offering resolves, so there is never an empty price -
-  // only one that may refine itself into the buyer's own currency.
-  const monthlyFigure =
-    period === "monthly"
-      ? priceLabelFor(livePrices, packages.monthly.packageId, plan.monthly.priceLabel)
-      : perMonthLabelFor(livePrices, packages.yearly.packageId, plan.yearly.perMonthLabel);
-  const yearlyTotal = priceLabelFor(livePrices, packages.yearly.packageId, plan.yearly.priceLabel);
-
-  // Per-plan rather than the single figure on the period toggle: the two tiers could be
-  // discounted differently, and a card claiming a saving it doesn't give is worse than no
-  // claim at all. Live prices where available, PLANS' own numbers otherwise.
-  const saving =
-    yearlySavingPercent(livePrices[packages.monthly.packageId], livePrices[packages.yearly.packageId]) ??
-    savingPercent(packages.monthly.price, packages.yearly.price);
-
   return (
     <PlanCard
       plan={plan}
       period={period}
-      monthlyFigure={monthlyFigure}
-      yearlyTotal={yearlyTotal}
-      saving={saving}
+      figures={figures}
       action={
         <button
           type="button"
@@ -122,6 +113,23 @@ function PricedPlanCard({
       }
     />
   );
+}
+
+/**
+ * The line under the cards, saying what currency they are in.
+ *
+ * Was a constant "Prices in Australian dollars", true only while the products had one currency.
+ * Now it names whatever the cards are actually showing, and is plain about the fallback in
+ * particular: those are PLANS' AUD prices standing in for the offering, and the visitor's checkout
+ * may well be in another currency. A non-breaking space while loading, so the line keeps its height.
+ */
+function currencyNote(status: LivePriceStatus, figures: PlanFigures | null): string {
+  if (status === "loading" || !figures) return "\u00a0";
+  const name = currencyName(figures.currency);
+  if (figures.source === "fallback") {
+    return `Prices in ${name}. Checkout shows the exact amount and currency before you pay.`;
+  }
+  return `Prices in ${name}. The App Store shows its own local price.`;
 }
 
 function PricingContent({ plans }: { plans: { plus: ResolvedPlan; premium: ResolvedPlan } }) {
@@ -163,10 +171,18 @@ function PricingContent({ plans }: { plans: { plus: ResolvedPlan; premium: Resol
   const standing = useTrialStanding(authLoading ? undefined : (session?.user.id ?? null));
   // The returning-customer offering, when one is configured and this is somebody it is for.
   const returningOffering = standing === "returning" ? RETURNING_CUSTOMER_OFFERING_ID : null;
-  // Empty until the offering resolves; every read falls back to the plan's own label, so
-  // the cards are fully priced on first paint and only refine afterwards. Read under the session's
-  // user once there is one, and an anonymous id until then (see useLivePrices).
-  const livePrices = useLivePrices(session?.user.id ?? null, returningOffering);
+  // Read under the session's user once auth has resolved, and an anonymous id when signed out (see
+  // useLivePrices). The cards hold placeholders until it answers or times out, then show either
+  // the live prices or PLANS' AUD fallback - never the AUD figure first and the visitor's own
+  // currency a moment later, which read as the price changing in front of them.
+  const { prices: livePrices, status: priceStatus } = useLivePrices(
+    authLoading ? undefined : (session?.user.id ?? null),
+    returningOffering
+  );
+  const figures = {
+    plus: priceStatus === "loading" ? null : figuresForPlan(livePrices, "plus"),
+    premium: priceStatus === "loading" ? null : figuresForPlan(livePrices, "premium"),
+  };
   // The lead's trial sentence is about the plans as a whole, so it goes once RevenueCat says no
   // package carries a trial for this customer. Until the offering loads, the standing decides.
   const loadedPrices = Object.values(livePrices);
@@ -176,12 +192,11 @@ function PricingContent({ plans }: { plans: { plus: ResolvedPlan; premium: Resol
   // "Save 50%" was typed into the markup, so a price change in Stripe would have left it
   // advertising a discount that no longer existed. Derived from the live offering, falling
   // back to PLANS' own numbers - both plans are priced at the same ratio, so Plus speaks for
-  // the toggle. Null hides the pill rather than showing "Save 0%".
-  const yearlySaving =
-    yearlySavingPercent(
-      livePrices[PLANS.plus.monthly.packageId],
-      livePrices[PLANS.plus.yearly.packageId]
-    ) ?? savingPercent(PLANS.plus.monthly.price, PLANS.plus.yearly.price);
+  // the toggle. Null hides the pill rather than showing "Save 0%". PLANS' ratio stands in while
+  // loading too: it is not a currency claim, and the pill appearing late would move the toggle.
+  const yearlySaving = figures.plus
+    ? figures.plus.saving
+    : savingPercent(PLANS.plus.monthly.price, PLANS.plus.yearly.price);
 
   async function attemptPurchase(planId: PlanId, billingPeriod: Period) {
     setPurchaseError(null);
@@ -613,13 +628,13 @@ function PricingContent({ plans }: { plans: { plus: ResolvedPlan; premium: Resol
 
               <div className="plan-cards">
                 <div id="plan-plus">
-                  <PricedPlanCard plan={plans.plus} period={period} buyingKey={buyingKey} onBuy={attemptPurchase} livePrices={livePrices} standing={standing} />
+                  <PricedPlanCard plan={plans.plus} period={period} buyingKey={buyingKey} onBuy={attemptPurchase} livePrices={livePrices} figures={figures.plus} standing={standing} />
                 </div>
                 <div id="plan-premium">
-                  <PricedPlanCard plan={plans.premium} period={period} buyingKey={buyingKey} onBuy={attemptPurchase} livePrices={livePrices} standing={standing} />
+                  <PricedPlanCard plan={plans.premium} period={period} buyingKey={buyingKey} onBuy={attemptPurchase} livePrices={livePrices} figures={figures.premium} standing={standing} />
                 </div>
               </div>
-              <p className="pricing-currency">Prices in Australian dollars. The App Store shows your local currency.</p>
+              <p className="pricing-currency">{currencyNote(priceStatus, figures.plus)}</p>
 
               {purchaseError && (
                 <p className="field-error pricing-error" role="status" aria-live="polite">

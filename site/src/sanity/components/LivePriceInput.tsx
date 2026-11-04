@@ -1,9 +1,9 @@
 import {useEffect, useState} from 'react'
 import {Badge, Card, Flex, Spinner, Stack, Text} from '@sanity/ui'
 import {useFormValue, type StringInputProps} from 'sanity'
-import {PLANS, type PlanId} from '@/lib/marketing/config'
+import type {PlanId} from '@/lib/marketing/config'
 import {anonymousAppUserId, fetchLivePrices, type LivePrices} from '@/lib/marketing/billing'
-import {perMonthLabelFor, priceLabelFor} from '@/lib/marketing/priceDisplay'
+import {figuresForPlan, type PlanFigures} from '@/lib/marketing/priceDisplay'
 
 // Read-only price display for the `plan` documents.
 //
@@ -78,27 +78,16 @@ export function LivePriceInput(props: StringInputProps) {
     )
   }
 
-  const storedLabel = props.value ?? ''
-  const codeDefault = planId
-    ? kind === 'monthly'
-      ? PLANS[planId].monthly.priceLabel
-      : kind === 'yearlyTotal'
-        ? PLANS[planId].yearly.priceLabel
-        : PLANS[planId].yearly.perMonthLabel ?? ''
-    : ''
+  // Formatted exactly as the site formats them (figuresForPlan), so this shows what a visitor in
+  // this browser's locale sees. The stored value is no longer read anywhere: it was an AUD label
+  // with a bare "$", which the site cannot honestly show to somebody outside Australia, so the
+  // fallback comes from PLANS' numbers instead (see priceDisplay.ts).
+  const figureOf = (figures: PlanFigures): string =>
+    kind === 'monthly' ? figures.monthly : kind === 'yearlyTotal' ? figures.yearlyTotal : figures.yearlyPerMonth
 
-  // What the site will show if RevenueCat has nothing: the stored label, else the code default.
-  const fallback = storedLabel || codeDefault
-
-  let live: string | null = null
-  if (prices && planId) {
-    const packageId = kind === 'monthly' ? PLANS[planId].monthly.packageId : PLANS[planId].yearly.packageId
-    const resolved =
-      kind === 'yearlyPerMonth'
-        ? perMonthLabelFor(prices, packageId, '')
-        : priceLabelFor(prices, packageId, '')
-    live = resolved || null
-  }
+  const fallback = planId ? figureOf(figuresForPlan({}, planId)) : null
+  const liveFigures = prices && planId ? figuresForPlan(prices, planId) : null
+  const live = liveFigures?.source === 'live' ? figureOf(liveFigures) : null
 
   if (!prices) {
     return (

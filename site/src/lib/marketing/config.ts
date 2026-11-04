@@ -40,9 +40,8 @@ export const RETURNING_CUSTOMER_OFFERING_ID: string | null = null;
 // four values are the other half of that change.
 export interface PlanPeriod {
   packageId: string;
+  /** In FALLBACK_CURRENCY (AUD; see priceDisplay.ts). Only shown when the live offering is unavailable. */
   price: number;
-  priceLabel: string;
-  perMonthLabel?: string;
 }
 
 export type PlanId = "plus" | "premium";
@@ -63,8 +62,8 @@ export const PLANS: Record<"plus" | "premium", Plan> = {
     name: "Twofold Plus",
     entitlement: ENTITLEMENTS.plus,
     tagline: "Everything you need for long-distance love",
-    monthly: { packageId: "plus_monthly", price: 9.99, priceLabel: "$9.99" },
-    yearly: { packageId: "plus_yearly", price: 59.99, priceLabel: "$59.99", perMonthLabel: "$5.00" },
+    monthly: { packageId: "plus_monthly", price: 9.99 },
+    yearly: { packageId: "plus_yearly", price: 59.99 },
     features: [
       "Everything you need for long-distance love",
       "Unlimited trips & memories",
@@ -80,8 +79,8 @@ export const PLANS: Record<"plus" | "premium", Plan> = {
     name: "Twofold Premium",
     entitlement: ENTITLEMENTS.premium,
     tagline: "The full relationship globe experience",
-    monthly: { packageId: "premium_monthly", price: 19.99, priceLabel: "$19.99" },
-    yearly: { packageId: "premium_yearly", price: 119.99, priceLabel: "$119.99", perMonthLabel: "$10.00" },
+    monthly: { packageId: "premium_monthly", price: 19.99 },
+    yearly: { packageId: "premium_yearly", price: 119.99 },
     features: [
       "Everything in Twofold Plus",
       "Track 5 flights live each month",

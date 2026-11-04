@@ -75,8 +75,10 @@ export async function getLegalPage(pageId: "privacy" | "terms"): Promise<LegalPa
   );
 }
 
-// Pricing plans. Sanity holds DISPLAY copy only (name, tagline, price labels, features,
-// which card is featured); the RevenueCat wiring (entitlement + package IDs) always comes
+// Pricing plans. Sanity holds DISPLAY copy only (name, tagline, features, which card is
+// featured). Not prices: those come from RevenueCat, with PLANS' numbers as the fallback, and the
+// three price-label fields still in the schema are read by nothing (see priceDisplay.ts). And not
+// the RevenueCat wiring either: entitlement and package IDs always come
 // from code (config.ts PLANS), which also supplies the fallback for any field left blank
 // in Studio — same null-fallback philosophy as getHero. getResolvedPlans() merges the two
 // so both the /pricing cards and the home pricing preview render the same edited content.
@@ -84,9 +86,6 @@ export interface PlanDoc {
   name?: string;
   tagline?: string;
   featured?: boolean;
-  monthlyPriceLabel?: string;
-  yearlyPriceLabel?: string;
-  yearlyPerMonthLabel?: string;
   ctaLabel?: string;
   features?: string[];
 }
@@ -97,8 +96,6 @@ export interface ResolvedPlan {
   tagline: string;
   featured: boolean;
   ctaLabel: string;
-  monthly: { priceLabel: string };
-  yearly: { priceLabel: string; perMonthLabel: string };
   features: string[];
 }
 
@@ -107,7 +104,7 @@ type PlanDocWithMeta = PlanDoc & { _id: string; _updatedAt?: string };
 export async function getPlans(): Promise<{ plus: PlanDocWithMeta | null; premium: PlanDocWithMeta | null }> {
   const docs = await fetchOrFallback<PlanDocWithMeta[]>("plans", [], (sanity) =>
     sanity.fetch(
-      `*[_id in ["plan-plus", "plan-premium"]]{ _id, _updatedAt, name, tagline, featured, monthlyPriceLabel, yearlyPriceLabel, yearlyPerMonthLabel, ctaLabel, features }`,
+      `*[_id in ["plan-plus", "plan-premium"]]{ _id, _updatedAt, name, tagline, featured, ctaLabel, features }`,
       {},
       { next: { revalidate: SANITY_REVALIDATE_SECONDS } }
     )
@@ -126,11 +123,6 @@ function resolvePlan(id: PlanId, doc: PlanDoc | null, featuredDefault: boolean):
     tagline: doc?.tagline || code.tagline,
     featured: doc?.featured ?? featuredDefault,
     ctaLabel: doc?.ctaLabel || `Get ${id === "plus" ? "Plus" : "Premium"}`,
-    monthly: { priceLabel: doc?.monthlyPriceLabel || code.monthly.priceLabel },
-    yearly: {
-      priceLabel: doc?.yearlyPriceLabel || code.yearly.priceLabel,
-      perMonthLabel: doc?.yearlyPerMonthLabel || code.yearly.perMonthLabel || code.yearly.priceLabel,
-    },
     features: doc?.features?.length ? doc.features : code.features,
   };
 }
