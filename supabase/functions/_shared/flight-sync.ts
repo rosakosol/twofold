@@ -1048,6 +1048,21 @@ function usageFor(flightRow: FlightRow, calledBy: string, faFlightId?: string | 
   };
 }
 
+// A lookup that came back with no flight is still a lookup: it was billed, and the next one is no
+// more likely to answer. Without the stamp, a flight AeroAPI had gone quiet on kept its old
+// last_refreshed_at, so the cron found it due again on every tick and refresh-flight's 60-second
+// dedup never engaged for it — the one flight being asked about most was the one never paced.
+// Same bump the unresolved-pending path makes.
+async function stampRefreshed(serviceClient: SupabaseClient, flightRow: FlightRow): Promise<FlightRow> {
+  const nowIso = new Date().toISOString();
+  const { error } = await serviceClient.from("flights").update({ last_refreshed_at: nowIso }).eq("id", flightRow.id);
+  if (error) {
+    console.error(`[flight-sync] failed to bump last_refreshed_at for ${flightRow.id}:`, error.message);
+    return flightRow;
+  }
+  return { ...flightRow, last_refreshed_at: nowIso };
+}
+
 // Fetches fresh data for one already-resolved flight and runs it through syncFlight, then
 // returns the updated row. Shared by refresh-flight (single flight, user-triggered) and
 // refresh-due-flights (cron, many flights) so the fetch+sync logic only lives once.
@@ -1095,7 +1110,7 @@ export async function refreshOneFlight(
       // leave fa_flight_id unset so the next tick just tries /schedules again instead of getting
       // stuck trusting an id /flights/{id} doesn't (yet) recognize.
       console.error(`[flight-sync] newly-resolved fa_flight_id ${resolvedId} not yet recognized by /flights/{id} for ${flightRow.id}`);
-      return flightRow;
+      return await stampRefreshed(serviceClient, flightRow);
     }
 
     // `flightRow` (still fa_flight_id: null here) is deliberately the diff baseline — diffEvents()
@@ -1110,7 +1125,7 @@ export async function refreshOneFlight(
   const aeroFlight = await fetchFlightByFaId(flightRow.fa_flight_id, usageFor(flightRow, calledBy));
   if (!aeroFlight) {
     console.error(`[flight-sync] AeroAPI returned no flight for fa_flight_id ${flightRow.fa_flight_id}`);
-    return flightRow;
+    return await stampRefreshed(serviceClient, flightRow);
   }
 
   await syncFlight(serviceClient, flightRow, aeroFlight, "poll");
