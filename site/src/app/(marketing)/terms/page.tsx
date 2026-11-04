@@ -55,7 +55,8 @@ export default async function TermsPage() {
           <a href="/account">your account page</a>. To change plan, update your card or download an
           invoice, use the billing portal linked from your receipt emails. Payment is processed by
           Stripe via RevenueCat - Twofold does not store your card details. Prices are charged in
-          Australian dollars in Australia and US dollars elsewhere, and may be subject to applicable
+          your local currency where we offer one, and in Australian dollars otherwise; checkout
+          shows the exact amount and currency before you pay. Prices may be subject to applicable
           taxes.
         </li>
         <li>

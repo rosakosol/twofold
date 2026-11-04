@@ -10,12 +10,18 @@ export const PLAN_IDS = [
 // the pricing page and the home pricing preview fetch both by those fixed _ids, same
 // pattern as quizResult / legalPage.
 //
-// Copy is editable here; PRICES ARE NOT. /pricing reads what a visitor is actually charged
-// straight off the RevenueCat offering and only falls back to the stored label, so an editable
+// Copy is editable here; PRICES ARE NOT. /pricing and the home page read what a visitor is actually
+// charged straight off the RevenueCat offering, in the visitor's currency, so an editable
 // price field was a trap — typing "$7.99" moved the marketing copy and never the charge, and
 // nothing surfaced the disagreement. The three price fields are readOnly and render the live
 // figure instead (LivePriceInput); change a price in RevenueCat. Entitlement / package IDs live in
 // code for the same reason, since they must match the iOS app and RevenueCat exactly.
+//
+// The stored values in those three fields are no longer read at all, not even as the fallback.
+// They were AUD with a bare "$", and with per-currency prices that reads as the visitor's own
+// currency everywhere a dollar is used; the fallback is PLANS' numbers, labelled as AUD where that
+// is not the visitor's money (priceDisplay.ts). The fields stay so Studio keeps showing the live
+// figures, and so existing documents still validate.
 export default defineType({
   name: 'plan',
   title: 'Pricing Plan',
@@ -49,7 +55,7 @@ export default defineType({
       type: 'string',
       readOnly: true,
       components: {input: LivePriceInput},
-      description: 'Set in RevenueCat. Shown here so you can see what visitors are charged.',
+      description: 'Set in RevenueCat, per currency. Shown here as a visitor in this browser’s locale sees it.',
     }),
     defineField({
       name: 'yearlyPriceLabel',
