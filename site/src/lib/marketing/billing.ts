@@ -113,11 +113,17 @@ export async function getPurchases(rawAppUserId: string): Promise<Purchases | nu
  * The web offering as the first fallback, not "current": a returning-customer offering id that is
  * set in config but missing from the dashboard must land on the offering this page always used.
  */
-export async function fetchOfferings(appUserId: string, offeringId: string = WEB_OFFERING_ID): Promise<Offering | null> {
+export async function fetchOfferings(
+  appUserId: string,
+  offeringId: string = WEB_OFFERING_ID,
+  currency?: string
+): Promise<Offering | null> {
   const purchases = await getPurchases(appUserId);
   if (!purchases) return null;
   try {
-    const offerings = await purchases.getOfferings();
+    // No `currency` is the normal case: RevenueCat picks the visitor's own. Passing one is only for
+    // previewing another currency's prices (see previewCurrency in useLivePrices.ts).
+    const offerings = await purchases.getOfferings(currency ? { currency } : undefined);
     return offerings?.all?.[offeringId] ?? offerings?.all?.[WEB_OFFERING_ID] ?? offerings?.current ?? null;
   } catch (err) {
     console.warn("[twofold] getOfferings failed", err);
@@ -183,11 +189,14 @@ export type LivePrices = Record<string, LivePrice>;
  * to be on screen well before anyone authenticates. RevenueCat treats the anonymous id as a
  * throwaway; the real purchase later runs under the Supabase user id via purchasePackage.
  *
- * Returns {} on any failure rather than throwing. Every caller falls back to the labels in
- * config.ts / Studio, so a RevenueCat outage costs the localised currency, not the page.
+ * Returns {} on any failure rather than throwing. Every caller falls back to PLANS' AUD prices,
+ * labelled as AUD (see priceDisplay.ts), so a RevenueCat outage costs the localised currency, not
+ * the page.
+ *
+ * `currency` asks for one currency's prices instead of the visitor's own - for previewing only.
  */
-export async function fetchLivePrices(appUserId: string, offeringId?: string): Promise<LivePrices> {
-  const offering = await fetchOfferings(appUserId, offeringId);
+export async function fetchLivePrices(appUserId: string, offeringId?: string, currency?: string): Promise<LivePrices> {
+  const offering = await fetchOfferings(appUserId, offeringId, currency);
   if (!offering?.availablePackages) return {};
 
   const prices: LivePrices = {};

@@ -289,3 +289,16 @@ export function livePriceStatus(prices: LivePrices, answered: boolean, timedOut:
   if (answered || timedOut) return "fallback";
   return "loading";
 }
+
+/**
+ * The currency named by `?currency=GBP`, for previewing the cards in a currency other than your
+ * own - RevenueCat's getOfferings takes one. Display only: checkout reads the offering afresh
+ * without it (attemptPurchase), so it still charges the buyer's real currency, and the line under
+ * the /pricing cards says so while a preview is on.
+ *
+ * Null unless it is three letters; Intl and RevenueCat get to decide whether it is a real code.
+ */
+export function previewCurrency(search: string): string | null {
+  const value = new URLSearchParams(search).get("currency")?.trim().toUpperCase();
+  return value && /^[A-Z]{3}$/.test(value) ? value : null;
+}

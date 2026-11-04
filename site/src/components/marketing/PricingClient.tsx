@@ -122,10 +122,15 @@ function PricedPlanCard({
  * Now it names whatever the cards are actually showing, and is plain about the fallback in
  * particular: those are PLANS' AUD prices standing in for the offering, and the visitor's checkout
  * may well be in another currency. A non-breaking space while loading, so the line keeps its height.
+ *
+ * A `?currency=` preview (previewCurrency) says it is one, since checkout ignores it.
  */
-function currencyNote(status: LivePriceStatus, figures: PlanFigures | null): string {
+function currencyNote(status: LivePriceStatus, figures: PlanFigures | null, previewing: string | null): string {
   if (status === "loading" || !figures) return "\u00a0";
   const name = currencyName(figures.currency);
+  if (previewing && figures.source === "live") {
+    return `Previewing prices in ${name}. Checkout still uses your usual currency.`;
+  }
   if (figures.source === "fallback") {
     return `Prices in ${name}. Checkout shows the exact amount and currency before you pay.`;
   }
@@ -175,7 +180,7 @@ function PricingContent({ plans }: { plans: { plus: ResolvedPlan; premium: Resol
   // useLivePrices). The cards hold placeholders until it answers or times out, then show either
   // the live prices or PLANS' AUD fallback - never the AUD figure first and the visitor's own
   // currency a moment later, which read as the price changing in front of them.
-  const { prices: livePrices, status: priceStatus } = useLivePrices(
+  const { prices: livePrices, status: priceStatus, previewing } = useLivePrices(
     authLoading ? undefined : (session?.user.id ?? null),
     returningOffering
   );
@@ -634,7 +639,7 @@ function PricingContent({ plans }: { plans: { plus: ResolvedPlan; premium: Resol
                   <PricedPlanCard plan={plans.premium} period={period} buyingKey={buyingKey} onBuy={attemptPurchase} livePrices={livePrices} figures={figures.premium} standing={standing} />
                 </div>
               </div>
-              <p className="pricing-currency">{currencyNote(priceStatus, figures.plus)}</p>
+              <p className="pricing-currency">{currencyNote(priceStatus, figures.plus, previewing)}</p>
 
               {purchaseError && (
                 <p className="field-error pricing-error" role="status" aria-live="polite">

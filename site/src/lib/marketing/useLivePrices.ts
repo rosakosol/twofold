@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/queries/queryKeys";
 import { anonymousAppUserId, fetchLivePrices, type LivePrices } from "@/lib/marketing/billing";
-import { livePriceStatus, type LivePriceStatus } from "@/lib/marketing/priceDisplay";
+import { livePriceStatus, previewCurrency, type LivePriceStatus } from "@/lib/marketing/priceDisplay";
 
 const NO_PRICES: LivePrices = {};
 
@@ -18,7 +18,16 @@ export const LIVE_PRICE_TIMEOUT_MS = 4000;
 export interface LivePriceState {
   prices: LivePrices;
   status: LivePriceStatus;
+  /** The `?currency=` being previewed, if any - see previewCurrency. */
+  previewing: string | null;
 }
+
+// `?currency=` read straight off the location rather than through useSearchParams, which would
+// need a Suspense boundary around the home page's cards for a parameter only the owner ever sets.
+// The server snapshot is null, matching the server render; the query key picks up the real value.
+const noSubscription = () => () => {};
+const readPreviewCurrency = () => previewCurrency(window.location.search);
+const noPreviewOnServer = () => null;
 
 /**
  * The live web offering's prices, for every surface that shows a plan card: /pricing and the home
@@ -33,13 +42,15 @@ export interface LivePriceState {
  * off. The previous result stays on screen while that happens.
  */
 export function useLivePrices(userId: string | null | undefined, offeringId: string | null = null): LivePriceState {
+  const previewing = useSyncExternalStore(noSubscription, readPreviewCurrency, noPreviewOnServer);
+
   const query = useQuery({
-    queryKey: queryKeys.livePrices(offeringId, userId ?? null),
+    queryKey: queryKeys.livePrices(offeringId, userId ?? null, previewing),
     enabled: userId !== undefined,
     queryFn: async () => {
       const appUserId = userId ?? (await anonymousAppUserId());
       if (!appUserId) return NO_PRICES;
-      return fetchLivePrices(appUserId, offeringId ?? undefined);
+      return fetchLivePrices(appUserId, offeringId ?? undefined, previewing ?? undefined);
     },
     placeholderData: keepPreviousData,
     // A price does not change while somebody reads the page. fetchLivePrices never throws, so
@@ -56,5 +67,5 @@ export function useLivePrices(userId: string | null | undefined, offeringId: str
   }, []);
 
   const prices = query.data ?? NO_PRICES;
-  return { prices, status: livePriceStatus(prices, query.data !== undefined, timedOut) };
+  return { prices, status: livePriceStatus(prices, query.data !== undefined, timedOut), previewing };
 }

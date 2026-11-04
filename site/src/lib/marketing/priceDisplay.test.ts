@@ -7,6 +7,7 @@ import {
   formatMoney,
   isLocalCurrency,
   livePriceStatus,
+  previewCurrency,
   planPrices,
   regionOfLocale,
   viewerFor,
@@ -177,5 +178,18 @@ describe("livePriceStatus", () => {
   it("falls back on an empty answer or a timeout", () => {
     expect(livePriceStatus({}, true, false)).toBe("fallback");
     expect(livePriceStatus({}, false, true)).toBe("fallback");
+  });
+});
+
+describe("previewCurrency", () => {
+  it("reads a three-letter code, in any case", () => {
+    expect(previewCurrency("?currency=GBP")).toBe("GBP");
+    expect(previewCurrency("?plan=plus&currency=eur")).toBe("EUR");
+  });
+  it("ignores anything else", () => {
+    expect(previewCurrency("")).toBeNull();
+    expect(previewCurrency("?currency=")).toBeNull();
+    expect(previewCurrency("?currency=pounds")).toBeNull();
+    expect(previewCurrency("?currency=G1P")).toBeNull();
   });
 });
