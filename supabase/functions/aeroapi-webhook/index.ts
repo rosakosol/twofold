@@ -21,6 +21,7 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { fetchFlightByFaId, registerWebhookEndpoint, resolveFlightByIdent } from "../_shared/aeroapi.ts";
 import { diagnoseApnsConfig } from "../_shared/apns.ts";
+import { timingSafeEqual } from "../_shared/auth.ts";
 import { type FlightRow, syncFlight } from "../_shared/flight-sync.ts";
 
 const TERMINAL_STATUSES = ["arrived", "landed", "cancelled", "diverted"];
@@ -54,8 +55,11 @@ async function resolveFaFlightId(payload: WebhookPayload): Promise<string | null
 
 Deno.serve(async (req) => {
   const url = new URL(req.url);
+  // The only gate on a public endpoint, so compared in constant time (`!==` returns at the first
+  // differing character). An unset secret refuses everyone, as isServiceRoleRequest does.
   const token = url.searchParams.get("token");
-  if (!token || token !== Deno.env.get("AEROAPI_WEBHOOK_TOKEN")) {
+  const expected = Deno.env.get("AEROAPI_WEBHOOK_TOKEN");
+  if (!token || !expected || !(await timingSafeEqual(token, expected))) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
