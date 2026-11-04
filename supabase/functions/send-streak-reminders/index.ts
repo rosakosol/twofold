@@ -166,7 +166,7 @@ Deno.serve(async (req) => {
     const title = { morning: "Today's question is ready", early: "Keep your streak going", final: "1 hour left!" }[kind];
     const body = {
       morning: currentStreak > 0
-        ? `You're on a ${currentStreak} day streak - start today with today's question ☀️`
+        ? `You're on a ${currentStreak} day streak - keep it going with a new question for you two ☀️`
         : "A new question for you two - answer it whenever you're ready ☀️",
       early: currentStreak > 0
         ? `You're on a ${currentStreak} day streak - answer today's question to keep it going 🔥`
