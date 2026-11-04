@@ -40,7 +40,31 @@ struct BackendFailureTests {
         for code in codes {
             #expect(codes.filter { $0 != code && $0.contains(code) }.isEmpty, "\(code)")
         }
-        #expect(codes.count == 7)
+        #expect(codes.count == 10)
+    }
+
+    /// The Sudoku, Word Search theme and deck RPCs refuse a plan that does not include what was
+    /// asked for in English rather than with a code. The pickers showed it as it came:
+    /// "Couldn't start that puzzle. This difficulty requires Premium", with no way to the paywall.
+    @Test("a refusal for want of Premium is said in the app's words and leads to the paywall", arguments: [
+        ("This difficulty requires Premium", "Hard and Expert puzzles are part of Twofold Premium."),
+        ("This theme requires Premium", "This theme is part of Twofold Premium."),
+        ("This deck requires Premium", "This deck is part of Twofold Premium."),
+        ("word_search_requires_premium", "Word Search is part of Twofold Premium."),
+        ("connect_four_requires_premium", "Connect 4 is part of Twofold Premium."),
+    ])
+    func premiumRefusal(raw: String, message: String) {
+        let error = Self.raised(raw)
+        #expect(BackendFailure.message(for: error) == message)
+        #expect(BackendFailure.opensPaywall(error), "\(raw) did not lead to the paywall")
+        #expect(BackendFailure.opensPaywall(BackendFailure.translating(error)), "translated, \(raw) no longer led to the paywall")
+    }
+
+    @Test("other refusals do not open the paywall")
+    func otherRefusalsDoNot() {
+        #expect(!BackendFailure.opensPaywall(Self.raised("connect_four_column_full")))
+        #expect(!BackendFailure.opensPaywall(Self.raised("word_guess_daily_limit")))
+        #expect(!BackendFailure.opensPaywall(URLError(.notConnectedToInternet)))
     }
 
     @Test("a code with more text after it is still named")

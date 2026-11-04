@@ -106,8 +106,11 @@ struct WordSearchThemePickerView: View {
             do {
                 let session = try await BackendService.startWordSearchSession(theme: theme)
                 route = StartedWordSearch(id: session.sessionID)
+            } catch where BackendFailure.opensPaywall(error) {
+                // See `SudokuDifficultyPickerView.start`: a plan that no longer includes this.
+                showingPaywall = true
             } catch {
-                errorMessage = "Couldn't start that grid. \(error.localizedDescription)"
+                errorMessage = "Couldn't start that grid. \(BackendFailure.message(for: error))"
             }
         }
     }

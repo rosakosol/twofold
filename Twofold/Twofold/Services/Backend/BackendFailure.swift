@@ -26,6 +26,10 @@ enum BackendFailure {
         "connect_four_not_your_turn": .notYourTurn,
         "connect_four_column_full": .columnFull,
         "connect_four_finished": .gameAlreadyFinished,
+        // Raised as sentences, not codes. Matched whole, as the codes are.
+        "This difficulty requires Premium": .sudokuDifficultyRequiresPremium,
+        "This theme requires Premium": .wordSearchThemeRequiresPremium,
+        "This deck requires Premium": .deckRequiresPremium,
     ]
 
     /// The `BackendError` this failure stands for, or nil when it is not one the app names.
@@ -53,6 +57,18 @@ enum BackendFailure {
     /// What a screen says about this failure.
     static func message(for error: Error) -> String {
         backendError(for: error)?.errorDescription ?? error.localizedDescription
+    }
+
+    /// Whether this failure is the server saying the couple's plan does not include it, which a
+    /// screen answers with the paywall rather than an error.
+    static func opensPaywall(_ error: Error) -> Bool {
+        switch backendError(for: error) {
+        case .connectFourRequiresPremium?, .wordSearchRequiresPremium?, .sudokuDifficultyRequiresPremium?,
+             .wordSearchThemeRequiresPremium?, .deckRequiresPremium?:
+            true
+        default:
+            false
+        }
     }
 
     /// Whether a failed write may be kept and sent again later. See

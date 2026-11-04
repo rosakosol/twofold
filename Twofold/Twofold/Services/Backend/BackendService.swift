@@ -31,6 +31,13 @@ enum BackendError: LocalizedError {
     /// rather than only checked in the app, so an edited client cannot start one either.
     case connectFourRequiresPremium
     case wordSearchRequiresPremium
+    /// The rest of the Premium refusals, which the RPCs raise in English rather than as a code:
+    /// `start_sudoku_session` for Hard and Expert, `start_word_search_session` for a Premium theme,
+    /// `start_deck_session` for a Premium deck. Shown as they came, they read "Couldn't start that
+    /// puzzle. This difficulty requires Premium", with no way on to the paywall.
+    case sudokuDifficultyRequiresPremium
+    case wordSearchThemeRequiresPremium
+    case deckRequiresPremium
     /// Ordinary outcomes of a shared board rather than failures: somebody moved first, the column
     /// filled up, or the game ended while this screen was open.
     case notYourTurn
@@ -53,6 +60,9 @@ enum BackendError: LocalizedError {
         case .connectFourNeedsPartner: "Connect 4 needs both of you. Invite your partner to play."
         case .connectFourRequiresPremium: "Connect 4 is part of Twofold Premium."
         case .wordSearchRequiresPremium: "Word Search is part of Twofold Premium."
+        case .sudokuDifficultyRequiresPremium: "Hard and Expert puzzles are part of Twofold Premium."
+        case .wordSearchThemeRequiresPremium: "This theme is part of Twofold Premium."
+        case .deckRequiresPremium: "This deck is part of Twofold Premium."
         case .notYourTurn: "It's not your turn yet."
         case .columnFull: "That column is full."
         case .gameAlreadyFinished: "This game has finished."

@@ -160,7 +160,7 @@ struct SudokuGameView: View {
                 resumed = started.resumed
                 store = SudokuGameStore(sessionID: started.sessionID)
             } catch {
-                rematchFailed = "Couldn't start another puzzle. \(error.localizedDescription)"
+                rematchFailed = "Couldn't start another puzzle. \(BackendFailure.message(for: error))"
             }
         }
     }

@@ -277,8 +277,12 @@ struct SudokuDifficultyPickerView: View {
             do {
                 let session = try await BackendService.startSudokuSession(difficulty: difficulty)
                 route = StartedPuzzle(id: session.sessionID, resumed: session.resumed)
+            } catch where BackendFailure.opensPaywall(error) {
+                // The server's word against a plan this screen thought included it — a tier that
+                // lapsed or changed since it last looked. The way on is the paywall.
+                showingPaywall = true
             } catch {
-                errorMessage = "Couldn't start that puzzle. \(error.localizedDescription)"
+                errorMessage = "Couldn't start that puzzle. \(BackendFailure.message(for: error))"
             }
         }
     }

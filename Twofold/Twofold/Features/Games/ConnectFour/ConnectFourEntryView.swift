@@ -251,8 +251,10 @@ struct ConnectFourEntryView: View {
             do {
                 let session = try await BackendService.startConnectFourSession()
                 route = StartedConnectFour(id: session.sessionID)
+            } catch where BackendFailure.opensPaywall(error) {
+                showingPaywall = true
             } catch {
-                errorMessage = error.localizedDescription
+                errorMessage = BackendFailure.message(for: error)
             }
         }
     }
