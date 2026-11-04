@@ -23,10 +23,9 @@ import {
   findPackage,
   purchasePackage,
   activeEntitlements,
-  fetchLivePrices,
-  anonymousAppUserId,
   type LivePrices,
 } from "@/lib/marketing/billing";
+import { useLivePrices } from "@/lib/marketing/useLivePrices";
 import { planCtaLabel, standingOffersTrial, type TrialStanding } from "@/lib/marketing/trialEligibility";
 import { resolveTrialStanding, useTrialStanding } from "@/lib/marketing/useTrialStanding";
 import { priceLabelFor, perMonthLabelFor, yearlySavingPercent, savingPercent } from "@/lib/marketing/priceDisplay";
@@ -140,9 +139,6 @@ function PricingContent({ plans }: { plans: { plus: ResolvedPlan; premium: Resol
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
   const [purchaseSuccess, setPurchaseSuccess] = useState(false);
   const [buyingKey, setBuyingKey] = useState<string | null>(null);
-  // Empty until the offering resolves; every read falls back to the plan's own label, so
-  // the cards are fully priced on first paint and only refine afterwards.
-  const [livePrices, setLivePrices] = useState<LivePrices>({});
   // Set when a signed-out visitor picks a plan: which plan they picked, and therefore that the
   // sign-in step is what is on screen. Null the rest of the time.
   const [signInFor, setSignInFor] = useState<Pending | null>(null);
@@ -167,6 +163,10 @@ function PricingContent({ plans }: { plans: { plus: ResolvedPlan; premium: Resol
   const standing = useTrialStanding(authLoading ? undefined : (session?.user.id ?? null));
   // The returning-customer offering, when one is configured and this is somebody it is for.
   const returningOffering = standing === "returning" ? RETURNING_CUSTOMER_OFFERING_ID : null;
+  // Empty until the offering resolves; every read falls back to the plan's own label, so
+  // the cards are fully priced on first paint and only refine afterwards. Read under the session's
+  // user once there is one, and an anonymous id until then (see useLivePrices).
+  const livePrices = useLivePrices(session?.user.id ?? null, returningOffering);
   // The lead's trial sentence is about the plans as a whole, so it goes once RevenueCat says no
   // package carries a trial for this customer. Until the offering loads, the standing decides.
   const loadedPrices = Object.values(livePrices);
@@ -368,25 +368,6 @@ function PricingContent({ plans }: { plans: { plus: ResolvedPlan; premium: Resol
       unsubscribe();
     };
   }, []);
-
-  // Separate from the auth effect on purpose: prices have to be on screen for someone who
-  // has not signed in and may never sign in, so this cannot wait on a session. Re-runs once a
-  // session appears so the offering is read under the real app user id, which is what any
-  // per-customer pricing would key off.
-  useEffect(() => {
-    let cancelled = false;
-
-    (async () => {
-      const appUserId = session?.user.id ?? (await anonymousAppUserId());
-      if (!appUserId || cancelled) return;
-      const prices = await fetchLivePrices(appUserId, returningOffering ?? undefined);
-      if (!cancelled && Object.keys(prices).length) setLivePrices(prices);
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [session, returningOffering]);
 
   // Arrive at the top, however you arrived.
   //

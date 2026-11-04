@@ -3,4 +3,5 @@ export const queryKeys = {
   duplicateSearch: (query: string) => ["features", "duplicates", query] as const,
   roadmap: () => ["features", "roadmap"] as const,
   adminFeatureList: (filters: unknown) => ["admin", "features", filters] as const,
+  livePrices: (offeringId: string | null, userId: string | null) => ["marketing", "live-prices", offeringId, userId] as const,
 };
