@@ -31,6 +31,7 @@ struct ConnectionRequestReviewView: View {
     /// to nothing, so this is where reporting has to be available — before accepting, not after.
     @State private var showingReport = false
     @State private var showingBlockConfirm = false
+    @State private var showingDeclineConfirm = false
     @State private var isBlocking = false
 
     private var requesterPerson: Person {
@@ -75,12 +76,24 @@ struct ConnectionRequestReviewView: View {
                         .padding(.bottom, Theme.Spacing.xl)
                 } else {
                     HStack(spacing: Theme.Spacing.md) {
+                        // Asked first. It sits beside Accept, a request cannot be taken back once
+                        // answered, and the only way to connect afterwards is a fresh invite.
                         Button {
-                            respond(accept: false)
+                            showingDeclineConfirm = true
                         } label: {
                             Text("Decline")
                         }
                         .buttonStyle(.twofoldSecondary)
+                        .confirmationDialog(
+                            "Decline \(request.requesterFirstName)'s request?",
+                            isPresented: $showingDeclineConfirm,
+                            titleVisibility: .visible
+                        ) {
+                            Button("Decline request", role: .destructive) { respond(accept: false) }
+                            Button("Cancel", role: .cancel) {}
+                        } message: {
+                            Text("You won't be connected. To connect later, one of you will need to share a new invite code.")
+                        }
 
                         Button {
                             switch Self.acceptAction(hasCheckedForArchive: hasCheckedForArchive, hasRestorableArchive: restorable != nil) {
