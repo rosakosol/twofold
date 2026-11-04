@@ -12,6 +12,7 @@
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { userSession } from "../_shared/auth.ts";
+import { enforceRateLimit } from "../_shared/rate-limit.ts";
 import {
   AIRBORNE_STATUSES,
   type FlightRow,
@@ -21,6 +22,8 @@ import {
 } from "../_shared/flight-sync.ts";
 
 const DEDUP_WINDOW_MS = 60 * 1000;
+// Its own bucket, like every other endpoint's; see the call below.
+const RATE_LIMIT = { bucket: "refresh-flight", limit: 60, window: "1 hour" };
 const TERMINAL_STATUSES = ["arrived", "landed", "cancelled", "diverted"];
 
 interface Input {
@@ -95,6 +98,15 @@ Deno.serve(async (req) => {
     const { data: current } = await serviceClient.from("flights").select("*").eq("id", input.flightId).single();
     return Response.json({ flight: current ?? flightRow });
   }
+
+  // Per account, across every flight. The dedup below bounds one flight to a lookup a minute, but
+  // not one account: a couple with several tracked flights, or a client asking in a loop, could
+  // still have every one of them looked up every minute, on top of the cron already polling them.
+  // 60 an hour is far past what the app asks — once per open of the tracking screen — and placed
+  // here, after the checks that answer without AeroAPI, so a refresh that could never reach it
+  // spends no budget.
+  const limited = await enforceRateLimit(userClient, RATE_LIMIT);
+  if (limited) return limited;
 
   // The dedup is a claim, not a read. It used to read last_refreshed_at above and call AeroAPI if
   // it was old, so every caller holding the same stale read passed it — five refreshes arriving

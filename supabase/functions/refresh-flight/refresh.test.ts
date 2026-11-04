@@ -68,6 +68,35 @@ Deno.test({
 });
 
 Deno.test({
+  name: "an account past its refresh limit is refused before AeroAPI is asked",
+  ignore,
+  ...quiet,
+  fn: async () => {
+    resetOutbound();
+    onAeroApi(() => Response.json({ flights: [] }));
+    const client = serviceClient();
+    const couple = await seedCouple(client);
+    try {
+      const flight = await seedFlight(client, couple, { last_refreshed_at: iso(-30 * MINUTE) });
+      // A full hour's budget already spent, as if by an app (or a script) asking in a loop.
+      const spent = Array.from({ length: 60 }, () => ({ user_id: couple.partnerA, bucket: "refresh-flight" }));
+      const { error } = await client.from("rate_limit_events").insert(spent);
+      if (error) throw new Error(error.message);
+
+      const handler = await loadHandler("refresh-flight");
+      const res = await handler(postJson({ flightId: flight.id }, await bearerFor(client, couple.partnerA)));
+      await res.body?.cancel();
+      assertEquals(res.status, 429);
+      assert(res.headers.get("Retry-After"), "no Retry-After on the refusal");
+      assertEquals(flightLookups(), 0);
+    } finally {
+      await client.from("rate_limit_events").delete().eq("user_id", couple.partnerA);
+      await removeCouple(client, couple);
+    }
+  },
+});
+
+Deno.test({
   name: "a lookup AeroAPI answers with no flight still counts as a refresh",
   ignore,
   ...quiet,
