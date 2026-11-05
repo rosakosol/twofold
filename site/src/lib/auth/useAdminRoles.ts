@@ -7,9 +7,12 @@ export interface AdminRoles {
   content: boolean;
   support: boolean;
   billing: boolean;
+  /** On the admin roster at all, even at aal1 where the three above are all false once the database
+   *  enforces MFA. For showing the door to the console and nothing else. */
+  member: boolean;
 }
 
-const NONE: AdminRoles = { content: false, support: false, billing: false };
+const NONE: AdminRoles = { content: false, support: false, billing: false, member: false };
 
 /**
  * Every admin role the session holds, in one request.

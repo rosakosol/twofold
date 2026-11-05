@@ -32,9 +32,8 @@ function isCurrent(pathname: string, href: string) {
  */
 export function SiteHeader() {
   const pathname = usePathname();
-  // Any role at all gets the door to the console, matching is_console_admin on the server.
-  const roles = useAdminRoles();
-  const isAdmin = roles.content || roles.support || roles.billing;
+  // Any role at all gets the door to the console, including at aal1: the second step is through it.
+  const isAdmin = useAdminRoles().member;
   const [isScrolled, setIsScrolled] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
 

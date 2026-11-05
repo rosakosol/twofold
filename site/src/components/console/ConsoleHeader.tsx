@@ -54,7 +54,8 @@ const CONSOLE_LINKS = [
   { href: "/studio", label: "Studio", exact: false, role: "content" as const },
 ];
 
-export function ConsoleHeader() {
+/** `showLinks` is off at /admin/mfa, where none of the tabs would open anything yet. */
+export function ConsoleHeader({ showLinks = true }: { showLinks?: boolean }) {
   const pathname = usePathname();
   const roles = useAdminRoles();
   const [isScrolled, setIsScrolled] = useState(false);
@@ -90,7 +91,7 @@ export function ConsoleHeader() {
 
         <nav aria-label="Console">
           <ul className="site-nav-links">
-            {CONSOLE_LINKS.filter((link) => roles[link.role]).map((link) => {
+            {CONSOLE_LINKS.filter((link) => showLinks && roles[link.role]).map((link) => {
               const isActive = link.exact ? pathname === link.href : pathname.startsWith(link.href);
               return (
                 <li key={link.href}>

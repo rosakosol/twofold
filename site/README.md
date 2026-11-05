@@ -40,7 +40,8 @@ Nothing here touches `Twofold/` (the iOS app). See **Database** for what is safe
 | `src/app/(board)/feedback/` | the board (list, filters, search, submit) |
 | `src/app/(board)/account/` | the account portal — subscription, partner, password, deletion |
 | `src/app/(board)/auth/` | `sign-in`, `reset-password`, `callback` |
-| `src/app/(console)/admin/` | console: moderation, support queue, users, requests, games, usage |
+| `src/app/(console)/admin/` | console: moderation, support queue, users, requests, games, usage, security |
+| `src/app/(console-mfa)/admin/mfa/` | the console's second step, outside the gate because it has to work at aal1 |
 | `src/app/studio/` | embedded Sanity Studio (`next-sanity`), incl. the custom FAQ tool |
 | `src/app/api/{support,waitlist}/` | form handlers; send mail via `src/lib/mail/` |
 | `src/app/.well-known/…` | Apple App Site Association, for iOS Universal Links |
@@ -58,7 +59,7 @@ list row itself. The console has one (`admin/requests/[id]`) because editing nee
 | `src/lib/supabase/` | `@supabase/ssr` wiring: `client`, `server`, `proxy`, `service`, `functionError`, `dbError` |
 | `src/lib/marketing/` | Sanity fetchers, in-code fallbacks, billing, auth helpers, price display |
 | `src/lib/account/` | `subscription.ts` — what a person may be told and offered about their own billing |
-| `src/lib/auth/` | `useUser`, `useAdminRoles`, `isAdmin`, `isConsoleAdmin`, `signOutAndGoHome` |
+| `src/lib/auth/` | `useUser`, `useAdminRoles`, `consoleAccess`, `consoleGate`, `mfa`, `signOutAndGoHome` |
 | `src/lib/queries/` | TanStack Query hooks, plus `queryKeys.ts` and `authorProfiles.ts` |
 | `src/lib/mail/` | Zoho SMTP transport + the HTML templates it renders |
 | `src/lib/db/types.ts` | generated Supabase types — see **Database** for how |
@@ -80,10 +81,18 @@ shared it.
 
 `(console)` is a route group, so the URLs do not move — `/admin` and `/admin/games` are
 exactly where they were. Only the chrome changes, and the gate: the layout checks
-`is_console_admin` (**any** role) rather than `is_feedback_admin`, which since the role split
+`my_console_access` (**any** role) rather than `is_feedback_admin`, which since the role split
 means `content` specifically. Gating the door on one role would lock a billing-only admin out
 of the console entirely. Each page inside still checks the role it needs — `content`,
 `support` or `billing`, all three answered in one round trip by `my_admin_roles()`.
+
+Admins sign in with a TOTP second factor. `consoleGate` turns `my_console_access()` into a decision:
+at aal1 with a factor the layout sends them to `/admin/mfa` for a code; with no factor they get a
+banner, or are sent to enrol once the database refuses them. That is read from `data_gate_open`, the
+data gate's own answer, so the site needs no change when enforcement lands. Enforcement itself is in
+the database (`is_*_admin()` needing `aal2`), and is held in `supabase/pending/` until every admin has
+enrolled: see `supabase/pending/README.md`. Two side effects for an admin account: verifying a code
+signs out that account's other aal1 sessions, including the iOS app, and a password reset needs a code.
 
 ## Content model
 

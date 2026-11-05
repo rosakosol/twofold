@@ -3,7 +3,10 @@ import { redirect } from "next/navigation";
 import "@/styles/site-nav.css";
 import "@/styles/console.css";
 import { createClient } from "@/lib/supabase/server";
-import { isConsoleAdmin } from "@/lib/auth/isConsoleAdmin";
+import { ShieldAlert } from "lucide-react";
+import Link from "next/link";
+import { getConsoleAccess } from "@/lib/auth/consoleAccess";
+import { consoleGate } from "@/lib/auth/consoleGate";
 import { ConsoleHeader } from "@/components/console/ConsoleHeader";
 import type { Metadata } from "next";
 
@@ -21,7 +24,7 @@ export const metadata: Metadata = {
  * A route group, so the URLs do not move — /admin and /admin/games are exactly where they were,
  * and every bookmark and link still works. The only thing that changes is which chrome wraps them.
  *
- * The gate is `is_console_admin` — ANY admin role — not `is_feedback_admin`, which since the role
+ * The gate is `my_console_access` — ANY admin role — not `is_feedback_admin`, which since the role
  * split means `content` specifically. Gating the door on one role would lock a billing-only admin
  * out of the console entirely, undoing the separation the roles were created for. Each page inside
  * still checks the role it actually needs.
@@ -39,6 +42,10 @@ export const metadata: Metadata = {
  *
  * Somebody signed in WITHOUT a role has been refused, and the board is the right place for them:
  * it is a real page they can use, and it does not confirm that an admin area exists.
+ *
+ * An admin at aal1 is a third situation: they still hold the role and have a step left to do, so
+ * they go to /admin/mfa (consoleGate says how that behaves before and after the database starts
+ * enforcing it). This only routes. What actually refuses them is `is_*_admin()` in the database.
  */
 export default async function ConsoleLayout({ children }: { children: React.ReactNode }) {
   // Cheap and already warm — the middleware refreshed this session on the way in.
@@ -51,14 +58,32 @@ export default async function ConsoleLayout({ children }: { children: React.Reac
     redirect(`/auth/sign-in?next=${encodeURIComponent(requested)}`);
   }
 
-  const isAdmin = await isConsoleAdmin();
-  if (!isAdmin) redirect("/feedback");
+  const gate = consoleGate(await getConsoleAccess());
+  if (gate === "not-admin") redirect("/feedback");
+  if (gate === "challenge" || gate === "enrol") {
+    const requested = (await headers()).get("x-pathname") ?? "/admin";
+    redirect(`/admin/mfa?next=${encodeURIComponent(requested)}`);
+  }
 
   return (
     <div className="board-shell flex min-h-screen flex-1 flex-col">
       <ConsoleHeader />
       <main className="flex-1">
-        <div className="console-main">{children}</div>
+        <div className="console-main">
+          {gate === "open-prompt-enrol" && (
+            <div className="mfa-banner" role="status">
+              <ShieldAlert aria-hidden />
+              <p>
+                <strong>Your admin account has no second factor.</strong> A stolen password would open this console, and
+                it will soon be required.
+              </p>
+              <Link href="/admin/mfa" className="btn btn-secondary btn-sm">
+                Set it up
+              </Link>
+            </div>
+          )}
+          {children}
+        </div>
       </main>
     </div>
   );

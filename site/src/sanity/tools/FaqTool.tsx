@@ -40,6 +40,9 @@ interface FaqWrite {
   sort_order: number;
 }
 
+const NOT_ALLOWED =
+  "That didn't save. Your account isn't an FAQ admin, you've been signed out, or this session hasn't had its authenticator code yet: open /admin in this browser, enter the code, then try again.";
+
 /// Writes as the signed-in user. RLS decides whether they are allowed, so a non-admin gets a
 /// refusal from Postgres rather than from anything this file checks — the check cannot be skipped
 /// by calling the API directly, which is exactly what the old shared secret could not promise.
@@ -59,10 +62,8 @@ async function writeEntry(action: "create" | "update" | "delete", id: string | n
         ? await table.update(body!, { count: "exact" }).eq("id", id!).select("id")
         : await table.delete({ count: "exact" }).eq("id", id!).select("id");
 
+  if (error?.code === "42501" || (!error && !count)) throw new Error(NOT_ALLOWED);
   if (error) throw new Error(error.message);
-  if (!count) {
-    throw new Error("That didn't save — your account isn't an FAQ admin, or you've been signed out.");
-  }
 }
 
 export function FaqTool() {

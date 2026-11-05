@@ -59,7 +59,10 @@ export async function updateSession(request: NextRequest) {
   // NextResponse starts empty, and losing them would silently stop the session refreshing.
   response.cookies.getAll().forEach((cookie) => forwarded.cookies.set(cookie));
   response.headers.forEach((value, key) => {
-    if (key.toLowerCase() !== "set-cookie") forwarded.headers.set(key, value);
+    // Not the x-middleware-* set: `response` carries its own list of forwarded request headers, built
+    // before x-pathname existed, and copying it over this one's dropped x-pathname all over again.
+    const name = key.toLowerCase();
+    if (name !== "set-cookie" && !name.startsWith("x-middleware-")) forwarded.headers.set(key, value);
   });
 
   return forwarded;

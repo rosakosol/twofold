@@ -3,7 +3,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 /** Loading state for the /admin pages, shaped like admin/page.tsx (heading, filter row, table)
  * so the swap to real content doesn't jump.
  *
- * What it does not cover: the (console) layout's sign-in and `isConsoleAdmin()` gate sits above
+ * What it does not cover: the (console) layout's sign-in and `consoleGate` sits above
  * this segment, and a loading.tsx never wraps the layout of its own or a parent segment
  * (node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/loading.md). So the
  * first entry into the console still waits for that gate. Moving between /admin pages keeps the

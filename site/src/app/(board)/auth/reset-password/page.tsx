@@ -76,6 +76,7 @@ function ResetPasswordForm() {
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const [needsCode, setNeedsCode] = useState(false);
 
   // Supabase sends `token_hash` + `type` on the modern link shape. Older projects (and older
   // emails still sitting in inboxes) use an implicit-grant fragment instead, which the client
@@ -135,6 +136,15 @@ function ResetPasswordForm() {
 
     if (error) {
       setStage("ready");
+      // An admin with an authenticator. Supabase will not change the password of an account with a
+      // verified factor from an aal1 session, and a recovery link only gives aal1. The session this
+      // link started is still here, so a code raises it, and this page then opens from that session
+      // with no token (see the effect above).
+      if (error.code === "insufficient_aal") {
+        setNeedsCode(true);
+        setErrorMessage("");
+        return;
+      }
       setErrorMessage(error.message);
       return;
     }
@@ -231,6 +241,15 @@ function ResetPasswordForm() {
         </div>
 
         {errorMessage && <p className="text-sm text-destructive">{errorMessage}</p>}
+        {needsCode && (
+          <p className="text-sm text-destructive">
+            This account uses an authenticator app, so changing the password needs a code too.{" "}
+            <a href="/admin/mfa?next=/auth/reset-password" className="underline underline-offset-4">
+              Enter your code
+            </a>
+            , then choose your password again.
+          </p>
+        )}
 
         <Button type="submit" disabled={stage === "saving"} className="w-full">
           {stage === "saving" && <Loader2 className="h-4 w-4 animate-spin" />}

@@ -3275,6 +3275,7 @@ export type Database = {
         Returns: undefined
       }
       my_admin_roles: { Args: Record<PropertyKey, never>; Returns: Json }
+      my_console_access: { Args: Record<PropertyKey, never>; Returns: Json }
       my_email_preferences: {
         Args: Record<PropertyKey, never>
         Returns: {

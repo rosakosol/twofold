@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useAdminRoles } from "@/lib/auth/useAdminRoles";
 import { useUser } from "@/lib/auth/useUser";
 
 /** The destinations that only exist for a signed-in visitor, by name in the folded menu: the
  *  same ones the account chip's menu lists, in the same order. */
 const LINKS = [{ href: "/account", label: "Account" }];
+const ADMIN_LINKS = [{ href: "/admin/security", label: "Admin security" }];
 
 /**
  * "Account" in the collapsed nav menu, for someone who is signed in.
@@ -29,6 +31,7 @@ const LINKS = [{ href: "/account", label: "Account" }];
 export function SignedInNavItems() {
   const pathname = usePathname();
   const { user, isLoading } = useUser();
+  const { member: isAdmin } = useAdminRoles();
 
   // Signed out, the header shows Sign in beside Download, but not on a phone, where only
   // Download fits. The folded menu carries it there instead.
@@ -45,7 +48,7 @@ export function SignedInNavItems() {
 
   return (
     <>
-      {LINKS.map((link) => (
+      {(isAdmin ? [...LINKS, ...ADMIN_LINKS] : LINKS).map((link) => (
         <li key={link.href} className="site-nav-signed-in">
           <Link href={link.href} aria-current={pathname === link.href ? "page" : undefined}>
             {link.label}

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { LogOut, Settings, User as UserIcon } from "lucide-react";
+import { LogOut, Settings, ShieldCheck, User as UserIcon } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,6 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useAdminRoles } from "@/lib/auth/useAdminRoles";
 import { useUser } from "@/lib/auth/useUser";
 import { signOutAndGoHome } from "@/lib/auth/signOutAndGoHome";
 import { APP_STORE_URL } from "@/lib/marketing/config";
@@ -27,6 +28,7 @@ import { APP_STORE_URL } from "@/lib/marketing/config";
 
 export function UserMenu() {
   const { user, isLoading } = useUser();
+  const { member: isAdmin } = useAdminRoles();
 
   if (isLoading) return <Skeleton className="h-11 w-11 rounded-full" />;
 
@@ -82,6 +84,18 @@ export function UserMenu() {
               </Link>
             }
           />
+          {/* An admin's own authenticators. Here rather than a console tab: it is about you, and the
+              tab bar is already full at 1280px. */}
+          {isAdmin && (
+            <DropdownMenuItem
+              render={
+                <Link href="/admin/security">
+                  <ShieldCheck className="h-4 w-4" />
+                  Admin security
+                </Link>
+              }
+            />
+          )}
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={handleSignOut} variant="destructive">
             <LogOut className="h-4 w-4" />
