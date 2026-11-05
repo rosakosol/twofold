@@ -1,4 +1,4 @@
-import nodemailer from "nodemailer";
+import nodemailer, { type Transporter } from "nodemailer";
 import { SUPPORT_EMAIL } from "./companyInfo";
 
 // Shared Zoho Mail SMTP transport — used by both /api/support and /api/waitlist, the same
@@ -22,7 +22,7 @@ export interface MailSender {
 }
 
 export interface ZohoMailer {
-  transport: nodemailer.Transporter;
+  transport: Transporter;
   /** The transactional From. Equivalent to `sender("transactional").from`. */
   from: string;
   /** The From/Reply-To pair for a kind of message — spread straight into `sendMail`. */
