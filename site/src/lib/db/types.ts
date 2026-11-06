@@ -2676,6 +2676,15 @@ export type Database = {
           reason: string
         }[]
       }
+      admin_authorize_account_action: {
+        Args: {
+          p_action: string
+          p_confirmation?: string
+          p_profile_id: string
+          p_reason: string
+        }
+        Returns: undefined
+      }
       admin_couple_archives: {
         Args: { p_profile_id: string }
         Returns: {
@@ -2688,7 +2697,12 @@ export type Database = {
         }[]
       }
       admin_dissolve_couple: {
-        Args: { p_couple_id: string; p_on_behalf_of: string; p_reason: string }
+        Args: {
+          p_confirmation: string
+          p_couple_id: string
+          p_on_behalf_of: string
+          p_reason: string
+        }
         Returns: {
           created_at: string
           dissolved_at: string | null
@@ -2769,7 +2783,7 @@ export type Database = {
         Returns: string
       }
       admin_purge_couple_archive: {
-        Args: { p_couple_id: string; p_reason: string }
+        Args: { p_confirmation: string; p_couple_id: string; p_reason: string }
         Returns: undefined
       }
       admin_record_action: {

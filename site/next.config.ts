@@ -42,8 +42,8 @@ const nextConfig: NextConfig = {
         headers: [
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-          // Clickjacking the console is mostly inert — its destructive actions require typing a
-          // confirmation string — but this costs nothing and does not rely on that staying true.
+          // Clickjacking the console is mostly inert — its destructive actions need a typed
+          // confirmation and a fresh authenticator code — but this costs nothing and does not rely on that.
           { key: "X-Frame-Options", value: "DENY" },
           {
             key: "Content-Security-Policy",

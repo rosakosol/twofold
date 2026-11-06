@@ -6,9 +6,10 @@ import { toast } from "sonner";
 import { Archive as ArchiveIcon, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
+import { confirmTotpCode } from "@/lib/auth/mfa";
 import { shortDate } from "@/lib/console/format";
 import { AccountCard, AccountSection, ActionRow, Fact, Facts } from "@/components/console/AccountLayout";
-import { ActionDialog, ConfirmField, DANGER_SUBMIT, ReasonField } from "@/components/console/AccountDialog";
+import { ActionDialog, CodeField, ConfirmField, DANGER_SUBMIT, ReasonField } from "@/components/console/AccountDialog";
 import { useAccountChanged } from "@/lib/console/useAccountChanged";
 import { InfoTip } from "@/components/console/InfoTip";
 
@@ -57,14 +58,23 @@ function Archive({ archive, onDone }: { archive: CoupleArchive; onDone: () => vo
   // only specific thing left to type.
   const expected = archive.couple_id.slice(0, 8);
   const confirmed = confirmation.trim().toLowerCase() === expected;
-  const canSubmit = confirmed && reason.trim().length >= 3;
+  const [code, setCode] = useState("");
+  const canSubmit = confirmed && reason.trim().length >= 3 && code.length === 6;
 
   async function run() {
     setBusy(true);
     const supabase = createClient();
+    const codeError = await confirmTotpCode(supabase, code);
+    setCode("");
+    if (codeError) {
+      setBusy(false);
+      toast.error(codeError);
+      return;
+    }
     const { error } = await supabase.rpc("admin_purge_couple_archive", {
       p_couple_id: archive.couple_id,
       p_reason: reason,
+      p_confirmation: confirmation,
     });
     setBusy(false);
     if (error) {
@@ -117,6 +127,7 @@ function Archive({ archive, onDone }: { archive: CoupleArchive; onDone: () => vo
                 if (!next) {
                   setReason("");
                   setConfirmation("");
+                  setCode("");
                 }
               }}
               busy={busy}
@@ -150,6 +161,12 @@ function Archive({ archive, onDone }: { archive: CoupleArchive; onDone: () => vo
                 expected={expected}
                 value={confirmation}
                 onChange={setConfirmation}
+                disabled={busy}
+              />
+              <CodeField
+                id={`purge-code-${archive.couple_id}`}
+                value={code}
+                onChange={setCode}
                 disabled={busy}
               />
             </ActionDialog>

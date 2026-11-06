@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { describeMfaError, nextFactorName, normaliseTotpCode, totpQrImageSrc } from "./mfa";
+import { describeMfaError, nextFactorName, normaliseTotpCode, orderFactors, totpQrImageSrc } from "./mfa";
 
 describe("normaliseTotpCode", () => {
   it("keeps six digits from whatever was pasted", () => {
@@ -27,6 +27,24 @@ describe("nextFactorName", () => {
     expect(nextFactorName(["Authenticator", "Backup"])).toBe("Backup 2");
     expect(nextFactorName(["Backup"])).toBe("Authenticator");
     expect(nextFactorName([null, undefined])).toBe("Authenticator");
+  });
+});
+
+describe("orderFactors", () => {
+  it("puts the main authenticator first and the backups in order", () => {
+    const names = ["Backup 10", "Backup", "Authenticator", "Backup 2"].map((friendly_name) => ({ friendly_name }));
+    expect(orderFactors(names).map((factor) => factor.friendly_name)).toEqual([
+      "Authenticator",
+      "Backup",
+      "Backup 2",
+      "Backup 10",
+    ]);
+  });
+
+  it("does not change the list it was given", () => {
+    const names = [{ friendly_name: "Backup" }, { friendly_name: "Authenticator" }];
+    orderFactors(names);
+    expect(names[0].friendly_name).toBe("Backup");
   });
 });
 

@@ -19,7 +19,7 @@
 -- found in the log in two years is indistinguishable from a mistake.
 
 begin;
-select set_config('request.jwt.claims', '{"aal":"aal2"}', true);
+select set_config('request.jwt.claims', json_build_object('aal','aal2','amr',json_build_array(json_build_object('method','totp','timestamp',extract(epoch from now())::bigint)))::text, true);
 select plan(21);
 
 insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at)
@@ -60,26 +60,26 @@ set local role authenticated;
 select set_config('request.jwt.claim.sub', 'ffffffff-aaaa-0000-0000-000000000003', true);
 
 select throws_ok(
-  $$ select public.admin_dissolve_couple('ffffffff-aaaa-cccc-0000-00000000000a', 'ffffffff-aaaa-0000-0000-000000000002', 'because') $$,
+  $$ select public.admin_dissolve_couple('ffffffff-aaaa-cccc-0000-00000000000a', 'ffffffff-aaaa-0000-0000-000000000002', 'because', 'Rae') $$,
   '42501', null, 'an ordinary user cannot dissolve somebody else''s couple'
 );
 
 select set_config('request.jwt.claim.sub', 'ffffffff-aaaa-0000-0000-000000000001', true);
 
 select throws_ok(
-  $$ select public.admin_dissolve_couple('ffffffff-aaaa-cccc-0000-00000000000a', 'ffffffff-aaaa-0000-0000-000000000002', '   ') $$,
+  $$ select public.admin_dissolve_couple('ffffffff-aaaa-cccc-0000-00000000000a', 'ffffffff-aaaa-0000-0000-000000000002', '   ', 'Rae') $$,
   '22023', null, 'and no admin may dissolve one without saying why'
 );
 
 select throws_ok(
-  $$ select public.admin_scrub_account('ffffffff-aaaa-0000-0000-000000000003', '') $$,
-  '22023', null, 'nor delete an account without saying why'
+  $$ select public.admin_scrub_account('ffffffff-aaaa-0000-0000-000000000003', 'no gate', 'ffffffff-aaaa-0000-0000-000000000001') $$,
+  '42501', null, 'nor call the scrub directly, which only admin-actions may'
 );
 
 -- Acting for somebody who is not in the couple is the mistake that would dissolve the wrong
 -- relationship, so it is refused rather than interpreted.
 select throws_ok(
-  $$ select public.admin_dissolve_couple('ffffffff-aaaa-cccc-0000-00000000000a', 'ffffffff-aaaa-0000-0000-000000000005', 'wrong person') $$,
+  $$ select public.admin_dissolve_couple('ffffffff-aaaa-cccc-0000-00000000000a', 'ffffffff-aaaa-0000-0000-000000000005', 'wrong person', 'Rae') $$,
   'P0001', 'That profile is not a member of this couple',
   'and cannot act for somebody who is not in it'
 );
@@ -89,7 +89,7 @@ select throws_ok(
 -- ---------------------------------------------------------------------------
 
 select lives_ok(
-  $$ select public.admin_dissolve_couple('ffffffff-aaaa-cccc-0000-00000000000a', 'ffffffff-aaaa-0000-0000-000000000002', 'they emailed asking to be disconnected') $$,
+  $$ select public.admin_dissolve_couple('ffffffff-aaaa-cccc-0000-00000000000a', 'ffffffff-aaaa-0000-0000-000000000002', 'they emailed asking to be disconnected', 'Rae') $$,
   'a support admin can disconnect somebody who asked'
 );
 
@@ -167,7 +167,7 @@ select ok(
 set local role authenticated;
 select set_config('request.jwt.claim.sub', 'ffffffff-aaaa-0000-0000-000000000001', true);
 select throws_ok(
-  $$ select public.admin_dissolve_couple('ffffffff-aaaa-cccc-0000-00000000000a', 'ffffffff-aaaa-0000-0000-000000000002', 'again') $$,
+  $$ select public.admin_dissolve_couple('ffffffff-aaaa-cccc-0000-00000000000a', 'ffffffff-aaaa-0000-0000-000000000002', 'again', 'Rae') $$,
   'P0001', 'This couple has already been dissolved',
   'a second dissolution is refused rather than silently redone'
 );

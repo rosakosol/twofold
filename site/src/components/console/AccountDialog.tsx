@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { normaliseTotpCode } from "@/lib/auth/mfa";
 import {
   Dialog,
   DialogClose,
@@ -143,6 +144,35 @@ export function ConfirmField({
         spellCheck={false}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        disabled={disabled}
+      />
+    </div>
+  );
+}
+
+/** A code from their authenticator, which the database requires for destructive actions. */
+export function CodeField({
+  id,
+  value,
+  onChange,
+  disabled,
+}: {
+  id: string;
+  value: string;
+  onChange: (v: string) => void;
+  disabled: boolean;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label htmlFor={id}>Authenticator code</Label>
+      <Input
+        id={id}
+        className="mfa-code"
+        inputMode="numeric"
+        autoComplete="one-time-code"
+        placeholder="000000"
+        value={value}
+        onChange={(e) => onChange(normaliseTotpCode(e.target.value))}
         disabled={disabled}
       />
     </div>

@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
 import { signOutAndGoHome } from "@/lib/auth/signOutAndGoHome";
-import { describeMfaError, nextFactorName, normaliseTotpCode, totpQrImageSrc } from "@/lib/auth/mfa";
+import { describeMfaError, nextFactorName, normaliseTotpCode, orderFactors, totpQrImageSrc } from "@/lib/auth/mfa";
 
 /**
  * Going somewhere once the session has changed level, with a full document load for the reason
@@ -76,8 +76,9 @@ export function MfaChallenge({ next }: { next: string }) {
           setError(describeMfaError(listError, "Couldn't load your authenticators. Reload the page to try again."));
           return;
         }
-        setFactors(data.totp);
-        setFactorId(data.totp[0]?.id ?? null);
+        const ordered = orderFactors(data.totp);
+        setFactors(ordered);
+        setFactorId(ordered[0]?.id ?? null);
       });
     return () => {
       cancelled = true;

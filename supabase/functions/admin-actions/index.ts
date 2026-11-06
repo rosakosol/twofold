@@ -22,9 +22,11 @@
 // ---------------------------------------------------------------------------
 //
 // `userClient` carries the caller's JWT and is used for exactly one thing: asking the database
-// whether they hold the support role. `serviceClient` does the work. Checking authorisation with
-// the privileged client is the mistake that makes the whole gate ornamental — it would answer for
-// the service role, which is an admin by construction.
+// whether this action may go ahead (`admin_authorize_account_action`: the support role, a recent
+// authenticator code, the typed confirmation, the hourly limit, a target who is not an admin).
+// `serviceClient` does the work. Checking authorisation with the privileged client is the mistake
+// that makes the whole gate ornamental — it would answer for the service role, which is an admin by
+// construction.
 //
 // Every action requires a reason. Not because anybody reads them routinely, but because an
 // unexplained destructive action found in the log in two years is indistinguishable from a mistake.
@@ -39,6 +41,7 @@ interface Body {
   profileId?: string;
   coupleId?: string;
   reason?: string;
+  confirmation?: string;
 }
 
 function bad(message: string, status = 400): Response {
@@ -62,10 +65,22 @@ Deno.serve(serveWithCors(async (req) => {
   const { userClient, user } = await userSession(req);
   if (!user) return bad("Not authenticated", 401);
 
-  // Asked of the database rather than inferred from anything in the request. The role lives in
-  // `feedback_admins` and `is_support_admin()` reads it under the caller's own JWT.
-  const { data: isSupportAdmin } = await userClient.rpc("is_support_admin");
-  if (isSupportAdmin !== true) return bad("Not authorised", 403);
+  if (!body.profileId) return bad("No account given.");
+
+  // Asked of the database rather than inferred from anything in the request. It refuses in sentences
+  // written for the person at the console, so they are passed on.
+  const { error: refused } = await userClient.rpc("admin_authorize_account_action", {
+    p_action: body.action ?? "",
+    p_profile_id: body.profileId,
+    p_reason: reason,
+    p_confirmation: body.confirmation ?? null,
+  });
+  if (refused) {
+    const status = ({ "42501": 403, "22023": 400, "P0001": 429 } as Record<string, number>)[refused.code ?? ""];
+    if (status) return bad(refused.message, status);
+    console.error("[admin-actions] could not check this action:", refused.message);
+    return bad("Couldn't check that action. Nothing has changed.", 500);
+  }
 
   const serviceClient = createClient(
     Deno.env.get("SUPABASE_URL")!,
@@ -214,7 +229,7 @@ async function cancelSubscription(
 /* To invoke locally:
 
   curl -i --location --request POST 'http://127.0.0.1:54321/functions/v1/admin-actions' \
-    --header 'Authorization: Bearer <support admin access token>' \
+    --header 'Authorization: Bearer <support admin access token, with a code entered in the last 5 minutes>' \
     --header 'Content-Type: application/json' \
     --data '{"action":"subscription.cancel","profileId":"<uuid>","reason":"they emailed asking"}'
 

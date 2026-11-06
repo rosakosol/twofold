@@ -1,3 +1,5 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+
 /**
  * The parts of TOTP enrolment and challenge that are decisions rather than calls. Copy follows the
  * house style: plain hyphens.
@@ -29,6 +31,16 @@ export function nextFactorName(existing: readonly (string | null | undefined)[])
   }
 }
 
+/** The order to offer factors in: the main authenticator first, so it is also the one preselected. */
+export function orderFactors<T extends { friendly_name?: string }>(factors: readonly T[]): T[] {
+  const rank = (factor: T) => (factor.friendly_name === "Authenticator" ? 0 : 1);
+  return [...factors].sort(
+    (a, b) =>
+      rank(a) - rank(b) ||
+      (a.friendly_name ?? "").localeCompare(b.friendly_name ?? "", undefined, { numeric: true }),
+  );
+}
+
 /** Reads an auth error for a person. Anything unrecognised gets `fallback`, not Supabase's wording. */
 export function describeMfaError(error: { code?: string; status?: number } | null | undefined, fallback: string): string {
   switch (error?.code) {
@@ -48,4 +60,22 @@ export function describeMfaError(error: { code?: string; status?: number } | nul
     default:
       return error?.status === 429 ? "Too many tries. Wait a few minutes and try again." : fallback;
   }
+}
+
+/**
+ * Enters a code again before a destructive action, which the database requires within 5 minutes
+ * (20261124000500). Tries each authenticator, since the code may be from the backup one. `mfa.verify`
+ * writes the new session, so the request that follows carries it. Returns what to tell the person, or
+ * null once the code is accepted.
+ */
+export async function confirmTotpCode(supabase: SupabaseClient, code: string): Promise<string | null> {
+  const { data, error } = await supabase.auth.mfa.listFactors();
+  if (error || !data) return describeMfaError(error, "Couldn't check that code. Try again.");
+  let lastError: Parameters<typeof describeMfaError>[0] = null;
+  for (const factor of data.totp) {
+    const { error: verifyError } = await supabase.auth.mfa.challengeAndVerify({ factorId: factor.id, code });
+    if (!verifyError) return null;
+    lastError = verifyError;
+  }
+  return describeMfaError(lastError, "Couldn't check that code. Try again.");
 }

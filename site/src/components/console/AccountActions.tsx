@@ -6,10 +6,11 @@ import { Loader2, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { functionErrorMessage } from "@/lib/supabase/functionError";
+import { confirmTotpCode } from "@/lib/auth/mfa";
 import { cancellability } from "@/lib/console/accountDetail";
 import { deletionBillingWarning, type DeletionBillingWarning } from "@/lib/account/subscription";
 import { AccountSection, ActionRow } from "@/components/console/AccountLayout";
-import { ActionDialog, ConfirmField, DANGER_SUBMIT, ReasonField } from "@/components/console/AccountDialog";
+import { ActionDialog, CodeField, ConfirmField, DANGER_SUBMIT, ReasonField } from "@/components/console/AccountDialog";
 import { useAccountChanged } from "@/lib/console/useAccountChanged";
 import { InfoTip } from "@/components/console/InfoTip";
 
@@ -21,7 +22,7 @@ import { InfoTip } from "@/components/console/InfoTip";
  * they have lost access to the address, or email is the only channel they have. It does not exist
  * to do things to people, so nothing here has a counterpart the owner lacks.
  *
- * Three rules, applied to every action:
+ * Four rules, applied to every action:
  *
  *   1. A reason is required, and the submit stays disabled without one. Not because anybody reads
  *      them routinely, but because an unexplained destructive action found in the log in two years
@@ -29,7 +30,10 @@ import { InfoTip } from "@/components/console/InfoTip";
  *   2. The confirmation is typing something specific - the partner's name, the account's email -
  *      rather than pressing "are you sure". A second button is a reflex people clear without
  *      reading; typing cannot be done by accident.
- *   3. Nothing is offered that cannot actually be done. An App Store subscription shows why it is
+ *   3. An authenticator code is entered for each one, because the database requires one from the
+ *      last 5 minutes. It also checks the reason, the confirmation and an hourly limit, and refuses
+ *      admin accounts (20261124000500), so the fields here are for clarity, not what keeps this safe.
+ *   4. Nothing is offered that cannot actually be done. An App Store subscription shows why it is
  *      not cancellable here instead of a button that would report success for a charge that is
  *      still coming.
  *
@@ -108,12 +112,20 @@ function CancelSubscription({
 }) {
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
+  const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
-  const canSubmit = reason.trim().length >= 3;
+  const canSubmit = reason.trim().length >= 3 && code.length === 6;
 
   async function run() {
     setBusy(true);
     const supabase = createClient();
+    const codeError = await confirmTotpCode(supabase, code);
+    setCode("");
+    if (codeError) {
+      setBusy(false);
+      toast.error(codeError);
+      return;
+    }
     const { data, error } = await supabase.functions.invoke("admin-actions", {
       body: { action: "subscription.cancel", profileId, reason },
     });
@@ -161,7 +173,10 @@ function CancelSubscription({
         open={open}
         onOpenChange={(next) => {
           setOpen(next);
-          if (!next) setReason("");
+          if (!next) {
+            setReason("");
+            setCode("");
+          }
         }}
         busy={busy}
         trigger={<Button variant="outline" size="sm" />}
@@ -184,6 +199,7 @@ function CancelSubscription({
         }
       >
         <ReasonField id="cancel-reason" value={reason} onChange={setReason} disabled={busy} />
+        <CodeField id="cancel-code" value={code} onChange={setCode} disabled={busy} />
       </ActionDialog>
     </ActionRow>
   );
@@ -205,13 +221,22 @@ function Disconnect({
   const [confirmation, setConfirmation] = useState("");
   const [busy, setBusy] = useState(false);
   const name = partnerName || "their partner";
-  const expected = (partnerName || "").trim().toLowerCase();
-  const confirmed = expected !== "" && confirmation.trim().toLowerCase() === expected;
-  const canSubmit = confirmed && reason.trim().length >= 3;
+  const [code, setCode] = useState("");
+  // A partner with no name has the start of the couple's id instead, as the database expects.
+  const expected = partnerName?.trim() || coupleId.slice(0, 8);
+  const confirmed = confirmation.trim().toLowerCase() === expected.toLowerCase();
+  const canSubmit = confirmed && reason.trim().length >= 3 && code.length === 6;
 
   async function run() {
     setBusy(true);
     const supabase = createClient();
+    const codeError = await confirmTotpCode(supabase, code);
+    setCode("");
+    if (codeError) {
+      setBusy(false);
+      toast.error(codeError);
+      return;
+    }
     // `p_on_behalf_of` is this account, not the admin. The couple row must record that THIS person
     // left - that is what the app reads, and it decides which partner gets the "your subscription
     // lapsed because they left" notice.
@@ -219,6 +244,7 @@ function Disconnect({
       p_couple_id: coupleId,
       p_on_behalf_of: profileId,
       p_reason: reason,
+      p_confirmation: confirmation,
     });
     setBusy(false);
     if (error) {
@@ -241,6 +267,7 @@ function Disconnect({
           if (!next) {
             setReason("");
             setConfirmation("");
+            setCode("");
           }
         }}
         busy={busy}
@@ -271,11 +298,12 @@ function Disconnect({
         <ReasonField id="disconnect-reason" value={reason} onChange={setReason} disabled={busy} />
         <ConfirmField
           id="disconnect-confirm"
-          expected={partnerName ?? "-"}
+          expected={expected}
           value={confirmation}
           onChange={setConfirmation}
           disabled={busy}
         />
+        <CodeField id="disconnect-code" value={code} onChange={setCode} disabled={busy} />
       </ActionDialog>
     </ActionRow>
   );
@@ -296,14 +324,24 @@ function DeleteAccount({
   const [reason, setReason] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [busy, setBusy] = useState(false);
-  const confirmed = confirmation.trim().toLowerCase() === email.trim().toLowerCase();
-  const canSubmit = confirmed && reason.trim().length >= 3;
+  const [code, setCode] = useState("");
+  // An account with no email has its id instead, as the database expects.
+  const expected = email.trim() || profileId;
+  const confirmed = confirmation.trim().toLowerCase() === expected.toLowerCase();
+  const canSubmit = confirmed && reason.trim().length >= 3 && code.length === 6;
 
   async function run() {
     setBusy(true);
     const supabase = createClient();
+    const codeError = await confirmTotpCode(supabase, code);
+    setCode("");
+    if (codeError) {
+      setBusy(false);
+      toast.error(codeError);
+      return;
+    }
     const { data, error } = await supabase.functions.invoke("admin-actions", {
-      body: { action: "account.delete", profileId, reason },
+      body: { action: "account.delete", profileId, reason, confirmation },
     });
     setBusy(false);
     if (error || !data?.ok) {
@@ -339,6 +377,7 @@ function DeleteAccount({
           if (!next) {
             setReason("");
             setConfirmation("");
+            setCode("");
           }
         }}
         busy={busy}
@@ -383,7 +422,8 @@ function DeleteAccount({
         }
       >
         <ReasonField id="delete-reason" value={reason} onChange={setReason} disabled={busy} />
-        <ConfirmField id="delete-confirm" expected={email} value={confirmation} onChange={setConfirmation} disabled={busy} />
+        <ConfirmField id="delete-confirm" expected={expected} value={confirmation} onChange={setConfirmation} disabled={busy} />
+        <CodeField id="delete-code" value={code} onChange={setCode} disabled={busy} />
       </ActionDialog>
     </ActionRow>
   );

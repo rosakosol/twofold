@@ -3,7 +3,7 @@
 -- a hand-built call would hit it, not just through the console that hides the button.
 
 begin;
-select set_config('request.jwt.claims', '{"aal":"aal2"}', true);
+select set_config('request.jwt.claims', json_build_object('aal','aal2','amr',json_build_array(json_build_object('method','totp','timestamp',extract(epoch from now())::bigint)))::text, true);
 select plan(11);
 
 insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at)
@@ -51,7 +51,7 @@ select throws_ok(
   '42501', null, 'an ordinary user cannot list somebody''s archives'
 );
 select throws_ok(
-  $$ select public.admin_purge_couple_archive('eeeeeeee-bbbb-cccc-0000-00000000000a', 'because') $$,
+  $$ select public.admin_purge_couple_archive('eeeeeeee-bbbb-cccc-0000-00000000000a', 'because', 'eeeeeeee') $$,
   '42501', null, 'nor purge one'
 );
 
@@ -69,20 +69,20 @@ select isnt(
 );
 
 select throws_ok(
-  $$ select public.admin_purge_couple_archive('eeeeeeee-bbbb-cccc-0000-00000000000a', '  ') $$,
+  $$ select public.admin_purge_couple_archive('eeeeeeee-bbbb-cccc-0000-00000000000a', '  ', 'eeeeeeee') $$,
   '22023', null, 'a reason is required'
 );
 select throws_ok(
-  $$ select public.admin_purge_couple_archive('eeeeeeee-bbbb-cccc-0000-00000000000b', 'asked by email') $$,
+  $$ select public.admin_purge_couple_archive('eeeeeeee-bbbb-cccc-0000-00000000000b', 'asked by email', 'eeeeeeee') $$,
   '22023', null, 'an archive one partner can still read waits for its timer'
 );
 select throws_ok(
-  $$ select public.admin_purge_couple_archive('eeeeeeee-bbbb-cccc-0000-00000000000c', 'asked by email') $$,
+  $$ select public.admin_purge_couple_archive('eeeeeeee-bbbb-cccc-0000-00000000000c', 'asked by email', 'eeeeeeee') $$,
   '22023', null, 'an active couple is never purged'
 );
 
 select lives_ok(
-  $$ select public.admin_purge_couple_archive('eeeeeeee-bbbb-cccc-0000-00000000000a', 'both deleted; asked by email') $$,
+  $$ select public.admin_purge_couple_archive('eeeeeeee-bbbb-cccc-0000-00000000000a', 'both deleted; asked by email', 'eeeeeeee') $$,
   'with both partners deleted, support can purge early'
 );
 
