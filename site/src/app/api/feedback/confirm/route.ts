@@ -12,8 +12,9 @@ import { CATEGORY_LABELS, type FeatureCategory } from "@/lib/utils/constants";
  *
  * The browser asks; the database decides. `claim_feedback_confirmation` runs as the signed-in
  * person and returns a row only for their own request, posted in the last hour, not confirmed
- * before, to an address that has not turned feedback updates off (20261112000000). Anything else
- * is a quiet no-op, so this cannot be used to send mail to anyone, or to send it twice.
+ * before, to an address that has not turned feedback updates off (20261112000000), and within the
+ * daily limits per account and in total (20261124000300). Anything else is a quiet no-op. Sign-up
+ * does not prove an address, so the limits are what keep this from being used against one.
  */
 export async function POST(request: Request) {
   let featureId: unknown;

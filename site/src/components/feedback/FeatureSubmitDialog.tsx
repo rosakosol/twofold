@@ -134,8 +134,10 @@ export function FeatureSubmitDialog() {
       toast.success("Feature request submitted");
       setOpen(false);
       reset();
-    } catch {
-      toast.error("Something went wrong - try again.");
+    } catch (err) {
+      // Raised by the database when an account reaches its daily limit (20261124000300).
+      const limited = (err as { message?: string } | null)?.message === "feature_request_limit";
+      toast.error(limited ? "You've posted a lot today. Try again tomorrow." : "Something went wrong - try again.");
     }
   }
 
