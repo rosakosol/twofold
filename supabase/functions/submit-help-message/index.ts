@@ -33,7 +33,7 @@
 //     never printed as somewhere to write; see ingest-support-email/parsing.ts.
 
 import { userSession } from "../_shared/auth.ts";
-import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
+import { SMTPClient } from "../_shared/denomailer/mod.ts";
 import { enforceRateLimit } from "../_shared/rate-limit.ts";
 import { dotStuff } from "../_shared/mail.ts";
 import { blockNotice } from "./block-notice.ts";

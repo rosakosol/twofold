@@ -6,7 +6,7 @@
 // into a shared module in the same change that adds an account-deletion job would put the support
 // path at risk for a saving of fifteen lines. If a third caller ever appears, dedupe then.
 
-import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
+import { SMTPClient } from "./denomailer/mod.ts";
 
 // Installed by importing this module, so every function that sends mail gets it.
 //
