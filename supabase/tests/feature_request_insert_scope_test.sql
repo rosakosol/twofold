@@ -25,7 +25,7 @@ insert into public.feedback_admins (profile_id, role) values ('f0f0f0f0-0000-400
 -- ---------------------------------------------------------------------------
 
 set local role authenticated;
-select set_config('request.jwt.claims', '{"sub":"f0f0f0f0-0000-4000-8000-000000000001","role":"authenticated"}', true);
+select set_config('request.jwt.claims', '{"aal":"aal2","sub":"f0f0f0f0-0000-4000-8000-000000000001","role":"authenticated"}', true);
 
 insert into public.feature_requests
   (title, slug, description, category, author_id, status, is_pinned, upvote_count, comment_count, created_at)
@@ -48,7 +48,7 @@ select ok((select created_at <= now() from public.feature_requests where slug = 
 -- ---------------------------------------------------------------------------
 
 set local role authenticated;
-select set_config('request.jwt.claims', '{"sub":"f0f0f0f0-0000-4000-8000-000000000001","role":"authenticated"}', true);
+select set_config('request.jwt.claims', '{"aal":"aal2","sub":"f0f0f0f0-0000-4000-8000-000000000001","role":"authenticated"}', true);
 select throws_ok(
   format($$ insert into public.feature_requests (title, slug, description, category, author_id)
             values ('Long one', 'long-one', %L, 'flights', 'f0f0f0f0-0000-4000-8000-000000000001') $$,
@@ -68,7 +68,7 @@ reset role;
 -- ---------------------------------------------------------------------------
 
 set local role authenticated;
-select set_config('request.jwt.claims', '{"sub":"f0f0f0f0-0000-4000-8000-000000000002","role":"authenticated"}', true);
+select set_config('request.jwt.claims', '{"aal":"aal2","sub":"f0f0f0f0-0000-4000-8000-000000000002","role":"authenticated"}', true);
 insert into public.feature_requests (title, slug, description, category, author_id, status, is_pinned)
 values ('Admin request', 'admin-request', '', 'flights', 'f0f0f0f0-0000-4000-8000-000000000002', 'planned', true);
 reset role;

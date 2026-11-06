@@ -16,6 +16,7 @@
 -- for themselves and their partner and what they deliberately wrote TO us in order to be helped.
 
 begin;
+select set_config('request.jwt.claims', '{"aal":"aal2"}', true);
 select plan(15);
 
 insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at)

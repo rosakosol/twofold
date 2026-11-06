@@ -61,7 +61,7 @@ values ('ffffffff-9191-0000-0000-00000000000f', 1, 'aaaaaaaa-9191-0000-0000-0000
 -- ---------------------------------------------------------------------------
 
 set local role authenticated;
-set local request.jwt.claims = '{"sub":"cccccccc-9191-0000-0000-000000000003","role":"authenticated"}';
+set local request.jwt.claims = '{"aal":"aal2","sub":"cccccccc-9191-0000-0000-000000000003","role":"authenticated"}';
 
 select throws_ok(
   $$select public.delete_game_deck('dddddddd-9191-0000-0000-00000000000d')$$,
@@ -80,7 +80,7 @@ select is(
 -- The admin
 -- ---------------------------------------------------------------------------
 
-set local request.jwt.claims = '{"sub":"aaaaaaaa-9191-0000-0000-000000000001","role":"authenticated"}';
+set local request.jwt.claims = '{"aal":"aal2","sub":"aaaaaaaa-9191-0000-0000-000000000001","role":"authenticated"}';
 
 select throws_ok(
   $$select public.delete_game_deck('00000000-9191-0000-0000-000000000000')$$,

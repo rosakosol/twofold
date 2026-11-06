@@ -28,7 +28,7 @@ values ('ffffffff-1212-0000-0000-00000000000f', 'Account', 'Existing question?',
 -- ---------------------------------------------------------------------------
 
 set local role authenticated;
-set local request.jwt.claims = '{"sub":"bbbbbbbb-1212-0000-0000-000000000002","role":"authenticated"}';
+set local request.jwt.claims = '{"aal":"aal2","sub":"bbbbbbbb-1212-0000-0000-000000000002","role":"authenticated"}';
 
 select throws_ok(
   $$insert into public.faq_entries (category, question, answer, sort_order)
@@ -61,7 +61,7 @@ select cmp_ok(
 -- An admin
 -- ---------------------------------------------------------------------------
 
-set local request.jwt.claims = '{"sub":"aaaaaaaa-1212-0000-0000-000000000001","role":"authenticated"}';
+set local request.jwt.claims = '{"aal":"aal2","sub":"aaaaaaaa-1212-0000-0000-000000000001","role":"authenticated"}';
 
 select lives_ok(
   $$insert into public.faq_entries (category, question, answer, sort_order)

@@ -89,10 +89,11 @@ of the console entirely. Each page inside still checks the role it needs — `co
 Admins sign in with a TOTP second factor. `consoleGate` turns `my_console_access()` into a decision:
 at aal1 with a factor the layout sends them to `/admin/mfa` for a code; with no factor they get a
 banner, or are sent to enrol once the database refuses them. That is read from `data_gate_open`, the
-data gate's own answer, so the site needs no change when enforcement lands. Enforcement itself is in
-the database (`is_*_admin()` needing `aal2`), and is held in `supabase/pending/` until every admin has
-enrolled: see `supabase/pending/README.md`. Two side effects for an admin account: verifying a code
-signs out that account's other aal1 sessions, including the iOS app, and a password reset needs a code.
+data gate's own answer. Enforcement itself is in the database (`is_*_admin()` needing `aal2`): see
+`supabase/migrations/20261124000200_admin_mfa_enforcement.sql`, whose header has the lockout recovery.
+A new admin should enrol straight away, because an account with no factor can still enrol at aal1. Two
+side effects for an admin account: verifying a code signs out that account's other aal1 sessions,
+including the iOS app, and a password reset needs a code.
 
 ## Content model
 

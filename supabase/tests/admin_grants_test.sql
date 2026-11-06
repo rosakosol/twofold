@@ -15,6 +15,7 @@
 -- bought one would quietly corrupt any later attempt to reconcile credits against payments.
 
 begin;
+select set_config('request.jwt.claims', '{"aal":"aal2"}', true);
 select plan(16);
 
 insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at)

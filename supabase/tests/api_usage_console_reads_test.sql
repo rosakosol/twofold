@@ -16,6 +16,7 @@
 --     altogether, which is how the role split ends up undone by the door in front of it.
 
 begin;
+select set_config('request.jwt.claims', '{"aal":"aal2"}', true);
 select plan(13);
 
 insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at)

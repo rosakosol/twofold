@@ -3,6 +3,7 @@
 -- definer and would otherwise build a session from a deck the couple cannot see.
 
 begin;
+select set_config('request.jwt.claims', '{"aal":"aal2"}', true);
 select plan(17);
 
 insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at)

@@ -24,7 +24,7 @@ insert into public.feedback_admins (profile_id, role) values ('3e3e3e3e-0000-400
 -- open-a and open-b are live; closed-c was closed outright; merged-d was merged into open-b.
 -- Inserted as the admin: for anybody else enforce_feature_request_insert_scope resets status and
 -- merged_into, and every fixture would arrive as a fresh open request.
-select set_config('request.jwt.claims', '{"sub":"3e3e3e3e-0000-4000-8000-000000000001","role":"authenticated"}', true);
+select set_config('request.jwt.claims', '{"aal":"aal2","sub":"3e3e3e3e-0000-4000-8000-000000000001","role":"authenticated"}', true);
 insert into public.feature_requests (id, author_id, title, slug, category, status, merged_into) values
   ('3e3e3e3e-0000-4000-8000-0000000000a1', '3e3e3e3e-0000-4000-8000-000000000001', 'Open A', 'merge-open-a', 'general', 'requested', null),
   ('3e3e3e3e-0000-4000-8000-0000000000b1', '3e3e3e3e-0000-4000-8000-000000000001', 'Open B', 'merge-open-b', 'general', 'planned', null),
@@ -43,7 +43,7 @@ select is(
 );
 
 set local role authenticated;
-select set_config('request.jwt.claims', '{"sub":"3e3e3e3e-0000-4000-8000-000000000001","role":"authenticated"}', true);
+select set_config('request.jwt.claims', '{"aal":"aal2","sub":"3e3e3e3e-0000-4000-8000-000000000001","role":"authenticated"}', true);
 
 select throws_ok(
   $$ select public.merge_feature_requests('3e3e3e3e-0000-4000-8000-0000000000a1', '3e3e3e3e-0000-4000-8000-0000000000a1') $$,
@@ -90,7 +90,7 @@ select is(
 
 -- The ordinary merge still goes through.
 set local role authenticated;
-select set_config('request.jwt.claims', '{"sub":"3e3e3e3e-0000-4000-8000-000000000001","role":"authenticated"}', true);
+select set_config('request.jwt.claims', '{"aal":"aal2","sub":"3e3e3e3e-0000-4000-8000-000000000001","role":"authenticated"}', true);
 select lives_ok(
   $$ select public.merge_feature_requests('3e3e3e3e-0000-4000-8000-0000000000a1', '3e3e3e3e-0000-4000-8000-0000000000b1') $$,
   'an open request still merges into another open one'
@@ -104,7 +104,7 @@ select is(
 
 -- A member is still refused, and nobody without a session can call it.
 set local role authenticated;
-select set_config('request.jwt.claims', '{"sub":"3e3e3e3e-0000-4000-8000-000000000002","role":"authenticated"}', true);
+select set_config('request.jwt.claims', '{"aal":"aal2","sub":"3e3e3e3e-0000-4000-8000-000000000002","role":"authenticated"}', true);
 select throws_ok(
   $$ select public.merge_feature_requests('3e3e3e3e-0000-4000-8000-0000000000b1', '3e3e3e3e-0000-4000-8000-0000000000c1') $$,
   'P0001', 'Only admins can merge feature requests.',

@@ -43,7 +43,7 @@ insert into public.feedback_admins (profile_id, role) values ('fbfbfbfb-0000-400
 -- ---------------------------------------------------------------------------
 
 set local role authenticated;
-select set_config('request.jwt.claims', '{"sub":"fbfbfbfb-0000-4000-8000-000000000001","role":"authenticated"}', true);
+select set_config('request.jwt.claims', '{"aal":"aal2","sub":"fbfbfbfb-0000-4000-8000-000000000001","role":"authenticated"}', true);
 
 select lives_ok(
   $$ insert into public.feature_requests (id, author_id, title, slug, category)
@@ -82,7 +82,7 @@ insert into public.feature_votes (feature_id, user_id)
 values ('fbfbfbfb-0000-4000-8000-0000000000f2', 'fbfbfbfb-0000-4000-8000-000000000002');
 
 set local role authenticated;
-select set_config('request.jwt.claims', '{"sub":"fbfbfbfb-0000-4000-8000-000000000002","role":"authenticated"}', true);
+select set_config('request.jwt.claims', '{"aal":"aal2","sub":"fbfbfbfb-0000-4000-8000-000000000002","role":"authenticated"}', true);
 
 select lives_ok(
   $$ update public.feature_requests set status = 'planned' where id = 'fbfbfbfb-0000-4000-8000-0000000000f1' $$,

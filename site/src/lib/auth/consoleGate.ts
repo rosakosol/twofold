@@ -5,10 +5,9 @@
  * person standing in front of it, so that an admin at aal1 is sent to do their second step rather
  * than looking at a console full of refusals.
  *
- * It works before and after enforcement (supabase/pending/admin_mfa_enforcement.sql) with no code
- * change, because `dataGateOpen` is the data gate's own answer rather than a setting. For an admin at
- * aal1 with no factor it is true today, so they are let in and nagged; once enforcement lands it is
- * false, so they are sent to enrol instead of to pages that cannot load.
+ * `dataGateOpen` is the data gate's own answer rather than a setting, so this follows whatever the
+ * database enforces (20261124000200_admin_mfa_enforcement.sql). For an admin at aal1 with no factor
+ * it is false, so they are sent to enrol instead of to pages that cannot load.
  */
 export interface ConsoleAccess {
   /** On the admin roster, whatever the session's assurance level. For routing only. */

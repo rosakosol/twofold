@@ -34,7 +34,7 @@ select ok(
 -- The exploit itself: a non-admin writing a deletion into the log under the real admin's name.
 set local role authenticated;
 select set_config('request.jwt.claims',
-  '{"sub":"c0a5c0a5-a0d1-4000-8000-000000000002","role":"authenticated"}', true);
+  '{"aal":"aal2","sub":"c0a5c0a5-a0d1-4000-8000-000000000002","role":"authenticated"}', true);
 
 select throws_ok(
   $$ select public.admin_record_action(
@@ -57,7 +57,7 @@ select is(
 -- helper, which reads the actor from the session rather than taking it.
 set local role authenticated;
 select set_config('request.jwt.claims',
-  '{"sub":"c0a5c0a5-a0d1-4000-8000-000000000001","role":"authenticated"}', true);
+  '{"aal":"aal2","sub":"c0a5c0a5-a0d1-4000-8000-000000000001","role":"authenticated"}', true);
 select lives_ok(
   $$ select public.admin_grant_streak_repair('c0a5c0a5-a0d1-4000-8000-000000000002', 'apology for the outage') $$,
   'a support admin''s own action still records'

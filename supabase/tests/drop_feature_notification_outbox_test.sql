@@ -26,7 +26,7 @@ values ('cccccccc-0b0b-0000-0000-000000000001', '00000000-0000-0000-0000-0000000
 insert into public.profiles (id, first_name) values ('cccccccc-0b0b-0000-0000-000000000001', 'Ada')
 on conflict (id) do update set first_name = excluded.first_name;
 insert into public.feedback_admins (profile_id, role) values ('cccccccc-0b0b-0000-0000-000000000001', 'content');
-set local request.jwt.claims = '{"sub": "cccccccc-0b0b-0000-0000-000000000001", "role": "authenticated"}';
+set local request.jwt.claims = '{"aal":"aal2","sub": "cccccccc-0b0b-0000-0000-000000000001", "role": "authenticated"}';
 
 select lives_ok(
   $$ insert into public.feature_requests (id, author_id, title, slug, category)
