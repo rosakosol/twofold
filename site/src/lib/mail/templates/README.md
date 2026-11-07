@@ -76,8 +76,10 @@ conversation for the reasoning against building analytics nobody asked for), no 
 ## support-received.html — auto-reply to the user
 
 `{{first_name}}`, `{{response_time}}`, `{{ticket_id}}`, `{{received_at}}`,
-`{{message_body}}`, `{{wait_tips_html}}`, `{{help_center_url}}`, `{{support_email}}`,
-`{{reply_hint_html}}`
+`{{wait_tips_html}}`, `{{help_center_url}}`, `{{support_email}}`, `{{reply_hint_html}}`
+
+This goes to an address nobody has proved, so it must not quote anything the visitor wrote. If it
+did, the form would be a way to send anybody's text to anybody from support@.
 
 `{{ticket_id}}` is the console conversation's reference: the first eight characters of its
 `support_threads` id (`threadReference()` in `lib/console/threadReference.ts`). The console

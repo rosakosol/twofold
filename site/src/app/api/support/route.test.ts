@@ -208,6 +208,37 @@ describe("POST /api/support", () => {
     expect(sentTo(VISITOR)).toBe(false);
   });
 
+  it("leaves what the visitor wrote out of the receipt, and keeps it in the alert", async () => {
+    databaseUp();
+    await submit({ message: "Claim your refund at https://evil.example/now" });
+    expect(mailTo(VISITOR)?.html).not.toContain("evil.example");
+    expect(mailTo(SUPPORT_EMAIL)?.html).toContain("evil.example");
+  });
+
+  it("greets by name only when it looks like one", async () => {
+    databaseUp();
+    await submit({ name: "https://evil.example/now" });
+    expect(mailTo(VISITOR)?.html).not.toContain("evil.example");
+    expect(mailTo(VISITOR)?.html).toContain("Thanks for writing in, there.");
+  });
+
+  it("stops receipts past the ceiling, but still records and alerts", async () => {
+    rpc.mockImplementation(async (fn: string, args: { p_bucket?: string }) =>
+      fn === "consume_anon_rate_limit" ? { data: args.p_bucket !== "support-receipt-all", error: null } : RECORDED,
+    );
+    const res = await submit();
+    expect(res.status).toBe(200);
+    expect(sentTo(SUPPORT_EMAIL)).toBe(true);
+    expect(sentTo(VISITOR)).toBe(false);
+  });
+
+  it("refuses an address a mail library would read as somebody else's", async () => {
+    databaseUp();
+    const res = await submit({ email: "x<victim@example.com>" });
+    expect(res.status).toBe(400);
+    expect(sendMail).not.toHaveBeenCalled();
+  });
+
   it("pretends success to a bot that fills the honeypot", async () => {
     const res = await submit({ company: "Acme" });
     expect(res.status).toBe(200);

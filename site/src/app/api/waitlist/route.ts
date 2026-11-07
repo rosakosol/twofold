@@ -5,6 +5,7 @@ import { renderTemplate, extractSubject } from "@/lib/mail/renderTemplate";
 import { escapeHtml } from "@/lib/mail/escapeHtml";
 import { listUnsubscribeHeaders, unsubscribeUrl } from "@/lib/mail/unsubscribe";
 import { emailTimestamp } from "@/lib/console/format";
+import { isPlainEmailAddress } from "@/lib/validation/email";
 
 // Port of the old site/functions/api/waitlist.ts (Cloudflare Pages Function + D1) -
 // same validation/honeypot logic, writing to Supabase's waitlist_signups table instead
@@ -19,7 +20,6 @@ import { emailTimestamp } from "@/lib/console/format";
 // stats - none of that is tracked (or worth tracking) today, so those sections were dropped
 // rather than filled with fabricated values.
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function POST(request: Request) {
   // Service role, not the public key: `join_android_waitlist` returns the address's email-preferences
@@ -40,7 +40,7 @@ export async function POST(request: Request) {
   }
 
   const email = (body.email ?? "").trim().toLowerCase();
-  if (!email || !EMAIL_RE.test(email) || email.length > 320) {
+  if (!email || !isPlainEmailAddress(email) || email.length > 320) {
     return NextResponse.json({ error: "Enter a valid email address." }, { status: 400 });
   }
 

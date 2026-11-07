@@ -21,6 +21,9 @@ import { threadReplyAddress } from "@/lib/mail/threadReplyAddress";
 // folder's README.md for the full token list each one accepts):
 //   - support-internal-alert.html -> support@ (the actual ticket)
 //   - support-received.html -> the visitor (a receipt, so they know it landed)
+//
+// Nobody has proved the address on the form is theirs, so the receipt carries nothing the sender
+// wrote. If it quoted the message, this form would send anybody's text to anybody, from support@.
 
 
 /// The caller's address as the platform reports it. `x-forwarded-for` is a list when there are
@@ -146,12 +149,18 @@ export async function POST(request: Request) {
   // not be consulted at all we still want a visitor's message to reach support, so the alert is
   // sent and the receipt is not — the degraded mode drops the convenience, never the report,
   // and never leaves the relay open.
+  //
+  // A ceiling on receipts in total as well, because rotating IPs and addresses gets past the two
+  // buckets above. Past it the request is still recorded and alerted, and only the receipt stops.
+  const receiptAllowed = allowed === "allowed" &&
+    (await withinRateLimit(supabase, [{ bucket: "support-receipt-all", subject: "all", limit: 30 }])) === "allowed";
+
   const { alerted } = await sendSupportEmails({
     name,
     email,
     category,
     message,
-    sendReceipt: allowed === "allowed",
+    sendReceipt: receiptAllowed,
     recorded,
     threadId,
     threadToken,
@@ -231,6 +240,9 @@ async function sendSupportEmails(input: {
   }
   const { transport, from } = mailer;
   const firstName = input.name.split(/\s+/)[0] || "there";
+  // The name is the one thing the visitor wrote that the receipt uses, so it has to look like a name:
+  // "https://example.com" or a sentence with no spaces is not going out from support@.
+  const receiptName = /^[\p{L}\p{M}'\u2019-]{1,40}$/u.test(firstName) ? firstName : "there";
   const ticketId = input.threadId ? threadReference(input.threadId) : generateTicketId();
   const receivedAt = formatDateTime(new Date());
   const escapedMessage = escapeHtml(input.message).replace(/\n/g, "<br>");
@@ -259,12 +271,11 @@ async function sendSupportEmails(input: {
 
   const receivedHtml = renderTemplate("support-received", {
     subject: `We got your message - #${ticketId}`,
-    preheader: "Thanks for writing in - here's a copy of what you sent us.",
-    first_name: escapeHtml(firstName),
+    preheader: "Thanks for writing in - your message is with our support team.",
+    first_name: escapeHtml(receiptName),
     response_time: "1-2 business days",
     ticket_id: ticketId,
     received_at: receivedAt,
-    message_body: escapedMessage,
     wait_tips_html: waitTipsHtml(input.category),
     help_center_url: `${SITE_URL}/faq`,
     support_email: SUPPORT_EMAIL,

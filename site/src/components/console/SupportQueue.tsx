@@ -63,6 +63,10 @@ export interface SupportRequest {
   /** Who a Report Abuse request names (20261113001200). Absent on rows from before that shipped. */
   reported_profile_id?: string | null;
   reported_name?: string | null;
+  /** The address replies go to (20261124000600). */
+  thread_email?: string | null;
+  /** What proves who sent this: "account", "mailbox", or nothing. */
+  sender_proof?: string | null;
 }
 
 type Thread = SupportRequest[];
@@ -565,7 +569,7 @@ function Conversation({
           </div>
           <p className="mt-0.5 truncate text-xs text-muted-foreground">
             {latest.name ? `${latest.name}, ` : ""}
-            {latest.email ?? "no address"}
+            {latest.thread_email ?? latest.email ?? "no address"}
             {latest.matched_profile_id && (
               <>
                 {" · "}
@@ -629,6 +633,8 @@ function Conversation({
         </div>
       </header>
 
+      <SenderWarning thread={thread} />
+
       {latest.thread_handled_at && !isOpen && (
         <p className="border-b bg-muted/40 px-4 py-1.5 text-xs text-muted-foreground">
           Closed {formatDateTime(latest.thread_handled_at)}
@@ -645,7 +651,7 @@ function Conversation({
       </div>
 
       <div className="space-y-3 border-t p-4">
-        <Composer threadId={latest.thread_id} to={latest.email} recipientName={theirName} onSent={onReplied} />
+        <Composer threadId={latest.thread_id} to={latest.thread_email ?? latest.email} recipientName={theirName} onSent={onReplied} />
         {/* Never sent: a different colour from the reply above, so the two cannot be confused. */}
         <details className="support-note" open={Boolean(note)}>
           <summary>
@@ -1070,12 +1076,39 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-/** Who a conversation is with: the account it matched, and the address it came from. */
+/**
+ * Whether the newest message from them can be believed about who sent it. An email's From address can
+ * be forged, so an account matched by address is a claim until they answer a reply, which proves they
+ * can read that mailbox, or write in from the app (20261124000600).
+ */
+function SenderWarning({ thread }: { thread: Thread }) {
+  const message = thread.find((m) => m.direction === "inbound");
+  if (!message || message.sender_proof) return null;
+  const threadEmail = message.thread_email?.toLowerCase();
+  if (threadEmail && message.email && message.email.toLowerCase() !== threadEmail) {
+    return (
+      <p className="support-sender-warning">
+        <TriangleAlert aria-hidden />
+        Sent from {message.email}, not this conversation&apos;s address. Replies go to {message.thread_email}.
+      </p>
+    );
+  }
+  if (!message.matched_profile_id) return null;
+  return (
+    <p className="support-sender-warning">
+      <TriangleAlert aria-hidden />
+      Sender not verified, because an email address can be forged. Before changing or deleting this
+      account, reply here and wait for their answer, or ask them to write from the app.
+    </p>
+  );
+}
+
+/** Who a conversation is with: the account it matched, and the address replies go to. */
 function customerOf(thread: Thread): { profileId: string | null; email: string | null } {
   const theirs = thread.find((m) => m.direction === "inbound") ?? thread[0];
   return {
     profileId: thread.find((m) => m.matched_profile_id)?.matched_profile_id ?? null,
-    email: theirs.email,
+    email: theirs.thread_email ?? theirs.email,
   };
 }
 

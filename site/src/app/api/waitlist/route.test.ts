@@ -53,14 +53,21 @@ describe("POST /api/waitlist", () => {
   });
 
   it("escapes the address everywhere it lands in the alert's markup", async () => {
-    // The site's and the database's email patterns both allow < > and ".
     database({ limiter: "allow" });
-    const address = '"><img/src=x>@example.com';
+    const address = "a&b@example.com";
     const res = await join(address);
     expect(res.status).toBe(200);
     const alert = sendMail.mock.calls.map(([mail]) => mail).find((mail) => mail.to !== address);
     expect(alert).toBeDefined();
-    expect(alert.html).not.toContain("<img/src=x>");
+    expect(alert.html).toContain("a&amp;b@example.com");
+    expect(alert.html).not.toContain("a&b@example.com");
+  });
+
+  it("refuses an address with markup in it", async () => {
+    database({ limiter: "allow" });
+    const res = await join('"><img/src=x>@example.com');
+    expect(res.status).toBe(400);
+    expect(sendMail).not.toHaveBeenCalled();
   });
 
   it("doesn't mail the typed address when the limiter can't be consulted", async () => {

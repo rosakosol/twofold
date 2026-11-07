@@ -230,6 +230,24 @@
   width: 14px;
   height: 14px;
 }
+.support-sender-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--warning-bg);
+  color: var(--warning);
+  font-size: var(--text-caption);
+  font-weight: 600;
+  line-height: 1.4;
+}
+.support-sender-warning svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  margin-top: 2px;
+}
 .support-composer {
   display: flex;
   flex-direction: column;

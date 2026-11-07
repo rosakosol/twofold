@@ -2359,6 +2359,7 @@ export type Database = {
       }
       support_requests: {
         Row: {
+          sender_proof: string | null
           attachments_state: string
           category: string
           created_at: string
@@ -2381,6 +2382,7 @@ export type Database = {
         }
         ComputedFields: never
         Insert: {
+          sender_proof?: string | null
           attachments_state?: string
           category: string
           created_at?: string
@@ -2402,6 +2404,7 @@ export type Database = {
           zoho_account_id?: string | null
         }
         Update: {
+          sender_proof?: string | null
           attachments_state?: string
           category?: string
           created_at?: string
@@ -2887,6 +2890,8 @@ export type Database = {
           thread_position: number
           thread_size: number
           thread_status: string
+          sender_proof: string | null
+          thread_email: string | null
           thread_token: string
         }[]
       }

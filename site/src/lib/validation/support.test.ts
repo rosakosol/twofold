@@ -29,6 +29,26 @@ describe("validateSupportRequest", () => {
     expect(result.ok).toBe(true);
   });
 
+  it.each([
+    "x<victim@example.com>",
+    "a,victim@example.com",
+    "a;victim@example.com",
+    "x:victim@example.com",
+    "(c)victim@example.com",
+    "victim@example.com(c)",
+    '"x"victim@example.com',
+    "a\\b@example.com",
+  ])("refuses %s, which a mail library would read as something else", (email) => {
+    expect(validateSupportRequest({ ...valid, email }).ok).toBe(false);
+  });
+
+  it.each(["normal.name+tag@sub.example.co.uk", "o'brien@example.ie", "jos\u00e9@example.com"])(
+    "accepts %s",
+    (email) => {
+      expect(validateSupportRequest({ ...valid, email }).ok).toBe(true);
+    },
+  );
+
   it("allows a blank name", () => {
     expect(validateSupportRequest({ ...valid, name: undefined }).ok).toBe(true);
   });

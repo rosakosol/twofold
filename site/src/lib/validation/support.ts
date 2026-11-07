@@ -1,3 +1,5 @@
+import { isPlainEmailAddress } from "@/lib/validation/email";
+
 /**
  * The web support form's rules, shared by the form (src/components/marketing/SupportForm.tsx) and
  * the route that enforces them (src/app/api/support/route.ts).
@@ -27,8 +29,6 @@ export const MAX_NAME_LENGTH = 200;
 export const MAX_MESSAGE_LENGTH = 5000;
 export const MAX_EMAIL_LENGTH = 320;
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
 export type SupportField = "name" | "email" | "category" | "message";
 
 export interface SupportRequestInput {
@@ -49,7 +49,7 @@ export function validateSupportRequest(input: SupportRequestInput): SupportValid
   const category = (input.category ?? "").trim();
   const message = (input.message ?? "").trim();
 
-  if (!email || !EMAIL_RE.test(email) || email.length > MAX_EMAIL_LENGTH) {
+  if (!email || !isPlainEmailAddress(email) || email.length > MAX_EMAIL_LENGTH) {
     return { ok: false, field: "email", error: "Enter a valid email address." };
   }
   if (!SUPPORT_CATEGORIES.includes(category as SupportCategory)) {

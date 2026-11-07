@@ -5,6 +5,12 @@
 // came through the app's Help screen and the website's form, and since every published address now
 // points at support@, most of what actually arrives is plain email nobody typed into a form.
 //
+// The webhook's mail condition must match both addresses mail arrives on: "Any of these conditions
+// (OR)", Delivered To contains `support@twofoldapp.com.au`, and Delivered To contains `support+t`.
+// The second is every conversation's reply address (`support+t<token>@`). With only the first,
+// Zoho delivers customers' replies to the mailbox but never calls this, so no reply ever reaches
+// the console. That is how it was set up until November 2026.
+//
 // ---------------------------------------------------------------------------
 // The loop that would double every form submission
 // ---------------------------------------------------------------------------
