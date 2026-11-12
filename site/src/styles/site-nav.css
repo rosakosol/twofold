@@ -323,3 +323,47 @@
     display: none;
   }
 }
+
+/* A phone. The console's bar carries more than the website's (the Console tag, the Website switch,
+   the avatar and the menu button), and at 390px it ran 30px off the side, taking the menu button,
+   the only way to the console's pages, with it. Tighter gaps, a smaller wordmark and an icon-only
+   switch make it fit down to 360px, and the rule after this one down to 320px. */
+@media (max-width: 480px) {
+  .site-nav.is-console .site-nav-inner {
+    gap: 8px;
+  }
+  .site-nav.is-console .site-nav-brand {
+    gap: 6px;
+    font-size: 1.25rem;
+  }
+  .site-nav.is-console .site-nav-brand img {
+    width: 24px;
+    height: 24px;
+  }
+  .site-nav.is-console .site-nav-brand-tag {
+    padding: 0 8px;
+  }
+  .site-nav.is-console .site-nav-actions {
+    gap: 4px;
+  }
+  .site-nav.is-console .site-nav-switch {
+    justify-content: center;
+    width: 40px;
+    padding: 0;
+  }
+  .site-nav.is-console .account-chip {
+    padding: 0;
+  }
+}
+/* The smallest phones (an iPhone SE at 320px) still came up 13px short. */
+@media (max-width: 360px) {
+  .site-nav.is-console .site-nav-inner {
+    padding: 0 12px;
+  }
+  .site-nav.is-console .site-nav-brand {
+    font-size: 1.125rem;
+  }
+  .site-nav.is-console .site-nav-brand-tag {
+    padding: 0 6px;
+  }
+}

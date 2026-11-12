@@ -1,6 +1,5 @@
 // Wraps `next dev` and pre-compiles the heavy routes the moment the server is ready, so the
-// first click into /admin, /studio, etc. doesn't eat a cold Turbopack compile (Sanity Studio
-// alone is ~30s). Turbopack compiles a route on ANY request to it, so these warm-up fetches work
+// first click into /admin, /feedback, etc. doesn't eat a cold Turbopack compile. Turbopack compiles a route on ANY request to it, so these warm-up fetches work
 // without auth — a 307 redirect (unauthenticated) still triggers the compile. Dev-only; prod
 // serves a prebuilt bundle and never hits this.
 //
@@ -19,10 +18,10 @@ const BASE = "http://localhost:3000";
 // server sends no bytes until the compile finishes. The [type]/[id] values below are
 // arbitrary — one request compiles the whole dynamic route for every param value.
 const ROUTES = [
-  "/studio",
   "/feedback",
   "/admin",
   "/admin/games",
+  "/admin/faq",
   "/admin/games/trivia_questions/entries",
   "/admin/games/trivia_questions/decks",
   "/admin/games/decks/warm",

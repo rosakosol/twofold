@@ -840,7 +840,7 @@ not change what anyone is charged.
 The list above is what the **code** enforces. What users actually read is the "difference between
 Plus and Premium" row in `faq_entries`, shown in the app's Help screen and on the pricing page. The
 last migration to restate it was `20261111001500_faq_widgets_by_size.sql`, but it can also be edited live
-through the Studio FAQ tool (`site/src/sanity/tools/FaqTool.tsx`). When a gate changes, update that
+in the console's FAQ page (`/admin/faq`). When a gate changes, update that
 row first and then this list.
 
 **Flight allowance rules:**

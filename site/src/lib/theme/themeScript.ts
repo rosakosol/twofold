@@ -17,7 +17,9 @@ export const THEME_STORAGE_KEY = "twofold-theme";
  * Runs in <head> before the body is parsed (app/layout.tsx), so a stored choice is on <html>
  * before first paint and the page never flashes the system's theme first. Plain ES5 and wrapped in
  * try/catch: storage throws in some private modes and with site data blocked, and then the page
- * simply follows the system. Inline scripts are allowed by the CSP in next.config.ts.
+ * simply follows the system. Inline scripts are allowed by the CSP in next.config.ts, and on the
+ * console by this string's hash (lib/security/consoleCsp.ts), so changing it changes the hash
+ * automatically, but it must stay one constant string.
  */
 export const THEME_INIT_SCRIPT = `try{var t=localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)});if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}`;
 

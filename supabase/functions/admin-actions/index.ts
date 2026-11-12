@@ -30,6 +30,16 @@
 //
 // Every action requires a reason. Not because anybody reads them routinely, but because an
 // unexplained destructive action found in the log in two years is indistinguishable from a mistake.
+//
+// ---------------------------------------------------------------------------
+// The audit row comes first
+// ---------------------------------------------------------------------------
+//
+// Cancelling at RevenueCat cannot be undone and happens outside the database, so the log could not
+// record it after the fact if the run stopped half way (security review, F10). Each action now
+// writes a `.started` row before anything else, and does nothing if that row cannot be written. The
+// closing row is checked too: if it fails, the work is done, so the console is told it succeeded
+// and the log keeps the `.started` row.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { userSession } from "../_shared/auth.ts";
@@ -47,6 +57,25 @@ interface Body {
 function bad(message: string, status = 400): Response {
   return Response.json({ error: message }, { status });
 }
+
+/// One audit row. True if it was written.
+async function record(
+  // deno-lint-ignore no-explicit-any
+  serviceClient: any,
+  row: { actor: string; action: string; subject: string; reason: string; details?: Record<string, unknown> },
+): Promise<boolean> {
+  const { error } = await serviceClient.rpc("admin_record_action", {
+    p_actor: row.actor,
+    p_action: row.action,
+    p_subject: row.subject,
+    p_reason: row.reason,
+    p_details: row.details ?? null,
+  });
+  if (error) console.error(`[admin-actions] could not write the ${row.action} audit row:`, error.message);
+  return !error;
+}
+
+const NOT_RECORDED = "Couldn't record this action in the audit log, so nothing has changed. Please try again.";
 
 Deno.serve(serveWithCors(async (req) => {
   if (req.method !== "POST") return bad("Method not allowed", 405);
@@ -135,10 +164,14 @@ async function deleteAccount(
     );
   }
 
+  const base = { actor: actorId, subject: profileId, reason };
+  if (!(await record(serviceClient, { ...base, action: "account.delete.started" }))) return bad(NOT_RECORDED, 500);
+
   try {
     cancelled = await cancelWebSubscriptions(profileId, { v2Key, projectId });
   } catch (err) {
     console.error("[admin-actions] could not cancel web subscription:", (err as Error).message);
+    await record(serviceClient, { ...base, action: "account.delete.failed", details: { stage: "cancel_subscription" } });
     return bad(
       "Couldn't cancel this account's subscription, so it hasn't been deleted. Try again, or " +
         "cancel the subscription first.",
@@ -161,6 +194,11 @@ async function deleteAccount(
   });
   if (scrubError) {
     console.error("[admin-actions] admin_scrub_account failed:", scrubError.message);
+    await record(serviceClient, {
+      ...base,
+      action: "account.delete.failed",
+      details: { stage: "scrub", cancelled_subscriptions: cancelled },
+    });
     return bad("Couldn't delete this account's data. Please try again.", 500);
   }
 
@@ -170,6 +208,11 @@ async function deleteAccount(
   const { error: authError } = await serviceClient.auth.admin.deleteUser(profileId, true);
   if (authError) {
     console.error("[admin-actions] deleteUser failed:", authError.message);
+    await record(serviceClient, {
+      ...base,
+      action: "account.delete.failed",
+      details: { stage: "disable_sign_in", cancelled_subscriptions: cancelled },
+    });
     // Step 1 already happened. Re-running is safe — both steps are idempotent — so this says so
     // rather than implying nothing was done.
     return bad(
@@ -178,13 +221,7 @@ async function deleteAccount(
     );
   }
 
-  await serviceClient.rpc("admin_record_action", {
-    p_actor: actorId,
-    p_action: "account.delete",
-    p_subject: profileId,
-    p_reason: reason,
-    p_details: { cancelled_subscriptions: cancelled },
-  });
+  await record(serviceClient, { ...base, action: "account.delete", details: { cancelled_subscriptions: cancelled } });
 
   return Response.json({ ok: true, cancelledSubscriptions: cancelled });
 }
@@ -204,23 +241,25 @@ async function cancelSubscription(
   const projectId = Deno.env.get("REVENUECAT_PROJECT_ID");
   if (!v2Key || !projectId) return bad("Billing provider is not configured.", 503);
 
+  const base = { actor: actorId, subject: profileId, reason };
+  if (!(await record(serviceClient, { ...base, action: "subscription.cancel.started" }))) return bad(NOT_RECORDED, 500);
+
   let cancelled = 0;
   try {
     cancelled = await cancelWebSubscriptions(profileId, { v2Key, projectId });
   } catch (err) {
     console.error("[admin-actions] could not cancel subscription:", (err as Error).message);
+    await record(serviceClient, { ...base, action: "subscription.cancel.failed" });
     return bad("Couldn't cancel that subscription. Nothing has changed.", 503);
   }
 
   // Zero means there was nothing of ours to cancel — an App Store subscription, which Apple gives
   // no way to end for somebody else. Reported plainly rather than as success, so nobody tells a
   // customer a charge has stopped when it has not.
-  await serviceClient.rpc("admin_record_action", {
-    p_actor: actorId,
-    p_action: cancelled > 0 ? "subscription.cancel" : "subscription.cancel.nothing_to_do",
-    p_subject: profileId,
-    p_reason: reason,
-    p_details: { cancelled },
+  await record(serviceClient, {
+    ...base,
+    action: cancelled > 0 ? "subscription.cancel" : "subscription.cancel.nothing_to_do",
+    details: { cancelled },
   });
 
   return Response.json({ ok: true, cancelled });

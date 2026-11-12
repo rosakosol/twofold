@@ -1,6 +1,6 @@
 // FAQ content lives in the main Twofold app's Supabase project (`faq_entries` table) — shared
-// with the iOS app's Settings > Support screen, and edited via the Studio's custom FAQ tool
-// (src/sanity/tools/FaqTool.tsx) rather than Sanity's own dataset. A public SELECT policy on
+// with the iOS app's Settings > Support screen, and edited in the console at /admin/faq
+// (src/components/admin/faq/FaqEditor.tsx) rather than in Sanity. A public SELECT policy on
 // that table makes this a plain anon-key REST read, no auth/service-role needed. Replaces the
 // old Sanity `faqItem` document type + getFaqItems() (see sanity.ts's history).
 

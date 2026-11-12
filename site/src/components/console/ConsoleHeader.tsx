@@ -9,6 +9,7 @@ import { SignedInNavItems } from "@/components/layout/SignedInNavItems";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { useAdminRoles } from "@/lib/auth/useAdminRoles";
 import { Wordmark } from "@/components/layout/Wordmark";
+import { STUDIO_URL } from "@/lib/studio";
 
 /**
  * The console's own navbar, and the reason it is not `SiteHeader`.
@@ -46,12 +47,15 @@ const CONSOLE_LINKS = [
   { href: "/admin/users", label: "Users", exact: false, role: "support" as const },
   // Blocks, and an honest note about why there is no report queue.
   { href: "/admin/moderation", label: "Moderation", exact: false, role: "support" as const },
+  // What admins have done and read (20261124000700).
+  { href: "/admin/activity", label: "Activity", exact: false, role: "support" as const },
   { href: "/admin/games", label: "Games", exact: false, role: "content" as const },
+  // The FAQ shared with the app's Support screen. It was a tool inside Studio (see useFaqEntries.ts).
+  { href: "/admin/faq", label: "FAQ", exact: false, role: "content" as const },
   // Spend. Its own role, so its own visibility — see useIsBillingAdmin below.
   { href: "/admin/usage", label: "Usage", exact: false, role: "billing" as const },
-  // Sanity Studio renders its own full-viewport chrome and is not wrapped by this layout, so this
-  // is a link out rather than a tab that keeps the bar on screen.
-  { href: "/studio", label: "Studio", exact: false, role: "content" as const },
+  // Sanity Studio, on Sanity's own hosting (lib/studio.ts), so a link out in a new tab.
+  { href: STUDIO_URL, label: "Studio", exact: false, role: "content" as const },
 ];
 
 /** `showLinks` is off at /admin/mfa, where none of the tabs would open anything yet. */
@@ -95,13 +99,13 @@ export function ConsoleHeader({ showLinks = true }: { showLinks?: boolean }) {
               const isActive = link.exact ? pathname === link.href : pathname.startsWith(link.href);
               return (
                 <li key={link.href}>
-                  {link.href === "/studio" ? (
-                    // Studio opens its own full-screen app, so it says so.
-                    <Link href={link.href} className="site-nav-external">
+                  {link.href === STUDIO_URL ? (
+                    // Studio is another site, so it opens in a new tab and says so.
+                    <a href={link.href} className="site-nav-external" target="_blank" rel="noopener noreferrer">
                       {link.label}
                       <ExternalLink aria-hidden />
-                      <span className="sr-only">(opens Sanity Studio)</span>
-                    </Link>
+                      <span className="sr-only">(opens Sanity Studio in a new tab)</span>
+                    </a>
                   ) : (
                     <Link href={link.href} aria-current={isActive ? "page" : undefined}>
                       {link.label}

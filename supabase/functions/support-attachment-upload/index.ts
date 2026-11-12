@@ -55,16 +55,20 @@ Deno.serve(serveWithCors(async (req) => {
   if (!user) return Response.json({ error: "Not authenticated" }, { status: 401 });
 
   if (wantsDownload) {
-    // Read through an RPC rather than by trusting the id: `admin_thread_attachments` applies the
-    // support-role check itself, so a caller cannot fetch an attachment by guessing at a uuid.
-    const { data: rows, error: readError } = await userClient.rpc("admin_thread_attachments", {
+    // Read through an RPC rather than by trusting the id: `admin_open_attachment` applies the
+    // support-role check itself, so a caller cannot fetch an attachment by guessing at a uuid. It
+    // also logs the download and counts it against the admin's read limit (20261124000700).
+    const { data: rows, error: readError } = await userClient.rpc("admin_open_attachment", {
       p_thread_id: input.threadId ?? "",
+      p_attachment_id: input.attachmentId,
     });
     if (readError) {
+      if (readError.message === "admin_read_limit") {
+        return Response.json({ error: "Too many console reads in the last hour. Try again later." }, { status: 429 });
+      }
       return Response.json({ error: "Not authorised" }, { status: 403 });
     }
-    const match = ((rows ?? []) as { id: string; r2_key: string; filename: string }[])
-      .find((row) => row.id === input.attachmentId);
+    const match = ((rows ?? []) as { r2_key: string; filename: string }[])[0];
     if (!match) {
       return Response.json({ error: "No such attachment on this conversation." }, { status: 404 });
     }

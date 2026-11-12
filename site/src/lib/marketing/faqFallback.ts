@@ -4,7 +4,7 @@
 // Supabase `faq_entries` is the source of truth, and it feeds the iOS app's Support screen as
 // well as this page — so this file is a MIRROR, not an independent copy. Text is transcribed
 // verbatim from the live rows so the failure path can't quietly show different answers to the
-// app's. Re-check it whenever entries are edited through Studio → FAQ; `node -e` against the
+// app's. Re-check it whenever entries are edited in the console's FAQ page (/admin/faq); `node -e` against the
 // table is the quickest way to diff the two.
 //
 // GENERATED FROM THE ROWS on 2026-09-30, because the claim above had stopped being true. Eleven
@@ -15,7 +15,7 @@
 // renamed in the rows whose fallback still carried the old title (so that answer had no fallback
 // at all), and four edited to drop a hardcoded support address.
 //
-// Nothing enforces the mirror. Until something does, treat an edit through Studio → FAQ as also
+// Nothing enforces the mirror. Until something does, treat an edit in the console's FAQ page as also
 // owing an edit here.
 //
 // House style for FAQ copy is a plain hyphen, never an em or en dash — 20261111001400 normalised

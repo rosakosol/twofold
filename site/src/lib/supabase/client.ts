@@ -1,5 +1,6 @@
 import { createBrowserClient } from "@supabase/ssr";
 import type { Database } from "@/lib/db/types";
+import { authCookieOptions } from "@/lib/supabase/cookieOptions";
 
 /**
  * Browser-side Supabase client — for Client Components and TanStack Query hooks.
@@ -12,7 +13,8 @@ export function createClient() {
   if (client) return client;
   client = createBrowserClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { cookieOptions: authCookieOptions }
   );
   return client;
 }

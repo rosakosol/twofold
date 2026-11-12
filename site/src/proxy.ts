@@ -1,11 +1,20 @@
 import { type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/proxy";
+import { consoleCsp, isConsolePath, newNonce } from "@/lib/security/consoleCsp";
 
 // Next 16 renamed the `middleware` convention to `proxy`, and with the app under src/app it belongs
 // in src/, beside `app` (node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/
 // proxy.md). It runs on the Node.js runtime, which @supabase/ssr is happy with.
 export async function proxy(request: NextRequest) {
-  return updateSession(request);
+  // The console gets its own strict CSP with a fresh nonce (lib/security/consoleCsp.ts). Everything
+  // else keeps the static one in next.config.ts.
+  const csp = isConsolePath(request.nextUrl.pathname)
+    ? consoleCsp(newNonce(), {
+        supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        dev: process.env.NODE_ENV === "development",
+      })
+    : undefined;
+  return updateSession(request, { csp });
 }
 
 export const config = {
@@ -22,13 +31,14 @@ export const config = {
      * The routes below are the ones that read the session server-side, plus the auth routes that
      * establish it. A cookie that goes stale while somebody reads the FAQ is refreshed the moment
      * they navigate somewhere that cares, which is the first moment it matters.
+     *
+     * `/admin` here is also what gives the console its CSP, so it must stay.
      */
     "/account/:path*",
     "/admin/:path*",
     "/feedback/:path*",
     // The feedback confirmation email reads the poster's session.
     "/api/feedback/:path*",
-    "/studio/:path*",
     "/auth/:path*",
   ],
 };

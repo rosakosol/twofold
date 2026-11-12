@@ -1,20 +1,25 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@/lib/db/types";
+import { authCookieOptions } from "@/lib/supabase/cookieOptions";
 
 /**
  * Refreshes the auth session on every request that passes through src/proxy.ts.
  * This is what keeps a signed-in user's session alive across Server Component
  * navigations without needing a client-side refresh — the standard @supabase/ssr
  * Next.js App Router pattern.
+ *
+ * `csp`, when given, goes on the request (Next reads the nonce from it and puts it on its own
+ * scripts) and on the response (the browser enforces it). See lib/security/consoleCsp.ts.
  */
-export async function updateSession(request: NextRequest) {
+export async function updateSession(request: NextRequest, { csp }: { csp?: string } = {}) {
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      cookieOptions: authCookieOptions,
       cookies: {
         getAll() {
           return request.cookies.getAll();
@@ -53,6 +58,7 @@ export async function updateSession(request: NextRequest) {
   // sent, so the layout now reads the real path and only the real path.
   const forwardedHeaders = new Headers(request.headers);
   forwardedHeaders.set("x-pathname", request.nextUrl.pathname + request.nextUrl.search);
+  if (csp) forwardedHeaders.set("Content-Security-Policy", csp);
 
   const forwarded = NextResponse.next({ request: { headers: forwardedHeaders } });
   // The cookies the Supabase client set on `response` above have to come with it — a new
@@ -64,6 +70,7 @@ export async function updateSession(request: NextRequest) {
     const name = key.toLowerCase();
     if (name !== "set-cookie" && !name.startsWith("x-middleware-")) forwarded.headers.set(key, value);
   });
+  if (csp) forwarded.headers.set("Content-Security-Policy", csp);
 
   return forwarded;
 }

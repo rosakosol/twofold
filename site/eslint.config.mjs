@@ -14,6 +14,8 @@ const eslintConfig = [
       ".next/**",
       "out/**",
       "build/**",
+      // `npx sanity deploy` builds the Studio here (sanity.cli.ts).
+      "dist/**",
       "next-env.d.ts",
       // Git-ignored (.gitignore: site/design-system) and not ours to lint — it holds a
       // 1.1 MB vendored React build plus the sync tooling around it, which on its own

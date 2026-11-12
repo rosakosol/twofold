@@ -9,7 +9,8 @@ TanStack Query + Zod). Four things live here:
 - the **account portal** — what someone can do about their own account without emailing us
 - the **console** — the internal admin/support tooling, in its own shell at `/admin`
 
-Plus the embedded **Sanity Studio** at `/studio`, which is where marketing copy is edited.
+Plus **Sanity Studio**, where marketing copy is edited. It is hosted by Sanity, not by this site:
+see [Sanity Studio](#sanity-studio) below.
 
 Originally two separate projects (a static Cloudflare Pages marketing site plus this
 feedback board); the marketing site was rewritten into this app on 2026-07-21 and promoted
@@ -40,9 +41,9 @@ Nothing here touches `Twofold/` (the iOS app). See **Database** for what is safe
 | `src/app/(board)/feedback/` | the board (list, filters, search, submit) |
 | `src/app/(board)/account/` | the account portal — subscription, partner, password, deletion |
 | `src/app/(board)/auth/` | `sign-in`, `reset-password`, `callback` |
-| `src/app/(console)/admin/` | console: moderation, support queue, users, requests, games, usage, security |
+| `src/app/(console)/admin/` | console: moderation, support queue, users, activity, requests, games, FAQ, usage, security |
 | `src/app/(console-mfa)/admin/mfa/` | the console's second step, outside the gate because it has to work at aal1 |
-| `src/app/studio/` | embedded Sanity Studio (`next-sanity`), incl. the custom FAQ tool |
+| `src/sanity/`, `sanity.cli.ts` | Sanity Studio (schemas, structure), built and hosted by Sanity |
 | `src/app/api/{support,waitlist}/` | form handlers; send mail via `src/lib/mail/` |
 | `src/app/.well-known/…` | Apple App Site Association, for iOS Universal Links |
 | `src/proxy.ts` | Supabase session refresh, on five path prefixes only |
@@ -117,16 +118,35 @@ Sanity reads go through the CDN with `useCdn: true` and a **60-second** `revalid
 within a minute without a deploy, and a missing document or a Sanity outage falls back rather
 than breaking (`fetchOrFallback` in `src/lib/marketing/sanity.ts`).
 
-FAQ is not a Sanity type because the iOS app reads the same rows (Settings → Support). The
-Studio's custom tool (`src/sanity/tools/FaqTool.tsx`) writes to `faq_entries` directly as the
-signed-in admin, gated by the `faq_entries_admin_write` RLS policy — there is no shared secret
-any more, and if `NEXT_PUBLIC_FAQ_ADMIN_SECRET` is still set anywhere, delete it.
+FAQ is not a Sanity type because the iOS app reads the same rows (Settings → Support). It is
+edited in the console at `/admin/faq`, which writes to `faq_entries` directly as the signed-in
+admin, gated by the `faq_entries_admin_write` RLS policy (the content role, with the sign-in code).
+There is no shared secret any more, and if `NEXT_PUBLIC_FAQ_ADMIN_SECRET` is still set anywhere,
+delete it.
+
+### Sanity Studio
+
+Studio is its own app on Sanity's hosting, at the address in `src/lib/studio.ts`. `/studio` on
+this site redirects there. From `site/`:
+
+```
+npx sanity dev       # http://localhost:3333
+npx sanity deploy    # build and publish
+```
+
+It used to be embedded at `/studio`, on the same origin as the console, so anything running in
+Studio could read an admin's Supabase session cookie. It now has no Supabase access at all: that
+is why the FAQ moved into the console. Keep it that way, and don't add Vision or other tools that
+want a Supabase client back into `src/sanity/config.ts`.
+
+`sanity.cli.ts` reads the same `.env.local` and compiles in only the Sanity project, dataset and
+RevenueCat web key, all of which are public.
 
 ### Scripts
 
 Studio is the source of truth for everything above — the fallbacks only apply when a document
 is missing entirely. The scripts in `scripts/` author or re-author a document from code; each
-one overwrites, so re-read `/studio` before running any of them.
+one overwrites, so re-read the document in Studio before running any of them.
 
 | Script | Writes | Flags |
 | --- | --- | --- |
@@ -140,7 +160,7 @@ else the one `sanity login` stored) and the Portable Text builders the legal-pag
 
 House style for copy in Sanity, in `faq_entries` and in the in-code fallbacks: a plain hyphen,
 never an em or en dash. `20261111001400` normalised the rows after nineteen of them had drifted;
-it uses `replace()` rather than restating each answer, because the Studio FAQ tool writes these
+it uses `replace()` rather than restating each answer, because the console's FAQ page writes these
 rows directly and a punctuation pass must not revert an admin's edit.
 
 `faqFallback.ts` describes itself as a character-for-character mirror of those rows. It is not
@@ -154,8 +174,8 @@ npm run dev          # http://localhost:3000
 ```
 
 `npm run dev` runs `scripts/warm-dev.mjs`, which wraps `next dev --turbopack` and pre-compiles
-the heavy routes as soon as the server is ready — Sanity Studio alone is a ~30s cold Turbopack
-compile, and the console's dynamic routes were each eating ~6s on first click. Use
+the heavy routes as soon as the server is ready — the console's dynamic routes were each eating
+~6s on first click. Use
 `npm run dev:plain` for plain `next dev` with no warm-up.
 
 Requires `.env.local` — copy `.env.local.example`, which documents every variable and why it
@@ -231,16 +251,16 @@ must set its auth cookies `httpOnly: false`, because `createBrowserClient` reads
 of `document.cookie` for every hook in `src/lib/queries` — so any XSS is full session theft,
 including an admin's.
 
-`/studio` is exempt from the CSP only (it mounts Sanity's own application, which loads its own
-workers and assets). The other three headers still apply to it.
+The console (`/admin`) does not use that CSP. `src/proxy.ts` gives it a strict one with a fresh
+nonce per request (`src/lib/security/consoleCsp.ts`).
 
 The CSP allow-lists Stripe and **both** RevenueCat domains. That second one is not cosmetic: the
 SDK calls `api.revenuecat.com` but sends telemetry to `e.revenue.cat`, which `*.revenuecat.com`
 does not match — and a blocked request there makes the SDK report "Purchase not started due to an
 error (error code: 0)", naming neither the domain nor the policy.
 
-`src/proxy.ts` (Next 16's name for middleware) refreshes the Supabase session on `/account`, `/admin`, `/feedback`, `/studio`
-and `/auth` only. It used to match everything but static assets, which meant a signed-in visitor
+`src/proxy.ts` (Next 16's name for middleware) refreshes the Supabase session on `/account`, `/admin`, `/feedback`,
+`/api/feedback` and `/auth` only. It used to match everything but static assets, which meant a signed-in visitor
 paid a round trip to Sydney on every marketing page — pure latency on the pages people hit first.
 
 ## Deploy
@@ -274,7 +294,7 @@ two Premium games as included in the cheaper plan. Also fixed: six rows differin
 character, a question renamed in the rows whose fallback kept the old title (so that answer had
 no fallback at all and the stale one never rendered), and four edited to drop a hardcoded address.
 
-**Nothing enforces the mirror.** An edit through Studio → FAQ owes an edit here too. Two things
+**Nothing enforces the mirror.** An edit in the console's FAQ page owes an edit here too. Two things
 to know if you regenerate it:
 
 - the live `category` column holds the display label (`Subscriptions & billing`), not the slug

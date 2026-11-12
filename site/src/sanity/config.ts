@@ -1,36 +1,32 @@
 import { defineConfig } from "sanity";
 import { structureTool } from "sanity/structure";
-import { visionTool } from "@sanity/vision";
-// Per-icon subpath, not the package root: @sanity/icons v5 turned the root export into a
-// lazy `icons` map and moved every component to its own entry point, so the old barrel
-// import resolves to nothing at runtime even though the types still describe it.
-import { HelpCircleIcon } from "@sanity/icons/HelpCircle";
 import { schemaTypes } from "@/sanity/schemaTypes";
 import { structure } from "@/sanity/deskStructure";
-import { FaqTool } from "@/sanity/tools/FaqTool";
 
-// Editing UI for twofoldapp.com.au's marketing copy — plan cards, the quiz and the two legal
-// pages — plus the "FAQ" tool below. Embedded at /studio (next-sanity) rather than a separate
-// Sanity Studio project, now that the marketing site lives in this same Next.js app. The home
-// page, the features and the pricing comparison table are in code (docs/TWOFOLD_WEBSITE.md), as
-// are layout, nav and all Stripe/RevenueCat wiring.
+// Editing UI for twofoldapp.com.au's marketing copy: plan cards, the quiz and the two legal pages.
+// The home page, the features and the pricing comparison table are in code
+// (docs/TWOFOLD_WEBSITE.md), as are layout, nav and all Stripe/RevenueCat wiring.
+//
+// Hosted by Sanity (sanity.cli.ts, `npx sanity deploy` from site/), not embedded in the site. It
+// used to be mounted at /studio, on the same origin as the console, so anything running in Studio
+// could read the console's Supabase session. It now has no Supabase access at all: the FAQ, which
+// lives in Supabase, is edited in the console at /admin/faq.
+//
+// No Vision (@sanity/vision): a raw query box is a developer tool, and every editor would have it.
+// Run queries from `npx sanity documents query` or sanity.io/manage instead.
+//
+// The NEXT_PUBLIC_ names are kept so the site's .env.local serves both; sanity.cli.ts hands them to
+// the Studio build.
 export default defineConfig({
   name: "default",
   title: "Twofold Website",
-  basePath: "/studio",
 
   projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID!,
   dataset: process.env.NEXT_PUBLIC_SANITY_DATASET!,
 
-  plugins: [structureTool({ structure }), visionTool()],
+  plugins: [structureTool({ structure })],
 
   schema: {
     types: schemaTypes,
   },
-
-  // FAQ used to be a normal Sanity document type (`faqItem`) here, but content is now shared
-  // with the iOS app's Settings > Support screen — a single Supabase table (`faq_entries`) is
-  // the source of truth for both, so this custom tool edits that table directly instead of
-  // Sanity's own dataset. See src/sanity/tools/FaqTool.tsx.
-  tools: (prev) => [...prev, { name: "faq", title: "FAQ", icon: HelpCircleIcon, component: FaqTool }],
 });

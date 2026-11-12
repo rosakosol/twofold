@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import path from "node:path";
+import { STUDIO_URL } from "./src/lib/studio";
 
 const nextConfig: NextConfig = {
   // This app lives inside a larger monorepo (twofold/) alongside unrelated sibling
@@ -27,24 +28,39 @@ const nextConfig: NextConfig = {
   // the script directive below to a nonce or hash has to cover it.
   //
   // `unsafe-inline` for styles because Next injects them, and `unsafe-inline`/`unsafe-eval` for
-  // scripts because Next's dev overlay and Sanity Studio both need them. That weakens the script
+  // scripts because Next's dev overlay and static pages need them (a static page cannot carry a
+  // per-request nonce). That weakens the script
   // directive considerably and is worth being honest about: the value here is mostly
   // `frame-ancestors`, `object-src` and `base-uri`, which are absolute and which nothing in the
-  // app needs. Tightening the script side means a nonce, which is a separate change.
+  // app needs. The console, where it matters most, does not use this one: src/proxy.ts gives
+  // /admin a strict per-request CSP with a nonce (lib/security/consoleCsp.ts).
+  // Studio is on Sanity's hosting now (src/lib/studio.ts). Old bookmarks land there.
+  async redirects() {
+    return [
+      { source: "/studio", destination: STUDIO_URL, permanent: false },
+      { source: "/studio/:path*", destination: STUDIO_URL, permanent: false },
+    ];
+  },
+
   async headers() {
+    // HSTS is also Vercel's default, but stated here so it does not depend on the host. No
+    // includeSubDomains: the mail records live on subdomains nobody has checked serve https.
+    const common = [
+      { key: "X-Content-Type-Options", value: "nosniff" },
+      { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+      // Clickjacking the console is mostly inert — its destructive actions need a typed
+      // confirmation and a fresh authenticator code — but this costs nothing and does not rely on that.
+      { key: "X-Frame-Options", value: "DENY" },
+      { key: "Strict-Transport-Security", value: "max-age=63072000" },
+    ];
     return [
       {
-        // Everything except the Studio. `/studio` mounts Sanity's own application, which loads
-        // its own workers and assets and is not ours to predict — a CSP that breaks the content
-        // editor is a worse outcome than one page without a CSP, and nothing user-authored is
-        // rendered there anyway. The other three headers still apply to it, below.
-        source: "/((?!studio).*)",
+        // Everything except the console, whose stricter CSP comes from src/proxy.ts: two policies
+        // would both be enforced, and this one adds nothing there. The other headers still apply
+        // to it, below.
+        source: "/((?!admin).*)",
         headers: [
-          { key: "X-Content-Type-Options", value: "nosniff" },
-          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-          // Clickjacking the console is mostly inert — its destructive actions need a typed
-          // confirmation and a fresh authenticator code — but this costs nothing and does not rely on that.
-          { key: "X-Frame-Options", value: "DENY" },
+          ...common,
           {
             key: "Content-Security-Policy",
             value: [
@@ -63,7 +79,8 @@ const nextConfig: NextConfig = {
               // `default-src 'self'` and the frame is refused — which looks, from the page, like
               // RevenueCat declining to start the purchase rather than like a CSP problem.
               "frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://*.revenuecat.com https://*.revenue.cat",
-              // Supabase for auth and data, Sanity for content, RevenueCat and Stripe for billing.
+              // Supabase for auth and data, Sanity for content (only server-side now that Studio
+              // is hosted by Sanity, but harmless), RevenueCat and Stripe for billing.
               //
               // RevenueCat is TWO domains, and that is what broke checkout: the SDK calls
               // `api.revenuecat.com` but sends telemetry to `e.revenue.cat`, which `*.revenuecat.com`
@@ -76,13 +93,9 @@ const nextConfig: NextConfig = {
         ],
       },
       {
-        // The Studio gets everything but the CSP.
-        source: "/studio/:path*",
-        headers: [
-          { key: "X-Content-Type-Options", value: "nosniff" },
-          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-          { key: "X-Frame-Options", value: "DENY" },
-        ],
+        // The console gets everything but this CSP.
+        source: "/admin/:path*",
+        headers: common,
       },
     ];
   },

@@ -2679,6 +2679,19 @@ export type Database = {
           reason: string
         }[]
       }
+      admin_audit_recent: {
+        Args: { p_actor?: string; p_limit?: number }
+        Returns: {
+          action: string
+          actor_email: string
+          actor_id: string
+          details: Json
+          occurred_at: string
+          reason: string
+          subject_email: string
+          subject_profile_id: string
+        }[]
+      }
       admin_authorize_account_action: {
         Args: {
           p_action: string
@@ -2893,6 +2906,13 @@ export type Database = {
           sender_proof: string | null
           thread_email: string | null
           thread_token: string
+        }[]
+      }
+      admin_open_attachment: {
+        Args: { p_attachment_id: string; p_thread_id: string }
+        Returns: {
+          filename: string
+          r2_key: string
         }[]
       }
       admin_thread_attachments: {
