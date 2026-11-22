@@ -91,7 +91,10 @@ enum WidgetSnapshotWriter {
                 departureDate: trip.departureDate,
                 destinationCity: trip.destination.displayCity,
                 isReunionTrip: trip.category == .reunion,
-                untilPhrase: Self.untilPhrase(for: trip, appModel: appModel)
+                untilPhrase: Self.untilPhrase(for: trip, appModel: appModel),
+                countdownStart: Self.countdownStart(
+                    for: trip, among: appModel.travel.trips, connectedAt: appModel.session.couple.connectedAt
+                )
             )
         }
         let reunionInfo = upcomingTrips.first
@@ -299,6 +302,19 @@ enum WidgetSnapshotWriter {
 
     /// Who is arriving where, for the Trip countdown widget: the one person travelling by name, or
     /// "you're together" when it is both of you or nobody is set.
+    /// When the wait for `trip` began: the latest end of another trip that finished before it
+    /// leaves, so the ring measures the time since you were last away together; otherwise when
+    /// the couple connected, if that's before it leaves.
+    static func countdownStart(for trip: Trip, among trips: [Trip], connectedAt: Date?) -> Date? {
+        let lastTogether = trips
+            .filter { $0.id != trip.id && $0.arrivalDate <= trip.departureDate }
+            .map(\.arrivalDate)
+            .max()
+        if let lastTogether { return lastTogether }
+        guard let connectedAt, connectedAt < trip.departureDate else { return nil }
+        return connectedAt
+    }
+
     private static func untilPhrase(for trip: Trip, appModel: AppModel) -> String {
         let city = trip.destination.displayCity
         let travellers = Set(trip.travelerIDs)

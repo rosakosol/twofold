@@ -127,6 +127,18 @@ nonisolated struct WidgetSnapshot: Codable {
         /// together in Melbourne", built app-side from who is travelling. Optional so an older
         /// snapshot still decodes.
         var untilPhrase: String?
+        /// When the wait for this trip began: the end of the trip before it, or failing that when
+        /// the couple connected. The Lock Screen circle's ring fills from here to departure.
+        /// Optional so an older snapshot still decodes, and nil when neither is known.
+        var countdownStart: Date?
+
+        /// How far through the wait `date` is, 0 to 1. Nil without a start, or with a start that
+        /// isn't before departure.
+        func countdownProgress(at date: Date) -> Double? {
+            guard let countdownStart, countdownStart < departureDate else { return nil }
+            let fraction = date.timeIntervalSince(countdownStart) / departureDate.timeIntervalSince(countdownStart)
+            return min(1, max(0, fraction))
+        }
     }
 
     /// Kept for DrawingPadWidget's Medium side-by-side layout, which needs to know whose pad is

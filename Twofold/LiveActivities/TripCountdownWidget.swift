@@ -26,6 +26,8 @@ struct TripCountdownEntry: TimelineEntry {
     let tripID: UUID?
     var isReunionTrip: Bool = true
     var untilPhrase: String? = nil
+    /// How far through the wait for this trip it is, 0 to 1, for the Lock Screen circle's ring.
+    var progress: Double? = nil
 }
 
 struct TripCountdownProvider: AppIntentTimelineProvider {
@@ -62,7 +64,8 @@ struct TripCountdownProvider: AppIntentTimelineProvider {
         let days = TimeMath.daysUntil(reunion.departureDate)
         return TripCountdownEntry(
             date: .now, daysToGo: max(0, days), destinationCity: reunion.destinationCity, tripID: reunion.id,
-            isReunionTrip: reunion.isReunionTrip, untilPhrase: reunion.untilPhrase
+            isReunionTrip: reunion.isReunionTrip, untilPhrase: reunion.untilPhrase,
+            progress: reunion.countdownProgress(at: .now)
         )
     }
 }
@@ -161,16 +164,27 @@ struct TripCountdownWidgetView: View {
         .accessoryContainer()
     }
 
+    /// "22 / days" inside a ring that fills as the trip gets closer, on the grey circle, as the
+    /// website's Lock Screen shows it. Without a start to measure from, the ring is a bare track.
     private var accessoryCircular: some View {
         ZStack {
             AccessoryWidgetBackground()
+            Circle()
+                .stroke(.primary.opacity(0.25), lineWidth: 3)
+                .padding(2.5)
             if let daysToGo = entry.daysToGo {
+                Circle()
+                    .trim(from: 0, to: daysToGo == 0 ? 1 : entry.progress ?? 0)
+                    .stroke(.primary, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+                    .padding(2.5)
+                    .widgetAccentable()
                 if daysToGo == 0 {
                     Image(systemName: "heart.fill").font(.title3).widgetAccentable()
                 } else {
-                    VStack(spacing: 0) {
+                    VStack(spacing: -2) {
                         Text("\(daysToGo)").font(.title3.bold()).widgetAccentable()
-                        Text("to go").font(.caption2)
+                        Text(daysToGo == 1 ? "day" : "days").font(.caption2)
                     }
                 }
             } else {
@@ -211,7 +225,7 @@ struct TripCountdownWidget: Widget {
 #Preview(as: .accessoryCircular) {
     TripCountdownWidget()
 } timeline: {
-    TripCountdownEntry(date: .now, daysToGo: 12, destinationCity: "Singapore", tripID: nil)
+    TripCountdownEntry(date: .now, daysToGo: 22, destinationCity: "Melbourne", tripID: nil, progress: 0.7)
 }
 
 #Preview(as: .accessoryInline) {
