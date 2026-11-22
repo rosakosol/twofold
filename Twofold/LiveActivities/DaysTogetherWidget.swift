@@ -121,11 +121,11 @@ struct DaysTogetherWidgetView: View {
     }
 
     /// Small Lock Screen slot — same auto-tinted, no-branding treatment as `accessoryRectangular`,
-    /// just condensed to fit the circle: the number on top, a one-word label under it.
+    /// just condensed to fit the circle: the number on top, a one-word label under it. Transparent,
+    /// like the Lock Screen partner's time beside it.
     @ViewBuilder
     private var accessoryCircular: some View {
         ZStack {
-            AccessoryWidgetBackground()
             if let days = entry.days {
                 VStack(spacing: 0) {
                     Text("\(days)").font(.system(.title3).bold())
