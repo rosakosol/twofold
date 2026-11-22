@@ -94,9 +94,9 @@ struct PartnersTimeWidgetView: View {
 
     /// "11:24" over "Rome", under the sun or moon. The day period is left off: the symbol already
     /// says whether it's day there, and "11:24 pm" doesn't fit the circle at a readable size.
+    /// No circle behind it: a city as long as "Melbourne" ran past its edge.
     private var accessoryCircular: some View {
         ZStack {
-            AccessoryWidgetBackground()
             if let timeZone = entry.timeZone {
                 VStack(spacing: 0) {
                     Image(systemName: WeatherSky.clearSymbol(isDay: WeatherSky.isDay(in: timeZone, at: entry.date, daylight: nil)))
