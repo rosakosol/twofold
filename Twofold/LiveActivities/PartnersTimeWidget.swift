@@ -3,7 +3,9 @@
 //  LiveActivities
 //
 //  Basic tier (free): the partner's local time on the Weather-style sky for the hour of day
-//  (Shared/WeatherSky.swift), read from the shared WidgetSnapshot.
+//  (Shared/WeatherSky.swift), read from the shared WidgetSnapshot. On the Lock Screen, a circle
+//  with the sun or moon, their time and their city, as the website's Lock Screen shows it, and
+//  a line above the clock.
 //
 
 import SwiftUI
@@ -45,11 +47,18 @@ struct PartnersTimeProvider: TimelineProvider {
 }
 
 struct PartnersTimeWidgetView: View {
+    @Environment(\.widgetFamily) private var family
     let entry: PartnersTimeEntry
 
     var body: some View {
-        homeScreenBody
-            .widgetURL(URL(string: "twofold://home"))
+        Group {
+            switch family {
+            case .accessoryCircular: accessoryCircular
+            case .accessoryInline: accessoryInline
+            default: homeScreenBody
+            }
+        }
+        .widgetURL(URL(string: "twofold://home"))
     }
 
     @ViewBuilder
@@ -83,6 +92,52 @@ struct PartnersTimeWidgetView: View {
         }
     }
 
+    /// "11:24" over "Rome", under the sun or moon. The day period is left off: the symbol already
+    /// says whether it's day there, and "11:24 pm" doesn't fit the circle at a readable size.
+    private var accessoryCircular: some View {
+        ZStack {
+            AccessoryWidgetBackground()
+            if let timeZone = entry.timeZone {
+                VStack(spacing: 0) {
+                    Image(systemName: WeatherSky.clearSymbol(isDay: WeatherSky.isDay(in: timeZone, at: entry.date, daylight: nil)))
+                        .font(.system(size: 11, weight: .semibold))
+                    Text(Self.circularTime(in: timeZone, at: entry.date))
+                        .font(.system(size: 17, weight: .semibold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                        .widgetAccentable()
+                    Text(entry.partnerCity ?? entry.partnerName)
+                        .font(.system(size: 10, weight: .medium))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                }
+                .padding(.horizontal, 4)
+            } else {
+                Image(systemName: "person.2.fill")
+            }
+        }
+        .accessoryContainer()
+    }
+
+    /// "11:24 pm in Rome", above the clock.
+    private var accessoryInline: some View {
+        Group {
+            if let timeZone = entry.timeZone {
+                Label(
+                    "\(TimeMath.timeString(in: timeZone, at: entry.date)) in \(entry.partnerCity ?? entry.partnerName)",
+                    systemImage: WeatherSky.clearSymbol(isDay: WeatherSky.isDay(in: timeZone, at: entry.date, daylight: nil))
+                )
+            } else {
+                Label("Connect with your partner", systemImage: "person.2.fill")
+            }
+        }
+        .accessoryContainer()
+    }
+
+    static func circularTime(in timeZone: TimeZone, at date: Date) -> String {
+        date.formatted(Date.FormatStyle(timeZone: timeZone).hour(.defaultDigits(amPM: .omitted)).minute())
+    }
+
     private var emptyState: some View {
         WidgetEmptyState(systemImage: "person.2.fill", message: "Connect with your partner")
     }
@@ -97,7 +152,7 @@ struct PartnersTimeWidget: Widget {
         }
         .configurationDisplayName("Partner's time")
         .description("See your partner's local time at a glance.")
-        .supportedFamilies([.systemSmall])
+        .supportedFamilies([.systemSmall, .accessoryCircular, .accessoryInline])
         .contentMarginsDisabled()
     }
 }
@@ -106,4 +161,16 @@ struct PartnersTimeWidget: Widget {
     PartnersTimeWidget()
 } timeline: {
     PartnersTimeEntry(date: .now, partnerName: "Michael", partnerCity: "Singapore", timeZone: TimeZone(identifier: "Asia/Singapore"))
+}
+
+#Preview(as: .accessoryCircular) {
+    PartnersTimeWidget()
+} timeline: {
+    PartnersTimeEntry(date: .now, partnerName: "Alex", partnerCity: "Rome", timeZone: TimeZone(identifier: "Europe/Rome"))
+}
+
+#Preview(as: .accessoryInline) {
+    PartnersTimeWidget()
+} timeline: {
+    PartnersTimeEntry(date: .now, partnerName: "Alex", partnerCity: "Rome", timeZone: TimeZone(identifier: "Europe/Rome"))
 }
