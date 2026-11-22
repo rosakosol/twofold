@@ -164,10 +164,10 @@
   background-size: cover;
 }
 .pv-avatar-alex.is-photo {
-  background-image: url("/assets/people/alex.webp"), var(--grad-coral);
+  background-image: url("/assets/people/alex-2.webp"), var(--grad-coral);
 }
 .pv-avatar-sam.is-photo {
-  background-image: url("/assets/people/sam.webp"), var(--grad-this);
+  background-image: url("/assets/people/sam-2.webp"), var(--grad-this);
 }
 
 /* The flight's Live Activity on the Lock Screen, after the app's own (the Lock Screen capture):
